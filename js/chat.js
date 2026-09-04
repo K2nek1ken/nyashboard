@@ -21,9 +21,13 @@ let lastMessages = [];
 export function subscribeChat() {
   nickLabel.textContent = getGuestIdentity().nickname;
   if (chatUnsub) return;
-  const q = query(collection(db, "chatMessages"), orderBy("createdAt", "asc"), limit(100));
+  // Сортировка ОБЯЗАТЕЛЬНО по убыванию: limit берёт первые N в порядке запроса,
+  // так что с "asc" мы получали бы вечно одни и те же 100 САМЫХ СТАРЫХ сообщений,
+  // и после сотого сообщения чат просто перестал бы обновляться. Берём сотню
+  // свежих и разворачиваем на клиенте, чтобы на экране был привычный порядок.
+  const q = query(collection(db, "chatMessages"), orderBy("createdAt", "desc"), limit(100));
   chatUnsub = onSnapshot(q, (snap) => {
-    lastMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    lastMessages = snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
     renderChat(lastMessages);
   }, (err) => {
     console.error(err);

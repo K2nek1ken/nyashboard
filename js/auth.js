@@ -57,6 +57,29 @@ const listeners = [];
 export function onAuthChange(cb) { listeners.push(cb); }
 export function emitAuthChange() { listeners.forEach(cb => cb(currentUser, currentUserDoc)); }
 
+// ============================================================
+//  «Аккаунт ушёл» — выход или пересадка на другой аккаунт
+//
+//  Модулям с локальным кэшем (подписки, друзья, интересы, прочитанное) нужно
+//  чистить кэш, чтобы чужие данные не прилипли к следующему человеку за тем же
+//  браузером. Раньше каждый из них подписывался на onAuthChange и чистился при
+//  user === null — но у гостя КАЖДАЯ загрузка страницы заканчивается ровно этим
+//  событием (анонимная сессия — это currentUser === null). В итоге гость терял
+//  подписки, интересы и отметки прочитанного при каждом переходе по вкладкам.
+//
+//  Здесь чистка срабатывает только на реальной смене: был аккаунт — стал другой
+//  или не стало никакого.
+// ============================================================
+let previousUid = null;
+const leaveListeners = [];
+export function onAccountLeave(cb) { leaveListeners.push(cb); }
+
+onAuthChange((user) => {
+  const uid = user?.uid || null;
+  if (previousUid && previousUid !== uid) leaveListeners.forEach(cb => cb());
+  previousUid = uid;
+});
+
 // используется profile.js после сохранения профиля, чтобы обновить локальный кэш
 // без похода в базу второй раз
 export function patchCurrentUserDoc(patch) {
@@ -156,32 +179,28 @@ export function initProfileDropdown() {
   function refreshDropdown() {
     // пока Firebase восстанавливает сессию — рисуем по кэшу, чтобы не мигало «не вошёл»
     const shown = currentUserDoc || (authPending ? cachedUserDoc : null);
-    if (shown) {
-      loggedOutView.classList.add("hidden");
-      loggedInView.classList.remove("hidden");
-      ddAvatar.src = shown.avatarUrl || defaultAvatar();
-      ddNickname.textContent = shown.nickname || "";
-      ddUsername.textContent = "@" + (shown.username || "");
-      return;
-    }
-    if (currentUser && currentUserDoc) {
-      loggedOutView.classList.add("hidden");
-      loggedInView.classList.remove("hidden");
-      ddAvatar.src = currentUserDoc.avatarUrl || defaultAvatar();
-      ddNickname.textContent = currentUserDoc.nickname || "";
-      ddUsername.textContent = "@" + (currentUserDoc.username || "");
-    } else {
+    if (!shown) {
       loggedOutView.classList.remove("hidden");
       loggedInView.classList.add("hidden");
+      return;
     }
+    loggedOutView.classList.add("hidden");
+    loggedInView.classList.remove("hidden");
+    ddAvatar.src = shown.avatarUrl || defaultAvatar();
+    ddNickname.textContent = shown.nickname || "";
+    ddUsername.textContent = "@" + (shown.username || "");
   }
 
-  // аватарка в шапке — сразу из кэша, до ответа Firebase
-  if (cachedUserDoc?.avatarUrl) profilePic.src = cachedUserDoc.avatarUrl;
+  // аватарка в шапке — сразу из кэша, до ответа Firebase.
+  // profilePic рисует layout.js, а он молча ничего не делает, если на странице
+  // нет #navHost — поэтому картинку трогаем только когда она реально есть.
+  if (profilePic && cachedUserDoc?.avatarUrl) profilePic.src = cachedUserDoc.avatarUrl;
   refreshDropdown();
 
   onAuthChange(() => {
-    profilePic.src = (currentUser && currentUserDoc && currentUserDoc.avatarUrl) || defaultAvatar();
+    if (profilePic) {
+      profilePic.src = (currentUser && currentUserDoc && currentUserDoc.avatarUrl) || defaultAvatar();
+    }
     if (!dropdown.classList.contains("hidden")) refreshDropdown();
   });
 }

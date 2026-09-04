@@ -104,9 +104,11 @@ function wireSearch() {
   input.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
     if (!q) { renderAll(allChannels); return; }
+    // везде через (… || ""): у канала может не быть описания или идентификатора,
+    // и один такой канал ронял поиск целиком
     renderAll(allChannels.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.username.toLowerCase().includes(q) ||
+      (c.name || "").toLowerCase().includes(q) ||
+      (c.username || "").toLowerCase().includes(q) ||
       (c.publicUid || "").toLowerCase().includes(q) ||
       (c.description || "").toLowerCase().includes(q)
     ));

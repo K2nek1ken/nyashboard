@@ -36,10 +36,11 @@ export function openEmojiPicker(anchor, onPick) {
   });
 
   // закрытие по клику вне — вешаем на следующем тике, иначе тот же клик,
-  // которым пикер открыли, тут же его и закроет
-  setTimeout(() => {
-    document.addEventListener("click", onDocClick, { once: true });
-  }, 0);
+  // которым пикер открыли, тут же его и закроет.
+  // Без { once: true }: с ним слушатель снимался при ЛЮБОМ клике, в том числе
+  // по самому пикеру (по отступу между кнопками), и после этого закрыть пикер
+  // кликом мимо было уже нельзя. Снимаем его сами в closeEmojiPicker().
+  setTimeout(() => document.addEventListener("click", onDocClick), 0);
 }
 
 function onDocClick(e) {
@@ -48,5 +49,6 @@ function onDocClick(e) {
 }
 
 export function closeEmojiPicker() {
+  document.removeEventListener("click", onDocClick);
   document.getElementById("emojiPicker")?.remove();
 }

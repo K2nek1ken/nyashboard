@@ -111,16 +111,33 @@ function wireManagePanel(channelId) {
   if (isCreator) wireSettingsModal(channelId);
 }
 
+// Ссылка на файл создаётся один раз и живёт, пока файл в списке: вызов
+// createObjectURL прямо в шаблоне давал новую ссылку на каждую перерисовку
+// полоски, и ни одна из них не освобождалась.
+const composerPreviews = new WeakMap();
+function composerPreviewUrl(file) {
+  if (!composerPreviews.has(file)) composerPreviews.set(file, URL.createObjectURL(file));
+  return composerPreviews.get(file);
+}
+function releaseComposerPreviews(files) {
+  files.forEach(f => {
+    if (composerPreviews.has(f)) {
+      URL.revokeObjectURL(composerPreviews.get(f));
+      composerPreviews.delete(f);
+    }
+  });
+}
+
 function renderComposerStrip() {
   const strip = document.getElementById("chPostImageStrip");
   strip.innerHTML = composerImages.map((file, i) => `
     <div class="thumb" data-idx="${i}">
-      <img src="${URL.createObjectURL(file)}">
+      <img src="${composerPreviewUrl(file)}">
       <button class="removeThumb" data-remove-idx="${i}"><span class="nf">${ICON.close}</span></button>
     </div>`).join("");
   strip.querySelectorAll("[data-remove-idx]").forEach(btn => {
     btn.addEventListener("click", () => {
-      composerImages.splice(Number(btn.dataset.removeIdx), 1);
+      releaseComposerPreviews(composerImages.splice(Number(btn.dataset.removeIdx), 1));
       renderComposerStrip();
     });
   });
@@ -151,6 +168,7 @@ function wireComposer(channelId) {
       }
       await createChannelPost(channelId, text, imageUrls);
       textArea.value = "";
+      releaseComposerPreviews(composerImages);
       composerImages = [];
       renderComposerStrip();
       document.getElementById("chComposer").classList.add("hidden");
@@ -234,9 +252,12 @@ function wireSettingsModal(channelId) {
 
   async function renderAdmins() {
     const fresh = await getChannel(channelId);
+    if (!fresh) { adminsList.innerHTML = `<div class="stub-note">Канал не найден</div>`; return; }
     channel = fresh;
-    if (!fresh.adminUids.length) { adminsList.innerHTML = `<div class="stub-note">Админов пока нет</div>`; return; }
-    adminsList.innerHTML = fresh.adminUids.map(uid => `
+    // у каналов, созданных до появления админов, поля может не быть вообще
+    const admins = fresh.adminUids || [];
+    if (!admins.length) { adminsList.innerHTML = `<div class="stub-note">Админов пока нет</div>`; return; }
+    adminsList.innerHTML = admins.map(uid => `
       <div class="person-row" style="cursor:default;">
         <div style="flex:1;"><code style="font-size:11px;">${uid.slice(0, 10)}...</code></div>
         <button class="dangerBtn" style="width:auto; margin:0;" data-remove-admin="${uid}">убрать</button>

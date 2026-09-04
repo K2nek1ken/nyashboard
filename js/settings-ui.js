@@ -1,4 +1,4 @@
-import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, DEFAULTS } from "./settings.js";
+import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES } from "./settings.js";
 import { showToast } from "./ui.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
 import { applyFavicon } from "./favicon.js";
@@ -160,13 +160,19 @@ export function initSettingsPage() {
       });
     }
 
+    // Формулировка про хранение зависит от того, есть ли аккаунт: у вошедших
+    // интересы лежат в приватном документе на сервере и синхронизируются между
+    // устройствами (см. synced-store.js), у гостей — правда только в браузере.
+    // Раньше тут в обоих случаях было написано «только на этом устройстве».
+    const whereStored = currentUser
+      ? " Хранится в твоём аккаунте — одинаково на всех устройствах, и никто, кроме тебя, это не видит."
+      : " Хранится только в этом браузере: без аккаунта синхронизировать некуда.";
     const sum = interestsSummary();
     const info = host.querySelector("#interestsInfo");
-    info.textContent = sum.words || sum.tags
+    info.textContent = (sum.words || sum.tags
       ? `Накоплено: ${sum.words} слов, ${sum.tags} тегов, ${sum.authors} авторов.` +
-        (sum.topTags.length ? ` Чаще всего: ${sum.topTags.join(", ")}.` : "") +
-        " Всё хранится только на этом устройстве."
-      : "Профиль интересов пока пуст — он наполняется лайками. Хранится только на этом устройстве.";
+        (sum.topTags.length ? ` Чаще всего: ${sum.topTags.join(", ")}.` : "")
+      : "Профиль интересов пока пуст — он наполняется лайками.") + whereStored;
 
     host.querySelector("#clearInterestsBtn").addEventListener("click", () => {
       // подтверждение: кнопка стоит рядом с остальными, промахнуться легко,

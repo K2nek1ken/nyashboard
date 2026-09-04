@@ -1,7 +1,7 @@
 import {
   db, collection, doc, setDoc, deleteDoc, getDocs, serverTimestamp
 } from "./firebase.js";
-import { currentUser, authReady, onAuthChange } from "./auth.js";
+import { currentUser, authReady, onAccountLeave } from "./auth.js";
 
 // ============================================================
 //  Подписки на каналы
@@ -99,11 +99,11 @@ export async function removeSubscription(channelId) {
 }
 
 // При выходе из аккаунта чистим кэш, чтобы чужие подписки не «прилипли»
-// к следующему человеку на этом же устройстве.
-onAuthChange((user) => {
-  if (!user) {
-    cache = new Set();
-    writeLocal();
-    ready = null;
-  }
+// к следующему человеку на этом же устройстве. Только при реальном выходе:
+// у гостя currentUser всегда null, и на onAuthChange это стирало бы его
+// собственные подписки при каждой загрузке страницы.
+onAccountLeave(() => {
+  cache = new Set();
+  writeLocal();
+  ready = null;
 });

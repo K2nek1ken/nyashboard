@@ -17,19 +17,31 @@ function randomNick() {
   return `${a}_${n}_${Math.floor(Math.random() * 900 + 100)}`;
 }
 
+function freshIdentity() {
+  const identity = { id: randomId(), nickname: randomNick(), avatar: "" };
+  try { localStorage.setItem(KEY, JSON.stringify(identity)); } catch {}
+  return identity;
+}
+
 export function getGuestIdentity() {
-  let raw = localStorage.getItem(KEY);
-  if (!raw) {
-    const identity = { id: randomId(), nickname: randomNick(), avatar: "" };
-    localStorage.setItem(KEY, JSON.stringify(identity));
-    return identity;
+  // Разбор в try: битая запись в localStorage (недописалась, поправили руками,
+  // расширение постаралось) роняла JSON.parse — а с ним и весь модуль чата,
+  // потому что эта функция вызывается первой же строчкой subscribeChat().
+  // Лучше молча выдать новую личность, чем оставить человека без чата.
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return freshIdentity();
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.id || !parsed.nickname) return freshIdentity();
+    return parsed;
+  } catch {
+    return freshIdentity();
   }
-  return JSON.parse(raw);
 }
 
 export function setGuestNickname(nickname) {
   const identity = getGuestIdentity();
   identity.nickname = nickname;
-  localStorage.setItem(KEY, JSON.stringify(identity));
+  try { localStorage.setItem(KEY, JSON.stringify(identity)); } catch {}
   return identity;
 }

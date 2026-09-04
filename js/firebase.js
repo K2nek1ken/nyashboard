@@ -8,10 +8,9 @@ import {
   query, orderBy, limit, onSnapshot, serverTimestamp, arrayUnion,
   arrayRemove, increment, where, getDocs, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import {
-  getStorage, ref, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
-
+// firebase-storage сюда намеренно НЕ импортируется: хранилище не используется
+// вообще (см. storage.js — картинки уходят на imgbb/catbox/uguu), а лишний
+// модуль — это ещё один сетевой запрос на каждой странице просто так.
 import { FIREBASE_CONFIG } from "./config.js";
 
 export const app = initializeApp(FIREBASE_CONFIG);
@@ -25,13 +24,11 @@ setPersistence(auth, indexedDBLocalPersistence)
   .catch(() => setPersistence(auth, browserLocalPersistence))
   .catch((e) => console.warn("Не удалось включить постоянную сессию:", e.message));
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export {
   signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, setPersistence,
   collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
   query, orderBy, limit, onSnapshot, serverTimestamp, arrayUnion,
-  arrayRemove, increment, where, getDocs, writeBatch,
-  ref, uploadBytes, getDownloadURL
+  arrayRemove, increment, where, getDocs, writeBatch
 };

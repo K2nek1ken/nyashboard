@@ -25,39 +25,108 @@ const feedListEl = document.getElementById("feedList");
 let feedUnsub = null;
 let lastRenderedPosts = null;
 
+// ============================================================
+//  Стабильный порядок ленты
+//
+//  onSnapshot присылает новый снимок на КАЖДОЕ изменение любого поста — включая
+//  чужой лайк. Раньше на каждый такой снимок лента заново ранжировалась и
+//  целиком переписывалась через innerHTML. Из-за этого прямо под пальцами
+//  менялся порядок записей, слетала позиция прокрутки и заново подгружались
+//  все превью ответов (то есть ещё и лишние чтения базы на ровном месте).
+//
+//  Теперь порядок вычисляется один раз и запоминается. Записи, появившиеся
+//  после этого, добавляются сверху и тоже получают постоянное место.
+//  Пересчитать порядок можно только осознанно — сбросив feedOrder.
+// ============================================================
+let feedOrder = null;       // id записи -> её позиция в ленте
+let renderedShape = null;   // слепок того, что уже нарисовано (см. postShape)
+
+function orderPosts(posts) {
+  if (!feedOrder) {
+    const ranked = rankPosts(posts);
+    feedOrder = new Map(ranked.map((p, i) => [p.id, i]));
+    return ranked;
+  }
+  const known = [], fresh = [];
+  for (const p of posts) (feedOrder.has(p.id) ? known : fresh).push(p);
+  known.sort((a, b) => feedOrder.get(a.id) - feedOrder.get(b.id));
+  fresh.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+  // Новым сразу выдаём отрицательные позиции: они встают наверх и остаются
+  // там, а не считаются «свежими» ещё раз на следующем снимке.
+  let slot = -fresh.length;
+  for (const p of fresh) feedOrder.set(p.id, slot++);
+  return [...fresh, ...known];
+}
+
+// Всё, что нельзя поправить в уже нарисованной карточке точечно: сам состав
+// ленты, порядок, текст, картинки. Лайки сюда НЕ входят — они и есть тот
+// частый случай, ради которого всё это затевалось.
+function postShape(p) {
+  return JSON.stringify([p.id, p.text || "", p.editedAt?.toMillis?.() || 0, getPostImages(p)]);
+}
+
 // ---------- подписка на общую ленту ----------
 export function subscribeFeed() {
   if (!feedListEl) return;
   if (feedUnsub) return;
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
   feedUnsub = onSnapshot(q, (snap) => {
-    const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    lastRenderedPosts = posts;
-    renderFeed(rankPosts(posts));
+    lastRenderedPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderFeed(orderPosts(lastRenderedPosts));
   }, (err) => {
     console.error(err);
     feedListEl.innerHTML = `<div class="stub-note">Не смогла загрузить ленту: ${escapeHtml(err.message)}</div>`;
   });
-  // лента могла отрисоваться до того, как Firebase определился с авторизацией —
-  // тогда лайки/кнопки редактирования были бы неправильными. Перерисовываем разок,
-  // как только авторизация точно готова.
-  // Подписки нужны для ранжирования, а они грузятся из аккаунта асинхронно.
-  // Первый рендер идёт на локальном кэше (мгновенно), затем один раз
-  // перерисовываем уже с актуальным списком из аккаунта.
-  // подписки и друзья нужны ранжированию, а грузятся из аккаунта асинхронно:
-  // первый рендер идёт на локальном кэше, затем один раз перерисовываем
+
+  // Подписки, друзья, прочитанное и интересы нужны ранжированию, а грузятся из
+  // аккаунта асинхронно. Первый рендер идёт на локальном кэше (мгновенно), и
+  // ровно один раз порядок пересчитывается уже с данными аккаунта — заодно
+  // это чинит лайки и кнопки редактирования, которые до ответа Firebase
+  // отрисовались бы как у гостя.
   Promise.all([loadSubscriptions(), loadFriends(), loadSeen(), loadInterests()]).then(() => {
-    if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+    if (!lastRenderedPosts) return;
+    feedOrder = null;
+    renderFeed(orderPosts(lastRenderedPosts));
   });
 }
 
 function renderFeed(posts) {
+  const shape = posts.map(postShape).join("\n");
+  // состав и порядок те же — значит изменились только лайки, и полная
+  // перерисовка была бы чистым вредом
+  if (shape === renderedShape) { posts.forEach(patchPostCard); return; }
+  renderedShape = shape;
+
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
     return;
   }
   feedListEl.innerHTML = posts.map(p => postToHtml(p)).join("");
   posts.forEach(p => wirePostCard(p, feedListEl));
+}
+
+// Обновляет только счётчики и состояние сердечек — не трогая ни разметку
+// карточки, ни уже загруженные ответы, ни обработчики.
+function patchPostCard(p) {
+  const card = feedListEl.querySelector(`.post-card[data-id="${p.id}"]`);
+  if (!card) return;
+
+  const liked = !!(currentUser && (p.likedBy || []).includes(currentUser.uid));
+  const likeBtn = card.querySelector('[data-action="like"]');
+  if (likeBtn) {
+    likeBtn.classList.toggle("liked", liked);
+    likeBtn.querySelector(".nf").textContent = liked ? ICON.heartFilled : ICON.heart;
+    likeBtn.querySelector(".likeCount").textContent = p.likesCount || 0;
+  }
+
+  const disliked = !!(currentUser && (p.dislikedBy || []).includes(currentUser.uid));
+  const dislikeBtn = card.querySelector('[data-action="dislike"]');
+  if (dislikeBtn) {
+    dislikeBtn.classList.toggle("disliked", disliked);
+    dislikeBtn.querySelector(".dislikeCount").textContent = p.dislikesCount || 0;
+    const svg = dislikeBtn.querySelector("svg");
+    if (svg) svg.outerHTML = disliked ? SVG_ICON.heartBroken : SVG_ICON.heartBrokenOutline;
+  }
 }
 
 function canManagePost(p) {
@@ -330,18 +399,33 @@ async function deletePost(p, card) {
 let editorImages = []; // [{type:'existing', url} | {type:'new', file}]
 let editingPostId = null;
 
+// Ссылку на файл делаем ОДИН раз и запоминаем прямо в элементе списка.
+// Раньше URL.createObjectURL звался прямо в шаблоне, то есть на каждую
+// перерисовку полоски создавалась новая ссылка, и ни одна не освобождалась:
+// браузер держал в памяти все промежуточные копии до перезагрузки страницы.
+function thumbUrl(img) {
+  if (img.type === "existing") return img.url;
+  if (!img.previewUrl) img.previewUrl = URL.createObjectURL(img.file);
+  return img.previewUrl;
+}
+
+function releaseEditorImages() {
+  editorImages.forEach(img => { if (img.previewUrl) URL.revokeObjectURL(img.previewUrl); });
+}
+
 function renderImageStrip() {
   const strip = document.getElementById("postImageStrip");
   const hint = document.getElementById("imageCountHint");
   strip.innerHTML = editorImages.map((img, i) => `
     <div class="thumb" data-idx="${i}">
-      <img src="${img.type === "existing" ? img.url : URL.createObjectURL(img.file)}">
+      <img src="${thumbUrl(img)}">
       <button class="removeThumb" data-remove-idx="${i}"><span class="nf">${ICON.close}</span></button>
     </div>`).join("");
   hint.textContent = editorImages.length ? `${editorImages.length}/10` : "";
   strip.querySelectorAll("[data-remove-idx]").forEach(btn => {
     btn.addEventListener("click", () => {
-      editorImages.splice(Number(btn.dataset.removeIdx), 1);
+      const [removed] = editorImages.splice(Number(btn.dataset.removeIdx), 1);
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
       renderImageStrip();
     });
   });
@@ -359,6 +443,7 @@ export function openPostEditor(post = null) {
 
   editingPostId = post ? post.id : null;
   textarea.value = post ? (post.text || "") : "";
+  releaseEditorImages();   // прошлый сеанс редактирования мог оставить превью
   editorImages = post ? getPostImages(post).map(url => ({ type: "existing", url })) : [];
   renderImageStrip();
 

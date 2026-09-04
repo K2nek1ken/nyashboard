@@ -1,5 +1,9 @@
+// Про импорты: этот модуль намеренно НЕ зависит от auth.js. Иначе получался бы
+// цикл data.js → nuid.js → auth.js → data.js, из-за которого NUID-функции
+// приходилось бы тащить динамическим import() — а один такой импорт когда-то
+// просто забыли, и создание аккаунта падало с ReferenceError. Поэтому всё, что
+// нужно про текущего человека, приходит сюда параметром.
 import { db, doc, getDoc, setDoc, collection, query, where, getDocs } from "./firebase.js";
-import { currentUser } from "./auth.js";
 
 // ============================================================
 //  NUID — публичный человекочитаемый идентификатор (U1xxxxxx / U4xxxxxx)
@@ -77,9 +81,9 @@ export async function resolveNuid(nuid) {
 
 // Разовый перенос для аккаунтов, созданных до появления отдельного хранилища:
 // у них идентификатор всё ещё лежит в users/{uid}.publicUid.
-export async function migrateLegacyNuid(userDoc) {
-  if (!currentUser || !userDoc?.publicUid) return;
-  const existing = await getDoc(doc(db, "userNuids", currentUser.uid)).catch(() => null);
+export async function migrateLegacyNuid(uid, userDoc) {
+  if (!uid || !userDoc?.publicUid) return;
+  const existing = await getDoc(doc(db, "userNuids", uid)).catch(() => null);
   if (existing?.exists()) return;
-  await registerNuid(currentUser.uid, userDoc.publicUid, "user").catch(() => {});
+  await registerNuid(uid, userDoc.publicUid, "user").catch(() => {});
 }

@@ -43,11 +43,14 @@ export async function listChats() {
     .sort((a, b) => (b.lastAt?.toMillis?.() || 0) - (a.lastAt?.toMillis?.() || 0));
 }
 
+// Порядок в запросе — по убыванию, разворот на клиенте. С "asc" limit отдавал бы
+// первые 200 сообщений переписки, то есть самые старые: после двухсотого
+// сообщения новые в чат просто не приходили бы.
 export function subscribeMessages(chatId, onUpdate, onError) {
   const q = query(collection(db, "dmChats", chatId, "messages"),
-                  orderBy("createdAt", "asc"), limit(200));
+                  orderBy("createdAt", "desc"), limit(200));
   return onSnapshot(q,
-    snap => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    snap => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse()),
     err => onError?.(err));
 }
 

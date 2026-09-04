@@ -43,16 +43,30 @@ export function initInlineComposer(onPublished) {
     anonLabel.textContent = anonToggle.checked ? "анонимно" : "от своего имени";
   });
 
+  // Ссылка на файл создаётся один раз и живёт, пока файл в списке. Раньше
+  // createObjectURL звался прямо в шаблоне — новая ссылка на каждую
+  // перерисовку, и ни одна не освобождалась.
+  const previews = new WeakMap();
+  function previewUrl(file) {
+    if (!previews.has(file)) previews.set(file, URL.createObjectURL(file));
+    return previews.get(file);
+  }
+  function releasePreviews(files) {
+    files.forEach(f => {
+      if (previews.has(f)) { URL.revokeObjectURL(previews.get(f)); previews.delete(f); }
+    });
+  }
+
   function renderStrip() {
     strip.innerHTML = images.map((f, i) => `
       <div class="thumb" data-idx="${i}">
-        <img src="${URL.createObjectURL(f)}">
+        <img src="${previewUrl(f)}">
         <button class="removeThumb" data-remove="${i}"><span class="nf">${ICON.close}</span></button>
       </div>`).join("");
     hint.textContent = images.length ? `${images.length}/10` : "";
     strip.querySelectorAll("[data-remove]").forEach(btn => {
       btn.addEventListener("click", () => {
-        images.splice(Number(btn.dataset.remove), 1);
+        releasePreviews(images.splice(Number(btn.dataset.remove), 1));
         renderStrip();
       });
     });
@@ -110,6 +124,7 @@ export function initInlineComposer(onPublished) {
       markOwned("post", ref.id);
 
       textarea.value = "";
+      releasePreviews(images);
       images = [];
       renderStrip();
       autoGrow();

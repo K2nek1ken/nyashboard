@@ -20,7 +20,6 @@ service cloud.firestore {
     // отдавать ли документ вообще. Если нельзя — Firestore возвращает отказ,
     // и значение физически не попадает в браузер запросившего.
     match /userNuids/{userId} {
-      allow delete: if request.auth != null && request.auth.uid == userId;
       // Порядок условий важен: свой идентификатор отдаётся сразу, без обращения
       // к профилю — это и быстрее, и на одно платное чтение меньше.
       //
@@ -37,7 +36,12 @@ service cloud.firestore {
          exists(/databases/$(database)/documents/users/$(userId)/friends/$(request.auth.uid)))
       );
       allow create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if false;
+      // Удалить может только сам владелец — это нужно для «удалить аккаунт».
+      // Раньше тут было два отдельных allow delete (разрешающий сверху и
+      // запрещающий снизу); они складываются по ИЛИ, так что удаление работало,
+      // но правило читалось как противоречивое.
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // Обратный индекс NUID -> uid, чтобы работал поиск по идентификатору.
@@ -45,10 +49,25 @@ service cloud.firestore {
     // человека найти можно — а выкачать всю коллекцию и получить чужие
     // идентификаторы нельзя. Именно та асимметрия, ради которой NUID и нужен:
     // «дал кому-то свой ID — тебя найдут; не дал — не узнают».
+    //
+    // Записать в индекс можно только СВОЙ идентификатор: для человека — тот,
+    // что указывает на его же FUID, для канала — тот, что указывает на канал,
+    // создателем которого ты являешься (проверяется через channelSecrets).
+    // Без этой проверки любой вошедший мог занять произвольный U1xxxxxx и
+    // повесить его на чужой профиль — или просто застолбить чужие номера,
+    // чтобы generateUniqueNuid ни с шестой попытки не нашла свободного.
     match /nuidIndex/{nuid} {
       allow get: if true;
       allow list: if false;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'type'])
+        && (
+          (request.resource.data.type == 'user' &&
+            request.resource.data.uid == request.auth.uid)
+          ||
+          (request.resource.data.type == 'channel' &&
+            request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(request.resource.data.uid)).data.creatorUid)
+        );
       allow update, delete: if false;
     }
 

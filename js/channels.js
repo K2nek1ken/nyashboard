@@ -1,7 +1,8 @@
 import {
   db, auth, collection, addDoc, doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs,
-  query, orderBy, limit, where, writeBatch, serverTimestamp
+  query, orderBy, limit, where, writeBatch, serverTimestamp, arrayUnion, arrayRemove
 } from "./firebase.js";
+import { extractHashtags } from "./hashtags.js";
 import { currentUser } from "./auth.js";
 import { resolveUserHandle } from "./data.js";
 import { generateUniqueNuid } from "./nuid.js";
@@ -179,22 +180,20 @@ export async function addPersonToChannel(channelId, handle) {
   return user;
 }
 
+// arrayUnion/arrayRemove, а не «прочитать список, поправить, записать целиком»:
+// последнее затирает чужие правки, если создатель и админ снимают/назначают
+// кого-то одновременно. Тут сервер объединяет изменения сам.
 export async function assignChannelAdmin(channelId, handle) {
   const user = await resolveUserHandle(handle);
   if (!user) throw new Error("Не нашла такого пользователя");
   const channel = await getChannel(channelId);
-  if ((channel.adminUids || []).includes(user.uid)) throw new Error("Уже админ");
-  await updateDoc(doc(db, "channels", channelId), {
-    adminUids: [...(channel.adminUids || []), user.uid]
-  });
+  if ((channel?.adminUids || []).includes(user.uid)) throw new Error("Уже админ");
+  await updateDoc(doc(db, "channels", channelId), { adminUids: arrayUnion(user.uid) });
   return user;
 }
 
 export async function removeChannelAdmin(channelId, uid) {
-  const channel = await getChannel(channelId);
-  await updateDoc(doc(db, "channels", channelId), {
-    adminUids: (channel.adminUids || []).filter(u => u !== uid)
-  });
+  await updateDoc(doc(db, "channels", channelId), { adminUids: arrayRemove(uid) });
 }
 
 // ================== Публикация от имени канала ==================
@@ -211,9 +210,16 @@ export async function createChannelPost(channelId, text, imageUrls) {
     channelUsername: channel.username,
     isAnonymous: false,
     text,
+    // хештеги обязательны и тут: без них посты каналов не находились
+    // по tag.html (там запрос array-contains по полю hashtags)
+    hashtags: extractHashtags(text),
     imageUrls,
     likesCount: 0,
     likedBy: [],
+    // те же поля, что у обычных постов: иначе на карточке канала счётчик
+    // дизлайков рисовался бы из undefined
+    dislikesCount: 0,
+    dislikedBy: [],
     createdAt: serverTimestamp()
   });
   await setDoc(doc(db, "postSecrets", ref.id), { ownerUid: auth.currentUser.uid });

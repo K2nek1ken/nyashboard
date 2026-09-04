@@ -1,5 +1,5 @@
 import { db, doc, getDoc, setDoc } from "./firebase.js";
-import { currentUser, authReady, onAuthChange } from "./auth.js";
+import { currentUser, authReady, onAccountLeave } from "./auth.js";
 
 // ============================================================
 //  Хранилище, привязанное к аккаунту
@@ -100,14 +100,14 @@ export function createSyncedStore({ localKey, docName, empty, merge }) {
   window.addEventListener("pagehide", onLeave);
   document.addEventListener("visibilitychange", () => { if (document.hidden) onLeave(); });
 
-  // Смена аккаунта не должна тащить чужие данные на это устройство
-  onAuthChange((user) => {
-    if (!user) {
-      data = empty();
-      writeLocal();
-      ready = null;
-      dirty = false;
-    }
+  // Смена аккаунта не должна тащить чужие данные на это устройство.
+  // Именно onAccountLeave, а не onAuthChange: у гостя currentUser всегда null,
+  // и на onAuthChange локальные данные стирались бы при каждой загрузке.
+  onAccountLeave(() => {
+    data = empty();
+    writeLocal();
+    ready = null;
+    dirty = false;
   });
 
   return { load, get, update, flush, reset };

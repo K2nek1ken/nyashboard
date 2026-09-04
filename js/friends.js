@@ -1,7 +1,7 @@
 import {
   db, collection, doc, setDoc, deleteDoc, getDoc, getDocs, serverTimestamp
 } from "./firebase.js";
-import { currentUser, authReady, onAuthChange } from "./auth.js";
+import { currentUser, authReady, onAccountLeave } from "./auth.js";
 import { getUserDoc } from "./data.js";
 
 // ============================================================
@@ -87,6 +87,6 @@ export async function loadFriendProfiles() {
   return profiles;
 }
 
-onAuthChange((user) => {
-  if (!user) { cache = new Set(); ready = null; }
-});
+// Только на реальную смену аккаунта: у гостя currentUser всегда null,
+// и на onAuthChange сброс срабатывал бы при каждой загрузке страницы.
+onAccountLeave(() => { cache = new Set(); ready = null; });

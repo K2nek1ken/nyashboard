@@ -2,6 +2,9 @@ import {
   db, doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where,
   writeBatch, limit
 } from "./firebase.js";
+import {
+  generateUniqueNuid, registerNuid, migrateLegacyNuid, resolveNuid
+} from "./nuid.js";
 
 // ================== NUID ==================
 // Логика вынесена в nuid.js: идентификатор хранится отдельно от профиля,
@@ -25,8 +28,14 @@ export async function ensureUserDoc(fbUser) {
   const snap = await getDoc(ref);
   if (snap.exists()) {
     const data = snap.data();
-    // аккаунты, созданные до отдельного хранилища NUID, переносим на лету
-    if (data.publicUid) migrateLegacyNuid(data);
+    // аккаунты, созданные до отдельного хранилища NUID, переносим на лету.
+    // Намеренно без await: вход не должен ждать разовую миграцию, но и падать
+    // из-за неё тоже — поэтому отдельный catch.
+    if (data.publicUid) {
+      migrateLegacyNuid(fbUser.uid, data).catch(e => {
+        console.warn("Не смогла перенести старый NUID:", e.message);
+      });
+    }
     return data;
   }
 
@@ -103,7 +112,6 @@ export async function resolveHandle(handle) {
 export async function resolveUserHandle(handle) {
   const clean = handle.trim().replace(/^@/, "");
   if (/^U1\d{6}$/i.test(clean)) {
-    const { resolveNuid } = await import("./nuid.js");
     const hit = await resolveNuid(clean);
     if (!hit) return null;
     const userSnap = await getDoc(doc(db, "users", hit.uid));
