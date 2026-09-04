@@ -6,9 +6,11 @@ import { initProfileDropdown } from "./auth.js";
 import { initChatForm, subscribeChat } from "./chat.js";
 
 applySettings();
+// Шапку рисуем немедленно: она не должна мигать пустотой,
+// пока страница ждёт DOMContentLoaded.
+initLayout();
+applyFavicon();
 window.addEventListener("DOMContentLoaded", () => {
-  initLayout();
-  applyFavicon();
   initSettingsModal();
   initStarfield();
   initProfileDropdown();

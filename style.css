@@ -38,6 +38,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 #navHost {
   display: flex; align-items: center; gap: 14px;
   padding: 10px 14px;
+  min-height: 56px;   /* место под шапку зарезервировано, чтобы контент не прыгал */
   background: var(--bg-soft);
   position: sticky; top: 0; z-index: 20;
   border-bottom: 1px solid #3a2f47;
@@ -49,7 +50,10 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 .brand-icon { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
 .brand-text span { color: var(--accent); }
+/* Вкладки одной ширины: так ряд выглядит ровным, а не рваным из-за
+   слов разной длины. */
 #navTabs { display: flex; gap: 6px; flex: 1; overflow-x: auto; }
+#navTabs .navBtn { flex: 1 1 0; }
 .navBtn {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   background: var(--card); border: 1px solid transparent; padding: 7px 10px;
@@ -67,8 +71,11 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 
 /* ---------- выпадашка профиля (не модалка!) ---------- */
+/* Положение задаёт JS относительно иконки профиля (см. anchor.js):
+   иконка стоит то в строке сверху, то внизу боковой колонки, и жёсткие
+   координаты в стилях каждый раз промахивались. */
 .profile-dropdown {
-  position: fixed; top: 58px; right: 16px; z-index: 70;
+  position: fixed; z-index: 70;
   width: 230px; background: var(--bg-soft); border-radius: 14px;
   padding: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.45);
   border: 1px solid #3a2f47;
@@ -447,6 +454,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
   }
   .brand { font-size: 20px; padding: 0 10px 14px; }
   #navTabs { flex-direction: column; flex: 0 0 auto; gap: 4px; overflow: visible; }
+  #navTabs .navBtn { flex: 0 0 auto; }   /* в колонке ширина и так общая */
   .navBtn {
     flex-direction: row; justify-content: flex-start; gap: 11px;
     padding: 11px 14px; font-size: 15px; border-radius: 12px; min-width: 0;
@@ -456,7 +464,6 @@ button, input, textarea { font-family: inherit; color: inherit; }
   .profile-icon { margin-top: auto; align-self: flex-start; }
   .profile-icon img { width: 42px; height: 42px; }
 
-  .profile-dropdown { top: auto; bottom: 20px; left: 246px; right: auto; }
 
   /* Контент не должен липнуть к колонке навигации: даём воздух слева
      и центрируем содержимое в оставшейся области, а не прижимаем к краю. */
@@ -835,10 +842,7 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
     max-width: none; width: calc(100vw - 20px);
     max-height: 86vh; overflow-y: auto; margin: auto;
   }
-  .profile-dropdown {
-    width: min(260px, calc(100vw - 20px));
-    max-height: 76vh; overflow-y: auto;
-  }
+  .profile-dropdown { width: min(260px, calc(100vw - 20px)); max-height: 76vh; overflow-y: auto; }
   /* пикер эмодзи тоже по центру, а не у нижнего края */
   .emoji-picker {
     position: fixed; left: 50%; top: 50%; bottom: auto; right: auto;
@@ -987,14 +991,7 @@ html[data-theme="quiet"] .searchBox {
 }
 .chat-hint-btn:hover { color: var(--accent); border-color: var(--accent); }
 
-/* форма «цветок» из Pixel: маска объявлена в layout.js как SVG clipPath */
-.shape-flower {
-  border-radius: 0;
-  clip-path: url(#flowerShape);
-  border: none;                      /* рамку по такому контуру не нарисовать */
-  background: var(--card);
-}
-.shapeOption.shape-flower { border: 2px solid #3a2f47; }
+
 
 /* ---------- вкладка «Возможности» ---------- */
 .about-hero { padding: 4px 0 18px; }
@@ -1063,3 +1060,11 @@ html[data-theme="quiet"] .searchBox {
   mask: url("assets/petal.svg") center / contain no-repeat;
 }
 .particle-preview .svg-ic { vertical-align: middle; }
+
+/* Заглушка «не в аккаунте» на странице профиля: кнопка должна стоять по центру,
+   а не прижиматься к краю — .primaryBtn по умолчанию тянется во всю ширину. */
+#profileLoggedOutNote {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  text-align: center;
+}
+#profileLoggedOutNote .primaryBtn { width: auto; margin: 0; }

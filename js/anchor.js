@@ -15,3 +15,31 @@ export function keepInViewport(el, margin = 10) {
 
   if (dx || dy) el.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
 }
+
+// Ставит панель рядом с её кнопкой. Раньше положение задавалось в CSS жёсткими
+// координатами, и на разных макетах панель оказывалась то под интерфейсом, то
+// в противоположном углу. Считать от самой кнопки надёжнее: где кнопка — там и
+// панель, независимо от того, вверху она в строке или внизу боковой колонки.
+export function positionNear(el, anchorEl, { gap = 8, prefer = "bottom" } = {}) {
+  if (!el || !anchorEl) return;
+  el.style.transform = "";
+  el.style.top = el.style.bottom = el.style.left = el.style.right = "auto";
+
+  const a = anchorEl.getBoundingClientRect();
+  const w = el.offsetWidth, h = el.offsetHeight;
+  const margin = 10;
+
+  // по вертикали: под кнопкой, а если не влезает — над ней
+  let top = prefer === "bottom" ? a.bottom + gap : a.top - h - gap;
+  if (top + h > window.innerHeight - margin) top = a.top - h - gap;
+  if (top < margin) top = Math.min(a.bottom + gap, window.innerHeight - h - margin);
+
+  // по горизонтали: выравниваем по правому краю кнопки, но не выходя за экран
+  let left = a.right - w;
+  if (left + w > window.innerWidth - margin) left = window.innerWidth - margin - w;
+  if (left < margin) left = margin;
+
+  el.style.position = "fixed";
+  el.style.top = `${Math.round(Math.max(margin, top))}px`;
+  el.style.left = `${Math.round(left)}px`;
+}

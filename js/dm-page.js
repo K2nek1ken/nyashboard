@@ -17,6 +17,10 @@ import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 applySettings();
+// Шапку рисуем немедленно: она не должна мигать пустотой,
+// пока страница ждёт DOMContentLoaded.
+initLayout();
+applyFavicon();
 
 const chatId = new URLSearchParams(location.search).get("chat");
 let pendingImage = null;
@@ -130,8 +134,6 @@ async function init() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  initLayout();
-  applyFavicon();
   initSettingsModal();
   initStarfield();
   initProfileDropdown();

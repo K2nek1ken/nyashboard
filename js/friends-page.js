@@ -15,6 +15,10 @@ import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 applySettings();
+// Шапку рисуем немедленно: она не должна мигать пустотой,
+// пока страница ждёт DOMContentLoaded.
+initLayout();
+applyFavicon();
 
 function personRow(u, extraHtml = "", clickAttr = "") {
   return `
@@ -113,8 +117,6 @@ async function renderFriends() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
-  initLayout();
-  applyFavicon();
   initSettingsModal();
   initStarfield();
   initProfileDropdown();

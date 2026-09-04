@@ -9,6 +9,10 @@ import { renderPostsInto } from "./feed.js";
 import { escapeHtml } from "./ui.js";
 
 applySettings();
+// Шапку рисуем немедленно: она не должна мигать пустотой,
+// пока страница ждёт DOMContentLoaded.
+initLayout();
+applyFavicon();
 
 async function initTagPage() {
   const tag = (new URLSearchParams(location.search).get("tag") || "").toLowerCase();
@@ -35,8 +39,6 @@ async function initTagPage() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  initLayout();
-  applyFavicon();
   initSettingsModal();
   initStarfield();
   initProfileDropdown();

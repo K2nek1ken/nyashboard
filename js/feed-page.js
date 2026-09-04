@@ -9,9 +9,11 @@ import { initInlineComposer } from "./inline-composer.js";
 import { initViewProfileModal } from "./people.js";
 
 applySettings();
+// Шапку рисуем немедленно: она не должна мигать пустотой,
+// пока страница ждёт DOMContentLoaded.
+initLayout();
+applyFavicon();
 window.addEventListener("DOMContentLoaded", () => {
-  initLayout();
-  applyFavicon();
   initSettingsModal();
   initStarfield();
   initProfileDropdown();

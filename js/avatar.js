@@ -8,8 +8,7 @@ import { defaultAvatar } from "./default-avatar.js";
 export const AVATAR_SHAPES = {
   circle:   { label: "Круг",     cls: "shape-circle" },
   rounded:  { label: "Квадрат",  cls: "shape-rounded" },
-  squircle: { label: "Капля",    cls: "shape-squircle" },
-  flower:   { label: "Цветок",   cls: "shape-flower" }
+  squircle: { label: "Капля",    cls: "shape-squircle" }
 };
 
 export function shapeClass(shape) {

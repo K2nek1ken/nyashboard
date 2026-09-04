@@ -7,6 +7,10 @@ import { showToast } from "./ui.js";
 import { ICON } from "./icons.js";
 
 applySettings();
+// Шапку рисуем немедленно: она не должна мигать пустотой,
+// пока страница ждёт DOMContentLoaded.
+initLayout();
+applyFavicon();
 
 // Порядок здесь не случайный. Сначала то, что цепляет и хочется попробовать
 // прямо сейчас, потом настройка вида под себя, потом удобства — и только в
@@ -86,8 +90,6 @@ function render() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  initLayout();
-  applyFavicon();
   initSettingsModal();
   initStarfield();
   initProfileDropdown();

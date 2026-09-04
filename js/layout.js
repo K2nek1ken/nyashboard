@@ -36,33 +36,7 @@ const ACTIVE_ALIASES = {
   "settings.html": ""
 };
 
-// Форма «цветок» из Pixel. В присланном виде контур выходит за границы
-// (координаты от -9 до 109), поэтому масштабируем в единичный квадрат:
-// сдвигаем на 9 и делим на 118. clipPathUnits="objectBoundingBox" позволяет
-// применять маску к элементу любого размера без пересчёта.
-const FLOWER_PATH = "M 50,0 C 57.5,0 62.5,9 70,12 C 77.5,15 85,15 88,22 " +
-  "C 91,29 91,37.5 100,45 C 109,52.5 100,62.5 100,70 C 100,77.5 91,85 88,88 " +
-  "C 85,91 77.5,91 70,100 C 62.5,109 57.5,100 50,100 C 42.5,100 37.5,109 30,100 " +
-  "C 22.5,91 15,91 12,88 C 9,85 0,77.5 0,70 C 0,62.5 -9,52.5 0,45 " +
-  "C 9,37.5 9,29 12,22 C 15,15 22.5,15 30,12 C 37.5,9 42.5,0 50,0 Z";
-
-function injectShapeMasks() {
-  if (document.getElementById("nyashShapes")) return;
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.id = "nyashShapes";
-  svg.setAttribute("aria-hidden", "true");
-  svg.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;";
-  svg.innerHTML = `
-    <defs>
-      <clipPath id="flowerShape" clipPathUnits="objectBoundingBox">
-        <path transform="scale(0.008475) translate(9,9)" d="${FLOWER_PATH}"/>
-      </clipPath>
-    </defs>`;
-  document.body.appendChild(svg);
-}
-
 export function initLayout() {
-  injectShapeMasks();
   const host = document.getElementById("navHost");
   if (!host) return;
 

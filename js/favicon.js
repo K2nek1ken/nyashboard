@@ -20,16 +20,17 @@ const SHAPE = (accent, dark) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox
 export function brandIconUri() {
   const cs = getComputedStyle(document.documentElement);
   const accent = cs.getPropertyValue("--accent").trim() || "#ff6eae";
-  const dark = cs.getPropertyValue("--bg").trim() || "#17131c";
-  return "data:image/svg+xml," + encodeURIComponent(SHAPE(accent, dark).replace(/\s+/g, " "));
+  // Глаза красим тем же цветом, что и фон мордочки. Так они всегда контрастны
+  // к белому и не теряются на мелком размере. Раньше брался --bg, а в темах,
+  // где он собран через color-mix, SVG такое значение просто не понимает —
+  // глаза не рисовались вовсе.
+  return "data:image/svg+xml," + encodeURIComponent(SHAPE(accent, accent).replace(/\s+/g, " "));
 }
 
 export function applyFavicon() {
   const cs = getComputedStyle(document.documentElement);
   const accent = cs.getPropertyValue("--accent").trim() || "#ff6eae";
-  const dark = cs.getPropertyValue("--bg").trim() || "#17131c";
-
-  const uri = "data:image/svg+xml," + encodeURIComponent(SHAPE(accent, dark).replace(/\s+/g, " "));
+  const uri = "data:image/svg+xml," + encodeURIComponent(SHAPE(accent, accent).replace(/\s+/g, " "));
   // Заменяем все объявленные иконки: если оставить старую ссылку на файл,
   // браузер может продолжить показывать закэшированную версию.
   const links = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
