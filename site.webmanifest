@@ -1,0 +1,12 @@
+{
+  "name": "NyashBoard",
+  "short_name": "NyashBoard",
+  "description": "Социальная платформа с настоящей анонимностью",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#17131c",
+  "theme_color": "#17131c",
+  "icons": [
+    { "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -9,6 +9,9 @@ export const DEFAULTS = {
   emoji: "noto",         // noto (CDN, лёгкий) | apple (локальный, 8 МБ) | system
   feedMode: "smart",     // smart = подписки и непросмотренное выше; new = просто по времени
   recommendations: "on", // учитывать похожесть на лайкнутое
+  gender: "x",           // m | f | x — для родовых окончаний в интерфейсе
+  timezone: "auto",      // auto = как на устройстве, иначе смещение вида "+03:00"
+  logoMessage: "мяу!",   // что говорит логотип, если по нему нажать
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»
   // порядок вкладок: на телефоне слева направо, на ПК сверху вниз
@@ -33,6 +36,34 @@ export const PARTICLES = {
   leaves:  "Листики",
   off:     "Без частиц"
 };
+
+export const GENDERS = {
+  m: "Мужской",
+  f: "Женский",
+  x: "Не указывать"
+};
+
+// Список смещений вместо справочника городов: короче, понятнее и не требует
+// тащить базу часовых поясов ради одной строчки настроек.
+export const TIMEZONES = (() => {
+  const list = { auto: "Как на устройстве" };
+  const halves = { "-9.5": 1, "-3.5": 1, "3.5": 1, "4.5": 1, "5.5": 1, "5.75": 1, "6.5": 1, "8.75": 1, "9.5": 1, "10.5": 1, "12.75": 1 };
+  const offsets = [];
+  for (let h = -12; h <= 14; h++) {
+    offsets.push(h);
+    if (halves[String(h + 0.5)]) offsets.push(h + 0.5);
+    if (halves[String(h + 0.75)]) offsets.push(h + 0.75);
+  }
+  for (const o of offsets.sort((a, b) => a - b)) {
+    const sign = o < 0 ? "-" : "+";
+    const abs = Math.abs(o);
+    const hh = String(Math.floor(abs)).padStart(2, "0");
+    const mm = String(Math.round((abs % 1) * 60)).padStart(2, "0");
+    const key = `${sign}${hh}:${mm}`;
+    list[key] = `UTC${key}`;
+  }
+  return list;
+})();
 
 export const TIME_FORMATS = {
   relative: "Относительное («5 мин назад»)",
@@ -92,5 +123,6 @@ export function applySettings(settings = getSettings()) {
   root.dataset.particles = settings.particles;
   root.dataset.emoji = settings.emoji;
   root.dataset.time = settings.timeFormat;
+  root.dataset.tz = settings.timezone;
   ensureNotoLink(settings.emoji === "noto");
 }

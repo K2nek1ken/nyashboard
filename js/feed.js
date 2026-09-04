@@ -5,7 +5,7 @@ import {
 } from "./firebase.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { uploadImages } from "./storage.js";
-import { showToast, escapeHtml, timeAgo } from "./ui.js";
+import { showToast, escapeHtml, timeAgo, gendered } from "./ui.js";
 import { ICON, SVG_ICON } from "./icons.js";
 import { fetchReplies, sendReply, replyRowHtml, wireReplyLikes } from "./replies.js";
 import { imagesToHtml, wireCarousels, getPostImages } from "./carousel.js";
@@ -53,7 +53,7 @@ export function subscribeFeed() {
 
 function renderFeed(posts) {
   if (!posts.length) {
-    feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми "+" и пиши первой ♡</div>`;
+    feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
     return;
   }
   feedListEl.innerHTML = posts.map(p => postToHtml(p)).join("");
@@ -311,7 +311,7 @@ async function repost(p) {
     postId: p.id,
     createdAt: serverTimestamp()
   });
-  showToast("Репостнул(а) на свою страницу ♡ (это просто ссылка, не дубль)");
+  showToast(`Репостнул${gendered("", "а", "(а)")} на свою страницу ♡ (это просто ссылка, не дубль)`);
 }
 
 async function deletePost(p, card) {
@@ -525,7 +525,7 @@ export function renderPostsInto(container, posts, ownerNickname) {
     // В репосте автор может быть скрыт — решает сервер, см. revealRepostAuthor
     const html = postToHtml(p, p._isRepost);
     if (!p._isRepost) return html;
-    return `<div class="repost-badge"><span class="nf">${ICON.repost}</span> ${escapeHtml(ownerNickname)} репостнул(а)</div>` + html;
+    return `<div class="repost-badge"><span class="nf">${ICON.repost}</span> ${escapeHtml(ownerNickname)} репостнул${gendered("", "а", "(а)")}</div>` + html;
   }).join("");
   posts.forEach(p => {
     wirePostCard(p, container);

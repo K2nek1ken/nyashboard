@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NyashBoard ♡ — Лента</title>
-<link rel="stylesheet" href="style.css">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/favicon.svg">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#17131c">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -12,6 +16,24 @@
 
 <main id="app">
   <section id="tab-feed" class="tab active">
+    <!-- строка создания записи: видна только на широком экране, на телефоне
+         вместо неё плавающая «+» -->
+    <div id="inlineComposer" class="inline-composer">
+      <textarea id="icText" placeholder="Что у тебя нового? ♡" rows="1"></textarea>
+      <div id="icStrip" class="image-strip"></div>
+      <div class="inline-composer-bottom">
+        <label class="attachBtn nf" for="icImages" title="фото">&#xf0c6;</label>
+        <input type="file" id="icImages" accept="image/*" multiple hidden>
+        <button type="button" id="icEmoji" class="attachBtn nf" title="эмодзи">&#xf118;</button>
+        <label class="toggle-anon" style="margin-left:0;">
+          <input type="checkbox" id="icAnon">
+          <span id="icAnonLabel">от своего имени</span>
+        </label>
+        <span class="muted" id="icHint" style="font-size:12px;"></span>
+        <button id="icPublish" class="publishBtn" style="margin-left:auto;">Опубликовать</button>
+      </div>
+    </div>
+
     <div id="feedList" class="feed-list"></div>
     <button id="newPostFab" class="fab"><span class="nf"></span></button>
   </section>
@@ -40,8 +62,10 @@
 <!-- ВЫПАДАШКА ПРОФИЛЯ (не модалка — открывается прямо у иконки) -->
 <div id="profileDropdown" class="profile-dropdown hidden">
   <div id="ddLoggedOut">
-    <p class="muted" style="margin-top:0;">Ты не вошёл(а) ♡</p>
+    <p class="muted" style="margin-top:0;">Ты пока не в аккаунте</p>
     <button id="googleLoginBtn" class="primaryBtn">Войти через Google</button>
+    <hr>
+    <a href="settings.html" class="dropdownBtn"><span class="nf">&#xf013;</span> Настройки</a>
   </div>
   <div id="ddLoggedIn" class="hidden">
     <div class="dropdown-user-row">

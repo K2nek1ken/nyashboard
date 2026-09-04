@@ -1,6 +1,7 @@
 import { ICON } from "./icons.js";
 import { getSettings } from "./settings.js";
 import { defaultAvatar } from "./default-avatar.js";
+import { showToast } from "./ui.js";
 
 // Единая навигация для всех страниц. Раньше шапка была скопирована в каждый из
 // 10 HTML-файлов — любая правка означала 10 одинаковых редактирований и риск,
@@ -48,10 +49,10 @@ export function initLayout() {
   ].filter(k => k !== "friends" || settings.showFriends === "on");
 
   host.innerHTML = `
-    <a class="brand" href="index.html">
+    <button class="brand" id="brandBtn" type="button" title="нажми ♡">
       <span class="brand-mark">♡</span>
       <span class="brand-text">Nyash<span>Board</span></span>
-    </a>
+    </button>
     <nav id="navTabs">
       ${order.map(key => {
         const item = NAV_ITEMS[key];
@@ -64,6 +65,21 @@ export function initLayout() {
     <div id="profileIcon" class="profile-icon" title="профиль">
       <img id="profilePic" src="${defaultAvatar()}" data-default-avatar="neko" alt="профиль">
     </div>`;
+
+  // Логотип теперь кнопка: короткое нажатие мяукает, долгое (или средний клик)
+  // уводит на ленту — чтобы не отнимать привычный способ вернуться на главную.
+  const brand = host.querySelector("#brandBtn");
+  let held = null;
+  brand.addEventListener("click", () => {
+    showToast(getSettings().logoMessage || "мяу!");
+  });
+  brand.addEventListener("dblclick", () => { location.href = "index.html"; });
+  brand.addEventListener("pointerdown", () => {
+    held = setTimeout(() => { held = null; location.href = "index.html"; }, 550);
+  });
+  const cancelHold = () => { if (held) { clearTimeout(held); held = null; } };
+  brand.addEventListener("pointerup", cancelHold);
+  brand.addEventListener("pointerleave", cancelHold);
 }
 
 // ================== Падающие звёздочки на фоне ==================

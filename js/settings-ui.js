@@ -1,6 +1,7 @@
-import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, DEFAULTS } from "./settings.js";
+import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, DEFAULTS } from "./settings.js";
 import { showToast } from "./ui.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
+import { applyFavicon } from "./favicon.js";
 import { clearInterests, interestsSummary } from "./interests.js";
 import { clearSeen } from "./seen.js";
 
@@ -46,6 +47,12 @@ export function initSettingsPage() {
 
       ${row("Формат времени", "как показывать время у постов и сообщений",
         select("timeFormat", TIME_FORMATS, s.timeFormat))}
+      ${row("Часовой пояс", "для точного времени; «как на устройстве» берёт системный",
+        select("timezone", TIMEZONES, s.timezone))}
+      ${row("Обращение", "род окончаний в подписях интерфейса; в аккаунте настраивается в профиле",
+        select("gender", GENDERS, s.gender))}
+      ${row("Что говорит логотип", "показывается при нажатии на название сайта",
+        `<input class="settingSelect" id="logoMessageInput" maxlength="40" value="${(s.logoMessage || "").replace(/"/g, "&quot;")}" style="width:150px;">`)}
 
       <div class="section-title">Вкладки</div>
       ${row("Вкладка «Друзья»", "личные чаты и список друзей", toggle("showFriends", s.showFriends === "on"))}
@@ -78,6 +85,7 @@ export function initSettingsPage() {
       sel.addEventListener("change", () => {
         setSetting(sel.dataset.select, sel.value);
         refreshDefaultAvatars();   // стандартные аватарки перекрашиваем под новую тему
+        applyFavicon();
         if (sel.dataset.select === "particles") showToast("Обновится после перезагрузки страницы");
       });
     });
@@ -86,6 +94,7 @@ export function initSettingsPage() {
       btn.addEventListener("click", () => {
         setSetting("accent", btn.dataset.accent);
         refreshDefaultAvatars();
+        applyFavicon();
         render();
       });
     });
@@ -102,6 +111,14 @@ export function initSettingsPage() {
     });
 
     renderTabOrder();
+
+    const logoInput = host.querySelector("#logoMessageInput");
+    if (logoInput) {
+      logoInput.addEventListener("change", () => {
+        setSetting("logoMessage", logoInput.value.trim() || "мяу!");
+        showToast(logoInput.value.trim() || "мяу!");
+      });
+    }
 
     const sum = interestsSummary();
     const info = host.querySelector("#interestsInfo");

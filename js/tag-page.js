@@ -1,5 +1,7 @@
 import { applySettings } from "./settings.js";
 import { initLayout, initStarfield } from "./layout.js";
+import { initSettingsModal } from "./settings-modal.js";
+import { applyFavicon } from "./favicon.js";
 import { initProfileDropdown, authReady } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
 import { db, collection, query, where, getDocs } from "./firebase.js";
@@ -34,6 +36,8 @@ async function initTagPage() {
 
 window.addEventListener("DOMContentLoaded", () => {
   initLayout();
+  applyFavicon();
+  initSettingsModal();
   initStarfield();
   initProfileDropdown();
   initViewProfileModal();

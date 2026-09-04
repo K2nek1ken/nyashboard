@@ -47,6 +47,7 @@ export async function ensureUserDoc(fbUser) {
     statusEmoji: "",
     nuidVisibility: "friends",     // everyone | friends | nobody
     repostVisibility: "everyone",  // кто видит меня автором в репостах
+    gender: "x",                   // m | f | x — родовые окончания в интерфейсе
 
     createdAt: Date.now()
   };

@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NyashBoard ♡ — Друзья</title>
-<link rel="stylesheet" href="style.css">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/favicon.svg">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#17131c">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -49,8 +53,10 @@
 <!-- ВЫПАДАШКА ПРОФИЛЯ (не модалка — открывается прямо у иконки) -->
 <div id="profileDropdown" class="profile-dropdown hidden">
   <div id="ddLoggedOut">
-    <p class="muted" style="margin-top:0;">Ты не вошёл(а) ♡</p>
+    <p class="muted" style="margin-top:0;">Ты пока не в аккаунте</p>
     <button id="googleLoginBtn" class="primaryBtn">Войти через Google</button>
+    <hr>
+    <a href="settings.html" class="dropdownBtn"><span class="nf">&#xf013;</span> Настройки</a>
   </div>
   <div id="ddLoggedIn" class="hidden">
     <div class="dropdown-user-row">

@@ -1,6 +1,6 @@
 import { currentUser, authReady } from "./auth.js";
 import { fetchManagedChannels } from "./channels.js";
-import { escapeHtml } from "./ui.js";
+import { escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
 
 function cardHtml(c) {
@@ -33,7 +33,7 @@ export async function initMyChannelsPage() {
     const { created, admin } = await fetchManagedChannels();
     createdEl.innerHTML = created.length
       ? created.map(cardHtml).join("")
-      : `<div class="stub-note">Ты пока не создавала каналов</div>`;
+      : `<div class="stub-note">Ты пока не создавал${gendered("", "а", "(а)")} каналов</div>`;
     adminEl.innerHTML = admin.length
       ? admin.map(cardHtml).join("")
       : `<div class="stub-note">Тебя пока никуда не назначили админом</div>`;

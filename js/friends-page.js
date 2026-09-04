@@ -1,5 +1,7 @@
 import { applySettings } from "./settings.js";
 import { initLayout, initStarfield } from "./layout.js";
+import { initSettingsModal } from "./settings-modal.js";
+import { applyFavicon } from "./favicon.js";
 import { initProfileDropdown, authReady, currentUser } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
 import { loadFriendProfiles, removeFriend, isMutualFriend } from "./friends.js";
@@ -102,7 +104,7 @@ async function renderFriends() {
       e.stopPropagation();
       if (!confirm("Убрать из друзей?")) return;
       await removeFriend(btn.dataset.remove);
-      showToast("Убран(а) из друзей");
+      showToast("Убрали из друзей");
       renderFriends();
     });
   });
@@ -110,6 +112,8 @@ async function renderFriends() {
 
 window.addEventListener("DOMContentLoaded", async () => {
   initLayout();
+  applyFavicon();
+  initSettingsModal();
   initStarfield();
   initProfileDropdown();
   initViewProfileModal();

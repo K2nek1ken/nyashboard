@@ -9,7 +9,7 @@ import {
 import { loadSubscriptions } from "./subscriptions.js";
 import { loadChannelWall, renderPostsInto } from "./feed.js";
 import { uploadImage, uploadImages } from "./storage.js";
-import { showToast, escapeHtml } from "./ui.js";
+import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
 
@@ -75,8 +75,8 @@ async function renderSubscribeRow(channelId) {
   subBtn.onclick = async () => {
     subBtn.disabled = true;
     try {
-      if (isSubscribedLocal(channelId)) { await unsubscribeFromChannel(channelId); showToast("Отписалась"); }
-      else { await subscribeToChannel(channelId); showToast("Подписалась ♡"); }
+      if (isSubscribedLocal(channelId)) { await unsubscribeFromChannel(channelId); showToast(`Отписал${gendered("ся", "ась", "ся(ась)")}`); }
+      else { await subscribeToChannel(channelId); showToast(`Подписал${gendered("ся", "ась", "ся(ась)")} ♡`); }
       await renderSubscribeRow(channelId);
     } catch (e) { console.error(e); showToast("Ошибка: " + e.message); }
     finally { subBtn.disabled = false; }
@@ -89,8 +89,8 @@ async function renderSubscribeRow(channelId) {
     hideBtn.onclick = async () => {
       hideBtn.disabled = true;
       try {
-        if (await isIdentifiedSubscriber(channelId)) { await hideFromChannel(channelId); showToast("Теперь ты анонимна для этого канала"); }
-        else { await revealToChannel(channelId); showToast("Снова видна как подписчик(ца)"); }
+        if (await isIdentifiedSubscriber(channelId)) { await hideFromChannel(channelId); showToast("Теперь ты аноним для этого канала"); }
+        else { await revealToChannel(channelId); showToast(`Снова вид${gendered("ен", "на", "ен(на)")} как подписчик`); }
         await renderSubscribeRow(channelId);
       } catch (e) { console.error(e); showToast("Ошибка: " + e.message); }
       finally { hideBtn.disabled = false; }

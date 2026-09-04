@@ -2,7 +2,8 @@ import {
   auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously
 } from "./firebase.js";
 import { ensureUserDoc } from "./data.js";
-import { showToast } from "./ui.js";
+import { showToast, setGenderSource, gendered } from "./ui.js";
+import { getSettings } from "./settings.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 export let currentUser = null;      // firebase auth user (или null)
@@ -22,6 +23,10 @@ export let currentUserDoc = null;   // документ users/{uid} (или null
 //  вход подменой кэша нельзя — сервер такой запрос отклонит.
 // ============================================================
 const PROFILE_CACHE_KEY = "nyash_profile_cache";
+
+// Пол для родовых окончаний: у вошедших берём из профиля, у гостей — из
+// локальных настроек, чтобы интерфейс говорил правильно и без аккаунта.
+setGenderSource(() => currentUserDoc?.gender || cachedUserDoc?.gender || getSettings().gender || "x");
 
 function readProfileCache() {
   try { return JSON.parse(localStorage.getItem(PROFILE_CACHE_KEY)); }
@@ -85,7 +90,7 @@ onAuthStateChanged(auth, async (fbUser) => {
 export async function loginWithGoogle() {
   try {
     await signInWithPopup(auth, googleProvider);
-    showToast("Вошёл(а) ♡");
+    showToast(`Вош${gendered("ёл", "ла", "ёл(ла)")} ♡`);
   } catch (e) {
     console.error(e);
     showToast("Не получилось войти: " + e.message);
@@ -94,7 +99,7 @@ export async function loginWithGoogle() {
 
 export async function logout() {
   await signOut(auth);
-  showToast("Вышел(а)");
+  showToast(`Выш${gendered("ел", "ла", "ел(ла)")}`);
 }
 
 // Маленькая выпадашка у иконки профиля в шапке — есть на КАЖДОЙ странице.

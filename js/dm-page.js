@@ -1,5 +1,7 @@
 import { applySettings } from "./settings.js";
 import { initLayout, initStarfield } from "./layout.js";
+import { initSettingsModal } from "./settings-modal.js";
+import { applyFavicon } from "./favicon.js";
 import { initProfileDropdown, authReady, currentUser } from "./auth.js";
 import { subscribeMessages, sendMessage, editMessage, deleteMessage, otherParticipant } from "./dm.js";
 import { db, doc, getDoc } from "./firebase.js";
@@ -128,6 +130,8 @@ async function init() {
 
 window.addEventListener("DOMContentLoaded", () => {
   initLayout();
+  applyFavicon();
+  initSettingsModal();
   initStarfield();
   initProfileDropdown();
   init();

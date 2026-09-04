@@ -109,6 +109,15 @@ service cloud.firestore {
       }
     }
 
+    // ===================== ЛИЧНЫЕ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ =====================
+    // Профиль интересов и отметки «прочитано». Читать и писать может только
+    // сам владелец — ни другие люди, ни администрация каналов сюда не заглянут.
+    // Лежит на сервере, а не только в браузере, чтобы рекомендации и лента были
+    // одинаковыми на всех устройствах: иначе аккаунт ничего не значил бы.
+    match /users/{userId}/private/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // ===================== ПОДПИСКИ ПОЛЬЗОВАТЕЛЯ (приватные) =====================
     // Личный список «на что я подписан». Читать и писать может ТОЛЬКО сам владелец —
     // ни админы каналов, ни кто-либо ещё сюда не заглянут. Именно поэтому подписки
@@ -186,7 +195,8 @@ service cloud.firestore {
            request.auth.uid in get(/databases/$(database)/documents/channels/$(request.resource.data.channelId)).data.adminUids))
       );
       allow update: if request.auth != null && (
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likesCount'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['likedBy', 'likesCount', 'dislikedBy', 'dislikesCount'])) ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'editedAt']) &&
           request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid)
       );
@@ -208,12 +218,37 @@ service cloud.firestore {
         request.auth.uid == get(/databases/$(database)/documents/replySecrets/$(replyId)).data.ownerUid;
     }
 
+    // ===================== АВТОРСТВО ДЛЯ РЕПОСТОВ =====================
+    // Кто автор записи — при включённом скрытии решает сервер, а не интерфейс.
+    // Три режима в профиле владельца (поле repostVisibility):
+    //   everyone   — отдаём всем
+    //   reposters  — только тем, кто эту запись репостнул
+    //   nobody     — только самому автору
+    // Проверка «репостнул ли» опирается на предсказуемый id репоста
+    // вида {uid}_{postId} — поэтому репост создаётся через setDoc, а не addDoc.
+    match /postAuthors/{postId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.uid ||
+        get(/databases/$(database)/documents/users/$(resource.data.uid))
+          .data.get('repostVisibility', 'everyone') == 'everyone' ||
+        (get(/databases/$(database)/documents/users/$(resource.data.uid))
+           .data.get('repostVisibility', 'everyone') == 'reposters' &&
+         exists(/databases/$(database)/documents/reposts/$(request.auth.uid + '_' + postId)))
+      );
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
     // ===================== РЕПОСТЫ =====================
+    // id репоста — {uid}_{postId}: так у пары «человек + запись» всегда ровно
+    // один репост, и правило выше может проверить его существование по имени.
     match /reposts/{repostId} {
       allow read: if true;
       allow create: if request.auth != null &&
         request.auth.token.firebase.sign_in_provider != 'anonymous' &&
-        request.resource.data.uid == request.auth.uid;
+        request.resource.data.uid == request.auth.uid &&
+        repostId == request.auth.uid + '_' + request.resource.data.postId;
       allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
       allow update: if false;
     }

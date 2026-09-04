@@ -99,8 +99,8 @@ async function renderFriendActions(uid) {
     host.querySelector("[data-toggle-friend]").addEventListener("click", async (e) => {
       e.target.disabled = true;
       try {
-        if (isFriend(uid)) { await removeFriend(uid); showToast("Убран(а) из друзей"); }
-        else { await addFriend(uid); showToast("Добавлен(а) в друзья ♡"); }
+        if (isFriend(uid)) { await removeFriend(uid); showToast("Убрали из друзей"); }
+        else { await addFriend(uid); showToast("Добавили в друзья ♡"); }
         await paint();
       } catch (err) { showToast("Ошибка: " + err.message); await paint(); }
     });

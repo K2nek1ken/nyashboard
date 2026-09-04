@@ -4,7 +4,7 @@ import {
 } from "./channels.js";
 import { loadSubscriptions, getSubscriptionsSync } from "./subscriptions.js";
 import { currentUser, authReady } from "./auth.js";
-import { showToast, escapeHtml } from "./ui.js";
+import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
 
 let allChannels = [];
@@ -49,7 +49,7 @@ function channelCard(c) {
       ${isManaged
         ? `<span class="subBtn subscribed" style="pointer-events:none;">управляю</span>`
         : `<button class="subBtn ${subbed ? "subscribed" : ""}" data-action="sub" data-id="${c.id}">
-             ${subbed ? `<span class="nf">${ICON.check}</span> подписан(а)` : "подписаться"}
+             ${subbed ? `<span class="nf">${ICON.check}</span> подписан${gendered("", "а", "(а)")}` : "подписаться"}
            </button>`}
     </a>`;
 }
@@ -64,10 +64,10 @@ function wireCards(container) {
       try {
         if (isSubscribedLocal(id)) {
           await unsubscribeFromChannel(id);
-          showToast("Отписалась");
+          showToast(`Отписал${gendered("ся", "ась", "ся(ась)")}`);
         } else {
           await subscribeToChannel(id);
-          showToast("Подписалась ♡");
+          showToast(`Подписал${gendered("ся", "ась", "ся(ась)")} ♡`);
         }
         renderAll(allChannels);
         renderSuggested();

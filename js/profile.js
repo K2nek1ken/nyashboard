@@ -24,6 +24,7 @@ export function initProfilePageForm() {
   const statusPreview = document.getElementById("statusEmojiPreview");
   const nuidVisibility = document.getElementById("nuidVisibility");
   const repostVisibility = document.getElementById("repostVisibility");
+  const genderSelect = document.getElementById("genderSelect");
 
   let pendingAvatarFile = null;
   let pendingShape = "circle";
@@ -58,6 +59,7 @@ export function initProfilePageForm() {
       requestNuid(currentUser.uid).then(n => { uidDisplay.textContent = n || "—"; });
       nuidVisibility.value = currentUserDoc.nuidVisibility || "friends";
       repostVisibility.value = currentUserDoc.repostVisibility || "everyone";
+      genderSelect.value = currentUserDoc.gender || "x";
       pendingShape = currentUserDoc.avatarShape || "circle";
       pendingStatus = currentUserDoc.statusEmoji || "";
       pageStatus.textContent = pendingStatus;
@@ -125,7 +127,8 @@ export function initProfilePageForm() {
         avatarShape: pendingShape,
         statusEmoji: pendingStatus,
         nuidVisibility: nuidVisibility.value,
-        repostVisibility: repostVisibility.value
+        repostVisibility: repostVisibility.value,
+        gender: genderSelect.value
       };
       if (pendingAvatarFile) {
         showToast("Загружаю аватарку...");
