@@ -2,6 +2,9 @@ import {
   db, doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where,
   writeBatch, limit
 } from "./firebase.js";
+import {
+  generateUniqueNuid, registerNuid, migrateLegacyNuid, ensureNuidExists
+} from "./nuid.js";
 
 // ================== NUID ==================
 // Логика вынесена в nuid.js: идентификатор хранится отдельно от профиля,

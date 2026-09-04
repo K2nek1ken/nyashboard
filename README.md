@@ -356,6 +356,7 @@ NYASH_REPO=/путь/к/репозиторию bash deploy.sh "коммит"
 ├── site.webmanifest        манифест для установки на телефон
 ├── firestore.rules         правила доступа к базе
 ├── CLAUDE.md               контекст проекта для Claude Code
+├── tools/check-imports.py  проверка, что всё используемое импортировано
 ├── setup-termux.sh         первичная настройка Termux
 ├── deploy.sh               деплой из Termux одной командой
 └── js/
