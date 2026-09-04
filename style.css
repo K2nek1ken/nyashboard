@@ -119,12 +119,20 @@ button, input, textarea { font-family: inherit; color: inherit; }
   background: var(--card); border-radius: var(--radius);
   padding: 14px; position: relative;
 }
-.post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
 .post-head img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; cursor: pointer; }
-.post-author { font-weight: 600; cursor: pointer; }
+.post-head > span:first-child { flex-shrink: 0; }
+/* min-width: 0 обязателен: без него длинное имя (или точный формат времени)
+   не даёт flex-элементу сжаться, и правый блок с кнопками выдавливает
+   за пределы карточки */
+.post-author {
+  font-weight: 600; cursor: pointer;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .post-author.anon { color: var(--muted); font-style: italic; cursor: default; }
 .post-time { font-size: 12px; color: var(--muted); }
-.post-meta-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.post-meta-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.post-time { white-space: nowrap; }
 .post-text { white-space: pre-wrap; line-height: 1.45; word-break: break-word; }
 .post-img { margin-top: 8px; max-width: 100%; border-radius: 12px; display: block; }
 
@@ -536,10 +544,10 @@ button, input, textarea { font-family: inherit; color: inherit; }
 /* ---------- эмодзи-статус на аватарке ---------- */
 .avatar-wrap { position: relative; display: inline-block; }
 .avatar-status {
-  position: absolute; top: -2px; right: -2px;
-  width: 24px; height: 24px; border-radius: 50%;
+  position: absolute; top: -3px; right: -3px;
+  width: 30px; height: 30px; border-radius: 50%;
   background: var(--bg-soft); border: 2px solid var(--bg);
-  display: flex; align-items: center; justify-content: center; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
 }
 .avatar-status:empty { display: none; }
 .post-head .avatar-wrap .avatar-status { width: 16px; height: 16px; font-size: 9px; top: -3px; right: -3px; }
@@ -744,8 +752,8 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
   /* На узком экране якорь бывает у самого края, и панель с right:0 уезжала
      за левую границу. Центрируем её по экрану — так она всегда видна целиком. */
   .emoji-picker {
-    position: fixed; left: 50%; right: auto; bottom: 84px;
-    transform: translateX(-50%);
+    position: fixed; left: 50%; top: 50%; right: auto; bottom: auto;
+    transform: translate(-50%, -50%);
     width: min(320px, calc(100vw - 24px));
   }
   .modal { padding: 12px; align-items: center; }
@@ -809,33 +817,169 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
 
 /* ---------- 3) на узком экране всплывающие панели показываем снизу ---------- */
 @media (max-width: 620px) {
-  /* При совсем узком экране абсолютное позиционирование от кнопки уводило
-     панель за край. Показываем её как нижнюю шторку — она всегда влезает. */
+  /* Абсолютное позиционирование от кнопки на узком экране уводило панель за
+     край. Центрируем по обеим осям: раньше был только центр по горизонтали,
+     и панель прижималась к самому низу страницы. */
   .kebabMenu {
-    position: fixed; left: 50%; right: auto; top: auto; bottom: 16px;
-    transform: translateX(-50%);
+    position: fixed; left: 50%; right: auto; top: 50%; bottom: auto;
+    transform: translate(-50%, -50%);
     width: min(280px, calc(100vw - 24px)); max-width: none;
+    max-height: 70vh; overflow-y: auto;
   }
-  .modal { padding: 10px; }
+  .modal { padding: 10px; align-items: center; }
   .modal-content {
     max-width: none; width: calc(100vw - 20px);
-    max-height: 88vh; overflow-y: auto;
+    max-height: 86vh; overflow-y: auto; margin: auto;
   }
   .profile-dropdown {
-    position: fixed; top: auto; bottom: 14px; left: 50%; right: auto;
-    transform: translateX(-50%); width: min(260px, calc(100vw - 24px));
+    position: fixed; top: 50%; bottom: auto; left: 50%; right: auto;
+    transform: translate(-50%, -50%); width: min(260px, calc(100vw - 24px));
+    max-height: 76vh; overflow-y: auto;
+  }
+  /* пикер эмодзи тоже по центру, а не у нижнего края */
+  .emoji-picker {
+    position: fixed; left: 50%; top: 50%; bottom: auto; right: auto;
+    transform: translate(-50%, -50%);
+    width: min(320px, calc(100vw - 24px));
   }
 }
 
 /* кнопка обновления списка — видна только когда ты наверху */
 .refreshFab {
-  position: fixed; left: 50%; top: 74px; transform: translateX(-50%) translateY(-14px);
+  position: fixed; left: 50%; bottom: 92px; top: auto;
+  transform: translateX(-50%) translateY(14px);
   z-index: 25; border: 1px solid #3a2f47; background: var(--bg-soft); color: var(--accent);
-  width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 16px;
+  border-radius: 999px; cursor: pointer; font-size: 14px; font-family: inherit;
+  padding: 10px 18px; display: flex; align-items: center; gap: 8px;
   opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
 }
+.refreshFab:hover { border-color: var(--accent); background: var(--card-hover); }
+.refreshFab .nf { font-size: 16px; display: inline-block; }
 .refreshFab.visible { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-.refreshFab.spinning .nf { display: inline-block; animation: spin .6s linear; }
+.refreshFab.spinning { pointer-events: none; }
+.refreshFab.spinning .nf { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (min-width: 900px) { .refreshFab { top: 26px; left: calc(50% + 116px); } }
+.spin-slow { display: inline-block; animation: spin 1.4s linear infinite; }
+@media (min-width: 900px) { .refreshFab { bottom: 26px; left: calc(50% + 116px); } }
+
+/* ---------- строки настроек: текст не должен двигать элементы управления ---------- */
+.setting-row {
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  gap: 16px; padding: 14px 0; border-bottom: 1px solid #3a2f47;
+}
+.setting-label { min-width: 0; }             /* разрешаем тексту сжиматься */
+.setting-label > div:first-child { line-height: 1.3; }
+.setting-row > *:not(.setting-label) { justify-self: end; }
+.settingSelect { max-width: 100%; }
+
+/* строки профиля с подписью и полем — та же логика */
+.profile-page-head .setting-row {
+  grid-template-columns: auto auto; justify-content: center;
+  border-bottom: none;
+}
+
+/* кнопка выбора статуса — именно кнопка, а не ссылка */
+#statusEmojiBtn {
+  background: var(--card); border: 1px solid #3a2f47; color: var(--text);
+  border-radius: 10px; padding: 7px 14px; cursor: pointer; font: inherit;
+}
+#statusEmojiBtn:hover { border-color: var(--accent); }
+#clearStatusBtn {
+  background: none; border: 1px solid transparent; color: var(--muted);
+  border-radius: 10px; padding: 7px 12px; cursor: pointer; font-size: 13px;
+  text-decoration: none; width: auto;
+}
+#clearStatusBtn:hover { color: var(--danger); border-color: var(--danger); }
+
+/* превью частиц в настройках */
+.particle-preview {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--card); border: 1px solid #3a2f47; margin-left: 8px;
+  color: var(--accent); font-size: 19px;
+}
+
+/* собственные диалоги вместо системных */
+.dialog-content { max-width: 380px; }
+.dialog-buttons { display: flex; gap: 10px; margin-top: 16px; }
+.dialog-buttons button { flex: 1; margin-top: 0; width: auto; }
+
+/* ---------- просмотр изображения на весь экран ---------- */
+.lightbox {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(8, 6, 12, 0.94);
+  display: flex; align-items: center; justify-content: center;
+}
+.lightbox-stage {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; touch-action: none;
+}
+.lightbox-stage img {
+  max-width: 96%; max-height: 90%;
+  transform-origin: center; transition: transform .08s linear;
+  cursor: zoom-in; user-select: none; -webkit-user-drag: none;
+}
+.lightbox-stage img.zoomed { cursor: grab; }
+.lightbox-close {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  background: rgba(0,0,0,.5); border: none; color: #fff;
+  width: 42px; height: 42px; border-radius: 50%; cursor: pointer; font-size: 18px;
+}
+.lightbox-close:hover { background: rgba(0,0,0,.75); }
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  background: rgba(0,0,0,.5); border: none; color: #fff;
+  width: 46px; height: 46px; border-radius: 50%; cursor: pointer; font-size: 18px;
+}
+.lightbox-nav:hover { background: rgba(0,0,0,.75); }
+.lightbox-nav.prev { left: 12px; }
+.lightbox-nav.next { right: 12px; }
+.lightbox-counter {
+  position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+  color: #fff; font-size: 13px; background: rgba(0,0,0,.5);
+  padding: 5px 12px; border-radius: 999px; z-index: 2;
+}
+.lightbox-hint {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,.55); font-size: 12px; text-align: center;
+  padding: 0 16px; pointer-events: none;
+}
+
+/* ---------- тема «Ночная тишь»: весь интерфейс следует акценту ----------
+   Оттенки строятся из выбранного акцента через color-mix, поэтому тема
+   работает с любым из акцентных цветов и не требует отдельной палитры на
+   каждый. Базовые тона намеренно очень тёмные — отсюда и «тишь». */
+html[data-theme="quiet"] {
+  --bg:        color-mix(in oklab, var(--accent) 7%,  #0b0910);
+  --bg-soft:   color-mix(in oklab, var(--accent) 11%, #100d16);
+  --card:      color-mix(in oklab, var(--accent) 15%, #16121d);
+  --card-hover:color-mix(in oklab, var(--accent) 22%, #1d1826);
+  --text:      color-mix(in oklab, var(--accent) 14%, #f4eff8);
+  --muted:     color-mix(in oklab, var(--accent) 30%, #8b8296);
+  --danger:    color-mix(in oklab, var(--accent) 20%, #ef6f6f);
+}
+/* границы в этой теме тоже подчиняются акценту */
+html[data-theme="quiet"] #navHost,
+html[data-theme="quiet"] .profile-dropdown,
+html[data-theme="quiet"] .setting-row,
+html[data-theme="quiet"] .inlineEdit,
+html[data-theme="quiet"] .settingSelect,
+html[data-theme="quiet"] .avatar-shaped,
+html[data-theme="quiet"] .searchBox {
+  border-color: color-mix(in oklab, var(--accent) 28%, transparent);
+}
+
+/* сообщения бота видно сразу — их не спутать с обычными */
+.chat-msg.is-bot {
+  background: color-mix(in oklab, var(--accent-2) 14%, var(--card));
+  border-left: 3px solid var(--accent-2);
+  font-style: italic;
+}
+.chat-msg.is-bot b { color: var(--accent-2); font-style: normal; }
+.chat-hint-btn {
+  margin-left: auto; background: none; border: 1px solid #3a2f47; color: var(--muted);
+  border-radius: 999px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit;
+}
+.chat-hint-btn:hover { color: var(--accent); border-color: var(--accent); }

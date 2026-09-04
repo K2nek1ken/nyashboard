@@ -147,10 +147,28 @@ export function initStarfield() {
   // остаются собственных цветов — для лепестков и листьев это как раз к месту.
   const GLYPHS = {
     stars:   null,        // звёзды рисуем векторно: символ ★ выглядит грубее
+    petals:  null,        // лепестки — своя картинка, см. petalImage
     flowers: "\u273f",    // ✿
     leaves:  "\uD83C\uDF41",  // 🍁
     sakura:  "\uD83C\uDF38"   // 🌸
   };
+
+  // Лепесток сакуры по эскизу Неко: два эллипса, обрезанные масками, дают
+  // характерную форму с выемкой. Рисуем через картинку, потому что повторять
+  // это построение на холсте вручную было бы заметно многословнее.
+  let petalImage = null;
+  if (particleKind === "petals") {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="120" height="120">
+<defs>
+<clipPath id="a"><rect x="225.21" y="538.97" width="629.59" height="629.56"/></clipPath>
+<clipPath id="b"><rect x="-314.79" y="-314.78" width="629.59" height="629.56"/></clipPath>
+</defs>
+<g clip-path="url(#a)"><ellipse transform="matrix(1.8962038,0,0,1.8962038,540,463.61077)" rx="158.97" ry="125.17" fill="${starColor}"/></g>
+<g transform="matrix(1,0,0,-1,540,226.25592)" clip-path="url(#b)"><ellipse transform="matrix(1.8962038,0,0,1.8962038,0,-390.13331)" rx="158.97" ry="125.17" fill="${starColor}"/></g>
+</svg>`;
+    petalImage = new Image();
+    petalImage.src = "data:image/svg+xml," + encodeURIComponent(svg.replace(/\s+/g, " "));
+  }
 
   function drawGlyph(s, glyph) {
     ctx.font = `${s.size * 2.4}px "Monaspace Neon NF", "Noto Color Emoji", sans-serif`;
@@ -178,7 +196,11 @@ export function initStarfield() {
     ctx.globalAlpha = s.alpha;
     ctx.fillStyle = starColor;
     const glyph = GLYPHS[particleKind];
-    if (glyph) drawGlyph(s, glyph);
+    if (particleKind === "petals" && petalImage?.complete) {
+      const sz = s.size * 3.4;
+      ctx.drawImage(petalImage, -sz / 2, -sz / 2, sz, sz);
+    }
+    else if (glyph) drawGlyph(s, glyph);
     else drawVectorStar(s);
     ctx.restore();
   }

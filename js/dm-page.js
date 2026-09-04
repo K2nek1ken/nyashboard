@@ -1,4 +1,5 @@
 import { applySettings } from "./settings.js";
+import { askText, askConfirm } from "./dialog.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
@@ -50,13 +51,13 @@ function render(msgs) {
     wireKebab(row, {
       editMsg: async () => {
         const cur = row.querySelector(".txt")?.textContent || "";
-        const next = prompt("Изменить сообщение:", cur);
+        const next = await askText("Изменить сообщение", { value: cur, maxlength: 500 });
         if (next === null || !next.trim() || next.trim() === cur) return;
         try { await editMessage(chatId, id, next.trim()); }
         catch (e) { showToast("Не вышло: " + e.message); }
       },
       deleteMsg: async () => {
-        if (!confirm("Удалить сообщение?")) return;
+        if (!await askConfirm("Удалить сообщение?", { okLabel: "Удалить", danger: true })) return;
         try { await deleteMessage(chatId, id); }
         catch (e) { showToast("Не вышло: " + e.message); }
       }

@@ -27,14 +27,21 @@ export async function ensureUserDoc(fbUser) {
     const data = snap.data();
     // аккаунты, созданные до отдельного хранилища NUID, переносим на лету
     if (data.publicUid) migrateLegacyNuid(data);
+    else ensureNuidExists(fbUser.uid);   // NUID мог не записаться при регистрации
     return data;
   }
 
-  const nuid = await generateUniqueNuid(1);
   let username = "user_" + fbUser.uid.slice(0, 6);
-  // на случай маловероятного совпадения дефолтного юзернейма — дописываем хвост
-  while (await isUsernameTaken(username)) {
-    username = "user_" + Math.random().toString(36).slice(2, 8);
+  // на случай маловероятного совпадения дефолтного юзернейма — дописываем хвост.
+  // Проверка не должна мешать созданию аккаунта: если реестр недоступен,
+  // просто берём имя как есть.
+  try {
+    let guard = 0;
+    while (await isUsernameTaken(username) && guard++ < 5) {
+      username = "user_" + Math.random().toString(36).slice(2, 8);
+    }
+  } catch (e) {
+    console.warn("Реестр юзернеймов недоступен:", e.message);
   }
 
   const base = {
@@ -52,12 +59,20 @@ export async function ensureUserDoc(fbUser) {
     createdAt: Date.now()
   };
 
-  const batch = writeBatch(db);
-  batch.set(ref, base);
-  batch.set(doc(db, "usernames", username.toLowerCase()), { type: "user", ownerId: fbUser.uid });
-  await batch.commit();
-  // NUID пишется в отдельные коллекции; если правила для них ещё не залиты,
-  // аккаунт всё равно должен создаться — идентификатор допишется позже
+  // ПОРЯДОК ВАЖЕН: сам профиль создаётся первым и отдельно от всего остального.
+  // Раньше сначала подбирался NUID, и его неудача (например, при незалитых
+  // правилах) означала, что документ users/{uid} не появлялся вообще — а потом
+  // любое сохранение профиля падало с «No document to update».
+  await setDoc(ref, base);
+
+  // Бронь юзернейма — уже не критично: без неё профиль просто останется с
+  // именем по умолчанию, но работать будет.
+  await setDoc(doc(db, "usernames", username.toLowerCase()),
+               { type: "user", ownerId: fbUser.uid })
+    .catch(e => console.warn("Юзернейм не забронирован:", e.message));
+
+  // NUID — тоже отдельно и необязательно, допишется при следующем входе
+  const nuid = await generateUniqueNuid(1);
   await registerNuid(fbUser.uid, nuid, "user").catch(e => {
     console.warn("NUID не записался (проверь правила firestore):", e.message);
   });
@@ -69,8 +84,11 @@ export async function getUserDoc(uid) {
   return snap.exists() ? snap.data() : null;
 }
 
+// setDoc с merge, а не updateDoc: у аккаунтов, созданных до исправления выше,
+// документа могло не быть вовсе, и обновление падало с «No document to update».
+// Так профиль сам восстановится при первом же сохранении.
 export async function updateUserDoc(uid, patch) {
-  await updateDoc(doc(db, "users", uid), patch);
+  await setDoc(doc(db, "users", uid), patch, { merge: true });
 }
 
 // Смена юзернейма — старая бронь освобождается, новая занимается, само поле в

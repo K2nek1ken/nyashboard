@@ -8,7 +8,7 @@ export function initRefreshButton(onRefresh) {
   btn.className = "refreshFab";
   btn.type = "button";
   btn.title = "обновить список";
-  btn.innerHTML = `<span class="nf">${ICON.refresh || "\uf021"}</span>`;
+  btn.innerHTML = `<span class="nf">${ICON.refresh}</span><span>Обновить</span>`;
   document.body.appendChild(btn);
 
   function sync() {
@@ -18,8 +18,16 @@ export function initRefreshButton(onRefresh) {
   sync();
 
   btn.addEventListener("click", async () => {
+    if (btn.classList.contains("spinning")) return;
     btn.classList.add("spinning");
-    try { await onRefresh(); }
-    finally { setTimeout(() => btn.classList.remove("spinning"), 400); }
+    const started = Date.now();
+    try {
+      await onRefresh();
+    } finally {
+      // держим вращение хотя бы полсекунды: мгновенный отклик выглядит так,
+      // будто кнопка не сработала
+      const left = Math.max(0, 500 - (Date.now() - started));
+      setTimeout(() => btn.classList.remove("spinning"), left);
+    }
   });
 }

@@ -1,10 +1,11 @@
-import { currentUser, currentUserDoc, onAuthChange, patchCurrentUserDoc, logout, loginWithGoogle } from "./auth.js";
+import { currentUser, currentUserDoc, authPending, onAuthChange, patchCurrentUserDoc, logout, loginWithGoogle } from "./auth.js";
 import { updateUserDoc, isUsernameTaken, changeUsername } from "./data.js";
 import { uploadImage, exportLocalBackup } from "./storage.js";
 import { showToast } from "./ui.js";
 import { shapeClass, shapePickerHtml, openCropper, applyAvatar } from "./avatar.js";
 import { openEmojiPicker } from "./emoji.js";
-import { requestNuid } from "./nuid.js";
+import { ICON } from "./icons.js";
+import { requestNuid, ensureNuidExists } from "./nuid.js";
 
 export function initProfilePageForm() {
   const loggedOutNote = document.getElementById("profileLoggedOutNote");
@@ -46,6 +47,16 @@ export function initProfilePageForm() {
   }
 
   function render() {
+    // Пока Firebase восстанавливает сессию, currentUser ещё пуст — но это не
+    // значит, что человек не вошёл. Раньше здесь на долю секунды показывалось
+    // «ты не в аккаунте», что выглядело как самопроизвольный выход.
+    if (authPending && !currentUser) {
+      loggedOutNote.classList.remove("hidden");
+      loggedOutNote.innerHTML = `
+        <p class="muted"><span class="nf spin-slow">${ICON.refresh}</span> Секунду, обновляю данные…</p>`;
+      form.classList.add("hidden");
+      return;
+    }
     if (currentUser && currentUserDoc) {
       loggedOutNote.classList.add("hidden");
       form.classList.remove("hidden");
@@ -54,9 +65,12 @@ export function initProfilePageForm() {
       nicknameInput.value = currentUserDoc.nickname || "";
       usernameInput.value = currentUserDoc.username || "";
       bioInput.value = currentUserDoc.bio || "";
-      // свой идентификатор всегда доступен — правило разрешает читать самому себе
+      // Свой идентификатор всегда доступен — правило разрешает читать самому себе.
+      // Если его нет (не записался при регистрации), досоздаём молча.
       uidDisplay.textContent = "загружаю…";
-      requestNuid(currentUser.uid).then(n => { uidDisplay.textContent = n || "—"; });
+      requestNuid(currentUser.uid)
+        .then(n => n || ensureNuidExists(currentUser.uid))
+        .then(n => { uidDisplay.textContent = n || "не записан — проверь правила базы"; });
       nuidVisibility.value = currentUserDoc.nuidVisibility || "friends";
       repostVisibility.value = currentUserDoc.repostVisibility || "everyone";
       genderSelect.value = currentUserDoc.gender || "x";
@@ -68,6 +82,11 @@ export function initProfilePageForm() {
       renderShapePicker();
     } else {
       loggedOutNote.classList.remove("hidden");
+      // возвращаем исходную разметку: её могла затереть заглушка загрузки
+      loggedOutNote.innerHTML = `
+        <p>Ты пока не в аккаунте</p>
+        <button id="pageLoginBtn" class="primaryBtn" style="width:auto; padding:10px 22px;">Войти через Google</button>`;
+      loggedOutNote.querySelector("#pageLoginBtn")?.addEventListener("click", loginWithGoogle);
       form.classList.add("hidden");
     }
   }

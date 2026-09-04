@@ -27,20 +27,26 @@ export function generateNuid(prefixDigit) {
 
 // Свободен ли идентификатор — проверяется по индексу, а не перебором профилей.
 export async function isNuidFree(nuid) {
-  try {
-    const snap = await getDoc(doc(db, "nuidIndex", nuid));
-    return !snap.exists();
-  } catch {
-    return false;   // не смогли проверить — считаем занятым, возьмём другой
-  }
+  const snap = await getDoc(doc(db, "nuidIndex", nuid));
+  return !snap.exists();
 }
 
+// Никогда не бросает исключение. Если индекс недоступен (например, правила ещё
+// не залиты), берём случайный идентификатор без проверки: пространство в миллион
+// значений, совпадение крайне маловероятно, а вот сорвать из-за этого создание
+// аккаунта — совершенно недопустимо. Раньше именно так и происходило: NUID не
+// подбирался, исключение летело вверх, и профиль не создавался вообще.
 export async function generateUniqueNuid(prefixDigit) {
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const candidate = generateNuid(prefixDigit);
-    if (await isNuidFree(candidate)) return candidate;
+    try {
+      if (await isNuidFree(candidate)) return candidate;
+    } catch (e) {
+      console.warn("Индекс NUID недоступен, беру идентификатор без проверки:", e.message);
+      return candidate;
+    }
   }
-  throw new Error("Не удалось подобрать свободный NUID, попробуй ещё раз");
+  return generateNuid(prefixDigit);
 }
 
 // Записывает идентификатор и индекс. Вызывается один раз при создании аккаунта.
@@ -82,4 +88,19 @@ export async function migrateLegacyNuid(userDoc) {
   const existing = await getDoc(doc(db, "userNuids", currentUser.uid)).catch(() => null);
   if (existing?.exists()) return;
   await registerNuid(currentUser.uid, userDoc.publicUid, "user").catch(() => {});
+}
+
+// Досоздание идентификатора для аккаунтов, у которых он не записался при
+// регистрации (например, из-за незалитых правил). Вызывается при входе.
+export async function ensureNuidExists(uid) {
+  try {
+    const existing = await getDoc(doc(db, "userNuids", uid));
+    if (existing.exists()) return existing.data().publicUid;
+    const nuid = await generateUniqueNuid(1);
+    await registerNuid(uid, nuid, "user");
+    return nuid;
+  } catch (e) {
+    console.warn("Не смогла досоздать NUID:", e.message);
+    return null;
+  }
 }

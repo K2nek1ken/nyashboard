@@ -4,6 +4,8 @@ import {
   arrayUnion, arrayRemove, increment, where
 } from "./firebase.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
+import { wireImageZoom } from "./lightbox.js";
+import { askText, askConfirm } from "./dialog.js";
 import { uploadImages } from "./storage.js";
 import { showToast, escapeHtml, timeAgo, gendered } from "./ui.js";
 import { ICON, SVG_ICON } from "./icons.js";
@@ -26,6 +28,14 @@ let feedUnsub = null;
 let lastRenderedPosts = null;
 
 // ---------- подписка на общую ленту ----------
+// Пересобрать ленту заново: перечитывает отметки прочитанного и интересы,
+// затем пересортировывает уже загруженные записи. Полная перезагрузка страницы
+// для этого не нужна — данные и так приходят живым потоком.
+export async function refreshFeed() {
+  await Promise.all([loadSubscriptions(), loadFriends(), loadSeen(), loadInterests()]);
+  if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+}
+
 export function subscribeFeed() {
   if (!feedListEl) return;
   if (feedUnsub) return;
@@ -141,6 +151,7 @@ export function wirePostCard(p, container = document) {
   wireCarousels(card);
   wireMentions(card);
   observeSeen(card);
+  wireImageZoom(card);
 
   card.querySelectorAll('[data-action="viewAuthor"]').forEach(el => {
     el.addEventListener("click", () => {
@@ -315,7 +326,7 @@ async function repost(p) {
 }
 
 async function deletePost(p, card) {
-  if (!confirm("Удалить пост навсегда? Это нельзя отменить.")) return;
+  if (!await askConfirm("Удалить запись?", { hint: "Запись и ответы к ней исчезнут навсегда.", okLabel: "Удалить", danger: true })) return;
   try {
     await deleteDoc(doc(db, "posts", p.id));
     card.remove();

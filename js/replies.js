@@ -3,6 +3,7 @@ import {
   serverTimestamp, arrayUnion, arrayRemove, increment
 } from "./firebase.js";
 import { currentUser, currentUserDoc } from "./auth.js";
+import { askText, askConfirm } from "./dialog.js";
 import { showToast, escapeHtml, timeAgo } from "./ui.js";
 import { ICON } from "./icons.js";
 import { markOwned, isOwned } from "./ownership.js";
@@ -94,7 +95,7 @@ export function wireReplyLikes(container, replies, onDeleted) {
     });
     wireKebab(row, {
       deleteReply: async () => {
-        if (!confirm("Удалить ответ?")) return;
+        if (!await askConfirm("Удалить ответ?", { okLabel: "Удалить", danger: true })) return;
         try {
           await deleteReply(r.id);
           row.remove();

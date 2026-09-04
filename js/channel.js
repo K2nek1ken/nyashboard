@@ -1,4 +1,5 @@
 import { currentUser, authReady } from "./auth.js";
+import { askText, askConfirm } from "./dialog.js";
 import {
   getChannel, isChannelCreator, updateChannel, changeChannelUsername,
   isSubscribedLocal, subscribeToChannel, unsubscribeFromChannel,
@@ -193,7 +194,7 @@ function wirePeopleModal(channelId) {
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
 
   document.getElementById("addPeopleBtn").addEventListener("click", async () => {
-    const handle = prompt("Юзернейм (@ник) или NUID (U1xxxxxx) человека, которого добавить:");
+    const handle = await askText("Добавить человека", { placeholder: "@юзернейм или U1xxxxxx", hint: "Человек появится в списке подписчиков канала." });
     if (!handle) return;
     try {
       const user = await addPersonToChannel(channelId, handle);
@@ -206,7 +207,7 @@ function wirePeopleModal(channelId) {
   });
 
   document.getElementById("assignAdminBtn").addEventListener("click", async () => {
-    const handle = prompt("Юзернейм (@ник) или NUID (U1xxxxxx) будущего админа:");
+    const handle = await askText("Назначить управляющего", { placeholder: "@юзернейм или U1xxxxxx", hint: "Сможет публиковать от имени канала, но не менять его настройки." });
     if (!handle) return;
     try {
       const user = await assignChannelAdmin(channelId, handle);

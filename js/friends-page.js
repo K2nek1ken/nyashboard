@@ -1,7 +1,9 @@
 import { applySettings } from "./settings.js";
+import { askText, askConfirm } from "./dialog.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
+import { initRefreshButton } from "./refresh-button.js";
 import { initProfileDropdown, authReady, currentUser } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
 import { loadFriendProfiles, removeFriend, isMutualFriend } from "./friends.js";
@@ -102,7 +104,7 @@ async function renderFriends() {
   el.querySelectorAll("[data-remove]").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!confirm("Убрать из друзей?")) return;
+      if (!await askConfirm("Убрать из друзей?", { hint: "Записи этого человека перестанут подниматься в ленте.", okLabel: "Убрать", danger: true })) return;
       await removeFriend(btn.dataset.remove);
       showToast("Убрали из друзей");
       renderFriends();
@@ -120,4 +122,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   await authReady;
   renderChats();
   renderFriends();
+  initRefreshButton(async () => { await renderChats(); await renderFriends(); });
 });

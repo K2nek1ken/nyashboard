@@ -1,4 +1,4 @@
-import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, DEFAULTS } from "./settings.js";
+import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, DEFAULTS } from "./settings.js";
 import { showToast } from "./ui.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
 import { applyFavicon } from "./favicon.js";
@@ -7,6 +7,17 @@ import { clearSeen } from "./seen.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
 import { currentUser } from "./auth.js";
 import { deleteMyAccount } from "./account.js";
+import { askText, askConfirm } from "./dialog.js";
+
+// Показываем, как выглядит выбранная частица: у звёзд своей буквы нет,
+// поэтому рисуем ★ — она ближе всего к тому, что рисует холст.
+function particleGlyph(kind) {
+  return { stars: "\u2605", petals: "\u2740", flowers: "\u273f", leaves: "\uD83C\uDF41", sakura: "\uD83C\uDF38", off: "\u2014" }[kind] || "\u2605";
+}
+
+function decorGlyph(kind) {
+  return { flowers: "\u273f", petals: "\u2740", stars: "\u2726", leaves: "\uD83C\uDF41", none: "\u2014" }[kind] || "\u273f";
+}
 
 function row(label, hint, controlHtml) {
   return `
@@ -44,7 +55,16 @@ export function initSettingsPage() {
           ${Object.entries(ACCENTS).map(([k, v]) =>
             `<button class="accentOption accent-${k} ${s.accent === k ? "selected" : ""}" data-accent="${k}" title="${v}"></button>`).join("")}
         </div>`)}
-      ${row("Падающие частицы", "лёгкая анимация на фоне", select("particles", PARTICLES, s.particles))}
+      ${row("Падающие частицы", "лёгкая анимация на фоне",
+        `<div style="display:flex; align-items:center;">
+           ${select("particles", PARTICLES, s.particles)}
+           <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
+         </div>`)}
+      ${row("Узор на цитатах", "фон у ответа на сообщение в чате",
+        `<div style="display:flex; align-items:center;">
+           ${select("quoteDecor", QUOTE_DECOR, s.quoteDecor)}
+           <span class="particle-preview" id="decorPreview">${decorGlyph(s.quoteDecor)}</span>
+         </div>`)}
       ${row("Эмодзи", "Noto тянется с Google Fonts и почти ничего не весит; Apple красивее, но это локальный файл на 8 МБ",
         select("emoji", EMOJI_SOURCES, s.emoji))}
 
@@ -101,6 +121,14 @@ export function initSettingsPage() {
     host.querySelectorAll("[data-select]").forEach(sel => {
       sel.addEventListener("change", () => {
         setSetting(sel.dataset.select, sel.value);
+        if (sel.dataset.select === "particles") {
+          const prev = host.querySelector("#particlePreview");
+          if (prev) prev.textContent = particleGlyph(sel.value);
+        }
+        if (sel.dataset.select === "quoteDecor") {
+          const prev = host.querySelector("#decorPreview");
+          if (prev) prev.textContent = decorGlyph(sel.value);
+        }
         refreshDefaultAvatars();   // стандартные аватарки перекрашиваем под новую тему
         applyFavicon();
         if (sel.dataset.select === "particles") showToast("Обновится после перезагрузки страницы");
@@ -168,15 +196,15 @@ export function initSettingsPage() {
         " Всё хранится только на этом устройстве."
       : "Профиль интересов пока пуст — он наполняется лайками. Хранится только на этом устройстве.";
 
-    host.querySelector("#clearInterestsBtn").addEventListener("click", () => {
+    host.querySelector("#clearInterestsBtn").addEventListener("click", async () => {
       // подтверждение: кнопка стоит рядом с остальными, промахнуться легко,
       // а восстановить накопленное потом уже нельзя
-      const ok = confirm(
-        "Очистить интересы?\n\n" +
-        "Будет удалён словарь слов, хештегов и авторов, собранный из твоих лайков. " +
-        "Лента перестанет поднимать похожие записи, пока ты не налайкаешь заново.\n\n" +
-        "Это действие нельзя отменить."
-      );
+      const ok = await askConfirm("Очистить интересы?", {
+        hint: "Будет удалён словарь слов, хештегов и авторов, собранный из твоих лайков. " +
+              "Лента перестанет поднимать похожие записи, пока ты не налайкаешь заново. " +
+              "Отменить нельзя.",
+        okLabel: "Очистить", danger: true
+      });
       if (!ok) return;
       clearInterests();
       showToast("Интересы очищены ♡");
@@ -184,28 +212,31 @@ export function initSettingsPage() {
     });
 
     host.querySelector("#deleteAccountBtn")?.addEventListener("click", async () => {
-      const ok = confirm(
-        "Удалить аккаунт?\n\n" +
-        "Будут стёрты профиль, юзернейм, идентификатор, подписки, друзья, интересы " +
-        "и отметки прочитанного. Опубликованные записи останутся, но потеряют связь с аккаунтом.\n\n" +
-        "Это действие нельзя отменить."
-      );
+      const ok = await askConfirm("Удалить аккаунт?", {
+        hint: "Будут стёрты профиль, юзернейм, идентификатор, подписки, друзья, интересы " +
+              "и отметки прочитанного. Опубликованные записи останутся, но потеряют связь " +
+              "с аккаунтом. Отменить нельзя.",
+        okLabel: "Продолжить", danger: true
+      });
       if (!ok) return;
-      if (prompt('Для подтверждения впиши слово «удалить»') !== "удалить") {
-        showToast("Отменено");
-        return;
-      }
+      const word = await askText("Подтверждение", {
+        placeholder: "удалить", hint: "Впиши слово «удалить», чтобы подтвердить.", okLabel: "Удалить аккаунт"
+      });
+      if (word !== "удалить") { showToast("Отменено"); return; }
       try {
         await deleteMyAccount();
-        alert("Аккаунт удалён.");
-        location.href = "index.html";
+        showToast("Аккаунт удалён");
+        setTimeout(() => { location.href = "index.html"; }, 900);
       } catch (e) {
         showToast("Не вышло: " + e.message);
       }
     });
 
-    host.querySelector("#clearSeenBtn").addEventListener("click", () => {
-      if (!confirm("Сбросить отметки «просмотрено»?\n\nВсе записи снова станут непрочитанными.")) return;
+    host.querySelector("#clearSeenBtn").addEventListener("click", async () => {
+      if (!await askConfirm("Сбросить «просмотрено»?", {
+        hint: "Все записи снова станут непрочитанными и поднимутся в ленте.",
+        okLabel: "Сбросить"
+      })) return;
       clearSeen();
       showToast("Сброшено ♡");
     });

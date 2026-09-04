@@ -3,6 +3,10 @@ import {
   query, orderBy, limit, onSnapshot, serverTimestamp
 } from "./firebase.js";
 import { getGuestIdentity, setGuestNickname } from "./identity.js";
+import { getSettings } from "./settings.js";
+import { parseCommand, listCommands } from "./bot.js";
+import { wireImageZoom } from "./lightbox.js";
+import { askText, askConfirm } from "./dialog.js";
 import { uploadImage } from "./storage.js";
 import { showToast, escapeHtml, timeAgo } from "./ui.js";
 import { ICON } from "./icons.js";
@@ -31,22 +35,32 @@ export function subscribeChat() {
   });
 }
 
-// Цветочки на фоне цитаты. Раньше это была строка символов с фиксированным
-// межбуквенным интервалом — получалась ровная сетка, слишком похожая на узор.
-// Теперь позиция, поворот и размер у каждого свои, а сетка с небольшим
-// разбросом не даёт им наложиться друг на друга.
-function petalsHtml(seed = 10) {
+// Узор на фоне цитаты. Символ выбирается в настройках — та же логика, что и у
+// частиц фона. Позиция, поворот и размер у каждого свои, а сетка с разбросом
+// не даёт им наложиться друг на друга.
+const DECOR_GLYPHS = {
+  flowers: "\u273f",         // ✿
+  petals:  "\u2740",         // ❀ — ближе всего к лепестку в текстовом виде
+  stars:   "\u2726",         // ✦
+  leaves:  "\uD83C\uDF41"     // 🍁
+};
+
+function decorHtml() {
+  const kind = getSettings().quoteDecor || "flowers";
+  const glyph = DECOR_GLYPHS[kind];
+  if (!glyph) return "";                    // выбран вариант «без узора»
+
   const cols = 6, rows = 2;
   const out = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (Math.random() < 0.18) continue;            // местами пропускаем — живее
+      if (Math.random() < 0.18) continue;    // местами пропускаем — живее
       const x = (c + 0.5) / cols * 100 + (Math.random() - 0.5) * 9;
       const y = (r + 0.5) / rows * 100 + (Math.random() - 0.5) * 30;
       const rot = Math.floor(Math.random() * 360);
-      const scale = (0.7 + Math.random()).toFixed(2);  // не больше двух минимумов
+      const scale = (0.7 + Math.random()).toFixed(2);   // не больше двух минимумов
       out.push(`<span style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
-               `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})">✿</span>`);
+               `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})">${glyph}</span>`);
     }
   }
   return out.join("");
@@ -57,7 +71,7 @@ function quoteHtml(m) {
   const text = m.replyToText || "(сообщение удалено)";
   return `
     <div class="chat-reply-quote" data-jump="${m.replyToId}">
-      <span class="petals">${petalsHtml()}</span>
+      <span class="petals">${decorHtml()}</span>
       <b>${escapeHtml(m.replyToNickname || "???")}</b>
       <span class="quote-text">${escapeHtml(text.slice(0, 90))}${text.length > 90 ? "…" : ""}</span>
     </div>`;
@@ -76,9 +90,9 @@ function renderChat(msgs) {
       ] : [])
     ];
     return `
-    <div class="chat-msg" data-id="${m.id}">
+    <div class="chat-msg ${m.isBot ? "is-bot" : ""}" data-id="${m.id}">
       <div class="chat-msg-head">
-        <b>${escapeHtml(m.nickname)}</b>
+        <b>${m.isBot ? `<span class="nf">${ICON.smile}</span> бот` : escapeHtml(m.nickname)}</b>
         <span class="muted">· ${timeAgo(m.createdAt)}${m.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
         ${kebabHtml(kebabItems, m.id)}
       </div>
@@ -92,6 +106,7 @@ function renderChat(msgs) {
   if (wasAtBottom) window.scrollTo({ top: document.body.scrollHeight });
 
   wireMentions(messagesEl);
+  wireImageZoom(messagesEl);
   messagesEl.querySelectorAll(".chat-msg").forEach(row => {
     const msgId = row.dataset.id;
     const msg = msgs.find(m => m.id === msgId);
@@ -140,7 +155,7 @@ function renderReplyBar() {
 
 async function editMessage(msgId, row) {
   const currentText = row.querySelector(".txt")?.textContent || "";
-  const next = prompt("Изменить сообщение:", currentText);
+  const next = await askText("Изменить сообщение", { value: currentText, maxlength: 500 });
   if (next === null || !next.trim() || next.trim() === currentText) return;
   try {
     await updateDoc(doc(db, "chatMessages", msgId), { text: next.trim(), editedAt: serverTimestamp() });
@@ -152,7 +167,7 @@ async function editMessage(msgId, row) {
 }
 
 async function deleteMessage(msgId) {
-  if (!confirm("Удалить сообщение?")) return;
+  if (!await askConfirm("Удалить сообщение?", { hint: "Отменить не получится.", okLabel: "Удалить", danger: true })) return;
   try {
     await deleteDoc(doc(db, "chatMessages", msgId));
     showToast("Удалено");
@@ -195,9 +210,21 @@ export function initChatForm() {
     openEmojiPicker(form, (emoji) => { input.value += emoji; input.focus(); });
   });
 
-  changeNickBtn.addEventListener("click", () => {
+  document.getElementById("botHelpBtn")?.addEventListener("click", () => {
+    const cmds = listCommands();
+    const withTarget = cmds.filter(c => c.needsTarget).map(c => c.name).join(", ");
+    const plain = cmds.filter(c => !c.needsTarget).map(c => c.name).join(", ");
+    askConfirm("Команды бота", {
+      hint: `В ответ на чьё-то сообщение: ${withTarget}. ` +
+            `Просто так: ${plain}. ` +
+            `Напиши команду первым словом — бот сам соберёт фразу.`,
+      okLabel: "Понятно"
+    });
+  });
+
+  changeNickBtn.addEventListener("click", async () => {
     const current = getGuestIdentity().nickname;
-    const next = prompt("Новый ник для чата:", current);
+    const next = await askText("Новый ник для чата", { value: current, maxlength: 32 });
     if (next && next.trim()) {
       const identity = setGuestNickname(next.trim());
       nickLabel.textContent = identity.nickname;
@@ -211,12 +238,19 @@ export function initChatForm() {
     if (!text && !pendingChatImage) return;
 
     try {
-      const imageUrl = pendingChatImage ? await uploadImage(pendingChatImage) : null;
       const identity = getGuestIdentity();
+
+      // Команды бота: разбираем до отправки. Если сработала — уходит готовая
+      // фраза с пометкой бота вместо исходного текста.
+      const parsed = parseCommand(text, identity.nickname, replyingTo?.nickname || null);
+      if (parsed?.error) { showToast(parsed.error); return; }
+
+      const imageUrl = pendingChatImage ? await uploadImage(pendingChatImage) : null;
       const payload = {
         guestId: identity.id,
-        nickname: identity.nickname,
-        text,
+        nickname: parsed ? "бот" : identity.nickname,
+        isBot: !!parsed,
+        text: parsed ? parsed.text : text,
         imageUrl,
         createdAt: serverTimestamp()
       };

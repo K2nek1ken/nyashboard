@@ -13,6 +13,7 @@ export const DEFAULTS = {
   timezone: "auto",      // auto = как на устройстве, иначе смещение вида "+03:00"
   logoMessage: "мяу!",   // что говорит логотип, если по нему нажать
   logoSound: "",         // имя выбранного звука; сам файл лежит отдельно
+  quoteDecor: "flowers", // узор на фоне цитаты в чате
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»
   // порядок вкладок: на телефоне слева направо, на ПК сверху вниз
@@ -22,7 +23,17 @@ export const DEFAULTS = {
 export const THEMES = {
   default: "Ночная сирень",
   midnight: "Полночь",
-  sakura: "Сакура"
+  sakura: "Сакура",
+  quiet: "Ночная тишь"
+};
+
+// Символы для фона цитаты в чате — та же логика, что и у частиц фона
+export const QUOTE_DECOR = {
+  flowers: "Цветочки",
+  petals:  "Лепестки",
+  stars:   "Звёздочки",
+  leaves:  "Листья",
+  none:    "Без узора"
 };
 
 export const ACCENTS = {
@@ -33,9 +44,10 @@ export const ACCENTS = {
 
 export const PARTICLES = {
   stars:   "Звёздочки",
-  flowers: "Цветочки ✿",
-  leaves:  "Кленовые листья 🍁",
-  sakura:  "Лепестки сакуры 🌸",
+  flowers: "Цветочки",
+  leaves:  "Кленовые листья",
+  sakura:  "Цветы сакуры",
+  petals:  "Лепестки сакуры",
   off:     "Без частиц"
 };
 
