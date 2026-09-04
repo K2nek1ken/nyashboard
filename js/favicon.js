@@ -14,6 +14,16 @@ const SHAPE = (accent, dark) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox
 <ellipse transform="matrix(0.9982692,0.0588099,-0.0588099,0.9982692,715.7533,673.6428)" rx="86.44" ry="86.44" fill="${dark}"/>
 </g></svg>`;
 
+// Та же мордочка, что и на вкладке браузера, но для шапки сайта.
+// Возвращает data-URI, поэтому подставляется в обычный <img> и перекрашивается
+// вместе с темой.
+export function brandIconUri() {
+  const cs = getComputedStyle(document.documentElement);
+  const accent = cs.getPropertyValue("--accent").trim() || "#ff6eae";
+  const dark = cs.getPropertyValue("--bg").trim() || "#17131c";
+  return "data:image/svg+xml," + encodeURIComponent(SHAPE(accent, dark).replace(/\s+/g, " "));
+}
+
 export function applyFavicon() {
   const cs = getComputedStyle(document.documentElement);
   const accent = cs.getPropertyValue("--accent").trim() || "#ff6eae";
@@ -36,4 +46,7 @@ export function applyFavicon() {
   // цвет строки состояния на телефоне — под фон темы
   let theme = document.querySelector('meta[name="theme-color"]');
   if (theme) theme.content = cs.getPropertyValue("--bg").trim() || "#17131c";
+
+  // иконка в шапке — та же мордочка, её тоже перекрашиваем
+  document.querySelectorAll("[data-brand-icon]").forEach(img => { img.src = uri; });
 }

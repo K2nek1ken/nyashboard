@@ -1,6 +1,7 @@
 import { ICON } from "./icons.js";
 import { getSettings } from "./settings.js";
 import { defaultAvatar } from "./default-avatar.js";
+import { brandIconUri } from "./favicon.js";
 import { showToast } from "./ui.js";
 import { playLogoSound } from "./logo-sound.js";
 
@@ -80,7 +81,7 @@ export function initLayout() {
 
   host.innerHTML = `
     <button class="brand" id="brandBtn" type="button" title="нажми ♡">
-      <span class="brand-mark">♡</span>
+      <img class="brand-icon" src="${brandIconUri()}" alt="" data-brand-icon>
       <span class="brand-text">Nyash<span>Board</span></span>
     </button>
     <nav id="navTabs">
