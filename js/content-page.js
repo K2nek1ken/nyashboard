@@ -2,6 +2,7 @@ import { applySettings } from "./settings.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
+import { initRefreshButton } from "./refresh-button.js";
 import { initProfileDropdown } from "./auth.js";
 import { initContentTab } from "./content.js";
 
@@ -13,4 +14,5 @@ window.addEventListener("DOMContentLoaded", () => {
   initStarfield();
   initProfileDropdown();
   initContentTab();
+  initRefreshButton(() => initContentTab());
 });

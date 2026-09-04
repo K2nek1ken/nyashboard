@@ -31,16 +31,33 @@ export function subscribeChat() {
   });
 }
 
-// Декоративные цветочки на фоне цитаты — по просьбе Неко. Чисто CSS-слой
-// с низкой прозрачностью, текст поверх остаётся читаемым.
-const PETALS = "✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿ ✿";
+// Цветочки на фоне цитаты. Раньше это была строка символов с фиксированным
+// межбуквенным интервалом — получалась ровная сетка, слишком похожая на узор.
+// Теперь позиция, поворот и размер у каждого свои, а сетка с небольшим
+// разбросом не даёт им наложиться друг на друга.
+function petalsHtml(seed = 10) {
+  const cols = 6, rows = 2;
+  const out = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (Math.random() < 0.18) continue;            // местами пропускаем — живее
+      const x = (c + 0.5) / cols * 100 + (Math.random() - 0.5) * 9;
+      const y = (r + 0.5) / rows * 100 + (Math.random() - 0.5) * 30;
+      const rot = Math.floor(Math.random() * 360);
+      const scale = (0.7 + Math.random()).toFixed(2);  // не больше двух минимумов
+      out.push(`<span style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
+               `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})">✿</span>`);
+    }
+  }
+  return out.join("");
+}
 
 function quoteHtml(m) {
   if (!m.replyToId) return "";
   const text = m.replyToText || "(сообщение удалено)";
   return `
     <div class="chat-reply-quote" data-jump="${m.replyToId}">
-      <span class="petals">${PETALS}</span>
+      <span class="petals">${petalsHtml()}</span>
       <b>${escapeHtml(m.replyToNickname || "???")}</b>
       <span class="quote-text">${escapeHtml(text.slice(0, 90))}${text.length > 90 ? "…" : ""}</span>
     </div>`;
@@ -141,7 +158,13 @@ async function deleteMessage(msgId) {
     showToast("Удалено");
   } catch (e) {
     console.error(e);
-    showToast("Не удалилось: " + e.message);
+    // Частый случай у гостей: анонимная сессия сменилась (её удалила
+    // автоочистка в Firebase или человек почистил данные браузера), и запись
+    // о владении указывает на идентификатор, которого больше нет.
+    const lost = /permission|insufficient/i.test(e.message);
+    showToast(lost
+      ? "Не выходит: сообщение отправлено с другой гостевой сессии"
+      : "Не удалилось: " + e.message);
   }
 }
 

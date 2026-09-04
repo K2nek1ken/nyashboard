@@ -259,7 +259,23 @@ bash nyashboard/setup-termux.sh https://github.com/USERNAME/nyashboard.git
 bash $HOME/nyashboard/deploy.sh "что изменилось"
 ```
 
-Скрипт сам найдёт свежий архив в загрузках, распакует его поверх репозитория, закоммитит и отправит на GitHub. Файл `js/config.js` при этом сохраняется — ключи не затираются содержимым архива. Если установлен `firebase-tools`, правила базы задеплоятся автоматически при их изменении.
+Скрипт сам найдёт свежий архив в загрузках, распакует его поверх репозитория, закоммитит и отправит на GitHub. Файлы `js/config.js` и папка `.github` при этом сохраняются — ключи и настройки автодеплоя не затираются содержимым архива. Правила базы уедут следом сами, если настроен workflow ниже.
+
+### Автодеплой правил
+
+В `.github/workflows/deploy-rules.yml` лежит готовый workflow: при изменении
+`firestore.rules` правила уходят в Firebase сами, сразу после пуша. Это снимает
+самую частую причину поломок — забытый деплой правил после обновления.
+
+Настройка один раз, в репозитории → Settings → Secrets and variables → Actions:
+
+| Secret | Значение |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT` | содержимое json-ключа целиком |
+| `FIREBASE_PROJECT_ID` | идентификатор проекта Firebase |
+
+Ключ берётся в Firebase: Project settings → Service accounts → Generate new
+private key. Сервисный аккаунт бесплатен и к платному тарифу отношения не имеет.
 
 ### Если что-то не работает
 
@@ -339,6 +355,7 @@ NYASH_REPO=/путь/к/репозиторию bash deploy.sh "коммит"
 ├── settings.html           настройки
 ├── site.webmanifest        манифест для установки на телефон
 ├── firestore.rules         правила доступа к базе
+├── CLAUDE.md               контекст проекта для Claude Code
 ├── setup-termux.sh         первичная настройка Termux
 ├── deploy.sh               деплой из Termux одной командой
 └── js/

@@ -12,6 +12,7 @@ export const DEFAULTS = {
   gender: "x",           // m | f | x — для родовых окончаний в интерфейсе
   timezone: "auto",      // auto = как на устройстве, иначе смещение вида "+03:00"
   logoMessage: "мяу!",   // что говорит логотип, если по нему нажать
+  logoSound: "",         // имя выбранного звука; сам файл лежит отдельно
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»
   // порядок вкладок: на телефоне слева направо, на ПК сверху вниз
@@ -32,8 +33,9 @@ export const ACCENTS = {
 
 export const PARTICLES = {
   stars:   "Звёздочки",
-  flowers: "Цветочки",
-  leaves:  "Листики",
+  flowers: "Цветочки ✿",
+  leaves:  "Кленовые листья 🍁",
+  sakura:  "Лепестки сакуры 🌸",
   off:     "Без частиц"
 };
 

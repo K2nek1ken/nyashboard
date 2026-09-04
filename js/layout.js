@@ -2,6 +2,7 @@ import { ICON } from "./icons.js";
 import { getSettings } from "./settings.js";
 import { defaultAvatar } from "./default-avatar.js";
 import { showToast } from "./ui.js";
+import { playLogoSound } from "./logo-sound.js";
 
 // Единая навигация для всех страниц. Раньше шапка была скопирована в каждый из
 // 10 HTML-файлов — любая правка означала 10 одинаковых редактирований и риск,
@@ -68,10 +69,20 @@ export function initLayout() {
 
   // Логотип теперь кнопка: короткое нажатие мяукает, долгое (или средний клик)
   // уводит на ленту — чтобы не отнимать привычный способ вернуться на главную.
+  // Нажатие по вкладке, на которой уже находишься, перезагружало страницу —
+  // теперь просто прокручиваем наверх, это заметно приятнее.
+  host.querySelectorAll(".navBtn.active").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+
   const brand = host.querySelector("#brandBtn");
   let held = null;
   brand.addEventListener("click", () => {
     showToast(getSettings().logoMessage || "мяу!");
+    playLogoSound();   // если человек выбрал свой звук
   });
   brand.addEventListener("dblclick", () => { location.href = "index.html"; });
   brand.addEventListener("pointerdown", () => {
@@ -130,50 +141,35 @@ export function initStarfield() {
     };
   }
 
-  // три вида частиц; какой рисовать — берётся из настроек
-  const PAINTERS = {
-    stars(s) {
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const r = i % 2 === 0 ? s.size : s.size * 0.45;
-        const a = (Math.PI / 5) * i - Math.PI / 2;
-        const px = Math.cos(a) * r, py = Math.sin(a) * r;
-        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.fill();
-    },
-    flowers(s) {
-      // пять лепестков вокруг серединки — силуэт ✿
-      const petal = s.size * 0.55;
-      for (let i = 0; i < 5; i++) {
-        const a = (Math.PI * 2 / 5) * i;
-        ctx.beginPath();
-        ctx.ellipse(Math.cos(a) * petal, Math.sin(a) * petal,
-                    s.size * 0.42, s.size * 0.62, a, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = Math.min(1, s.alpha * 2.2);
-      ctx.beginPath();
-      ctx.arc(0, 0, s.size * 0.26, 0, Math.PI * 2);
-      ctx.fill();
-    },
-    leaves(s) {
-      // лист: два дуговых края + прожилка
-      ctx.beginPath();
-      ctx.moveTo(0, -s.size);
-      ctx.quadraticCurveTo(s.size * 0.85, 0, 0, s.size);
-      ctx.quadraticCurveTo(-s.size * 0.85, 0, 0, -s.size);
-      ctx.fill();
-      ctx.globalAlpha = Math.min(1, s.alpha * 2);
-      ctx.strokeStyle = starColor;
-      ctx.lineWidth = Math.max(0.6, s.size * 0.09);
-      ctx.beginPath();
-      ctx.moveTo(0, -s.size * 0.85);
-      ctx.lineTo(0, s.size * 0.85);
-      ctx.stroke();
-    }
+  // Частицы рисуются символами, а не векторными фигурами: так они совпадают
+  // с тем, что человек выбрал в настройках, и не превращаются в снежинки из-за
+  // моей интерпретации. Текстовые символы красятся акцентом, цветные эмодзи
+  // остаются собственных цветов — для лепестков и листьев это как раз к месту.
+  const GLYPHS = {
+    stars:   null,        // звёзды рисуем векторно: символ ★ выглядит грубее
+    flowers: "\u273f",    // ✿
+    leaves:  "\uD83C\uDF41",  // 🍁
+    sakura:  "\uD83C\uDF38"   // 🌸
   };
+
+  function drawGlyph(s, glyph) {
+    ctx.font = `${s.size * 2.4}px "Monaspace Neon NF", "Noto Color Emoji", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(glyph, 0, 0);
+  }
+
+  function drawVectorStar(s) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? s.size : s.size * 0.45;
+      const a = (Math.PI / 5) * i - Math.PI / 2;
+      const px = Math.cos(a) * r, py = Math.sin(a) * r;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
 
   function drawStar(s) {
     ctx.save();
@@ -181,7 +177,9 @@ export function initStarfield() {
     ctx.rotate(s.angle);
     ctx.globalAlpha = s.alpha;
     ctx.fillStyle = starColor;
-    (PAINTERS[particleKind] || PAINTERS.stars)(s);
+    const glyph = GLYPHS[particleKind];
+    if (glyph) drawGlyph(s, glyph);
+    else drawVectorStar(s);
     ctx.restore();
   }
 
@@ -203,9 +201,18 @@ export function initStarfield() {
   resize();
   window.addEventListener("resize", resize);
   // не жжём батарею, когда вкладка не видна
+  // Возврат из фона: браузер мог сам остановить анимацию и очистить холст,
+  // поэтому перезапускаем цикл и пересоздаём частицы, если холст обнулился.
+  function resume() {
+    if (document.hidden) return;
+    if (!stars.length) resize();
+    if (!raf) tick();
+  }
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { cancelAnimationFrame(raf); raf = null; }
-    else if (!raf) tick();
+    else resume();
   });
+  window.addEventListener("pageshow", resume);
+  window.addEventListener("focus", resume);
   tick();
 }

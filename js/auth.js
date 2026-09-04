@@ -78,7 +78,23 @@ onAuthStateChanged(auth, async (fbUser) => {
     writeProfileCache(null);
   } else {
     currentUser = fbUser;
-    currentUserDoc = await ensureUserDoc(fbUser);
+    try {
+      currentUserDoc = await ensureUserDoc(fbUser);
+    } catch (e) {
+      // Раньше любая ошибка здесь (например, не задеплоенные правила для
+      // userNuids) роняла весь обработчик: аккаунт в базе создавался, а
+      // интерфейс так и оставался в состоянии «не вошёл». Теперь вход
+      // доводится до конца с тем, что есть, а проблема просто пишется в консоль.
+      console.error("Профиль не догрузился, вхожу с минимальными данными:", e);
+      currentUserDoc = {
+        uid: fbUser.uid,
+        username: "user_" + fbUser.uid.slice(0, 6),
+        nickname: fbUser.displayName || "Новый неко",
+        avatarUrl: fbUser.photoURL || "",
+        _incomplete: true
+      };
+      showToast("Вошли, но профиль подгрузился не полностью");
+    }
     cachedUserDoc = currentUserDoc;
     writeProfileCache(currentUserDoc);
   }

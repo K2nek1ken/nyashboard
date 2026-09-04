@@ -2,6 +2,7 @@ import { applySettings } from "./settings.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
+import { initRefreshButton } from "./refresh-button.js";
 import { initProfileDropdown } from "./auth.js";
 import { subscribeFeed, initPostEditor } from "./feed.js";
 import { initInlineComposer } from "./inline-composer.js";
@@ -18,4 +19,5 @@ window.addEventListener("DOMContentLoaded", () => {
   initPostEditor();
   initInlineComposer();
   subscribeFeed();
+  initRefreshButton(() => location.reload());
 });

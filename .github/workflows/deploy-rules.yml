@@ -1,0 +1,48 @@
+# Автодеплой правил Firestore при пуше в main.
+#
+# Зачем: правила меняются почти каждое обновление, и забыть про них — значит
+# получить «Missing or insufficient permissions» на ровном месте. Пуш из Termux
+# теперь делает всё разом: и сайт, и правила.
+#
+# Что нужно один раз настроить:
+#   1. Создать сервисный аккаунт в Firebase:
+#      Project settings → Service accounts → Generate new private key
+#   2. В репозитории: Settings → Secrets and variables → Actions → New secret
+#      имя  FIREBASE_SERVICE_ACCOUNT
+#      значение — содержимое скачанного json-файла целиком
+#   3. Там же добавить secret FIREBASE_PROJECT_ID со значением nyashboard
+#
+# Сервисный аккаунт бесплатен и к тарифу Blaze отношения не имеет.
+
+name: Deploy Firestore rules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+      - "firebase.json"
+  workflow_dispatch:        # можно запустить вручную с сайта GitHub
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account.json
+          firebase deploy --only firestore:rules \
+            --project "${{ secrets.FIREBASE_PROJECT_ID }}" \
+            --non-interactive
+          rm -f service-account.json

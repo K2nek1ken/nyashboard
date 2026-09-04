@@ -4,6 +4,9 @@ import { refreshDefaultAvatars } from "./default-avatar.js";
 import { applyFavicon } from "./favicon.js";
 import { clearInterests, interestsSummary } from "./interests.js";
 import { clearSeen } from "./seen.js";
+import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
+import { currentUser } from "./auth.js";
+import { deleteMyAccount } from "./account.js";
 
 function row(label, hint, controlHtml) {
   return `
@@ -53,6 +56,13 @@ export function initSettingsPage() {
         select("gender", GENDERS, s.gender))}
       ${row("Что говорит логотип", "показывается при нажатии на название сайта",
         `<input class="settingSelect" id="logoMessageInput" maxlength="40" value="${(s.logoMessage || "").replace(/"/g, "&quot;")}" style="width:150px;">`)}
+      ${row("Звук логотипа", "mp3 или wav до мегабайта, хранится только на этом устройстве",
+        `<div style="display:flex; gap:6px; align-items:center;">
+           <label class="secondaryBtn" for="logoSoundInput" style="width:auto; margin:0; padding:7px 12px; cursor:pointer;">Выбрать</label>
+           <input type="file" id="logoSoundInput" accept="audio/mpeg,audio/wav,audio/*" hidden>
+           <button class="linkBtn" id="logoSoundClear" style="width:auto;">убрать</button>
+         </div>`)}
+      <p class="muted" style="font-size:12px; margin-top:0;" id="logoSoundInfo"></p>
 
       <div class="section-title">Вкладки</div>
       ${row("Вкладка «Друзья»", "личные чаты и список друзей", toggle("showFriends", s.showFriends === "on"))}
@@ -75,6 +85,13 @@ export function initSettingsPage() {
       <p class="muted" style="font-size:12px;" id="interestsInfo"></p>
       <button id="clearInterestsBtn" class="dangerBtn">Очистить интересы</button>
       <button id="clearSeenBtn" class="secondaryBtn">Сбросить «просмотренное»</button>
+      ${currentUser ? `
+        <div class="section-title">Аккаунт</div>
+        <p class="muted" style="font-size:12px; margin-top:0;">
+          Удаление стирает профиль, юзернейм, идентификатор, подписки, друзей и личные данные.
+          Записи и сообщения останутся, но перестанут быть связаны с аккаунтом.
+        </p>
+        <button id="deleteAccountBtn" class="dangerBtn">Удалить аккаунт</button>` : ""}
       <p class="muted" style="font-size:12px;">
         После сброса «просмотренного» все записи снова считаются непрочитанными
         и поднимаются в ленте.
@@ -112,6 +129,29 @@ export function initSettingsPage() {
 
     renderTabOrder();
 
+    // звук логотипа
+    const soundInput = host.querySelector("#logoSoundInput");
+    const soundInfo = host.querySelector("#logoSoundInfo");
+    getLogoSound().then(rec => {
+      soundInfo.textContent = rec ? `Выбран файл: ${rec.name}` : "Звук не выбран — логотип просто пишет сообщение.";
+    });
+    soundInput?.addEventListener("change", async () => {
+      const file = soundInput.files[0];
+      soundInput.value = "";
+      if (!file) return;
+      try {
+        await saveLogoSound(file);
+        soundInfo.textContent = `Выбран файл: ${file.name}`;
+        playLogoSound();
+        showToast("Звук сохранён ♡");
+      } catch (e) { showToast(e.message); }
+    });
+    host.querySelector("#logoSoundClear")?.addEventListener("click", async () => {
+      await clearLogoSound();
+      soundInfo.textContent = "Звук не выбран — логотип просто пишет сообщение.";
+      showToast("Звук убран");
+    });
+
     const logoInput = host.querySelector("#logoMessageInput");
     if (logoInput) {
       logoInput.addEventListener("change", () => {
@@ -141,6 +181,27 @@ export function initSettingsPage() {
       clearInterests();
       showToast("Интересы очищены ♡");
       render();
+    });
+
+    host.querySelector("#deleteAccountBtn")?.addEventListener("click", async () => {
+      const ok = confirm(
+        "Удалить аккаунт?\n\n" +
+        "Будут стёрты профиль, юзернейм, идентификатор, подписки, друзья, интересы " +
+        "и отметки прочитанного. Опубликованные записи останутся, но потеряют связь с аккаунтом.\n\n" +
+        "Это действие нельзя отменить."
+      );
+      if (!ok) return;
+      if (prompt('Для подтверждения впиши слово «удалить»') !== "удалить") {
+        showToast("Отменено");
+        return;
+      }
+      try {
+        await deleteMyAccount();
+        alert("Аккаунт удалён.");
+        location.href = "index.html";
+      } catch (e) {
+        showToast("Не вышло: " + e.message);
+      }
     });
 
     host.querySelector("#clearSeenBtn").addEventListener("click", () => {

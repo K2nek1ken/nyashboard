@@ -20,14 +20,18 @@ export function applyFavicon() {
   const dark = cs.getPropertyValue("--bg").trim() || "#17131c";
 
   const uri = "data:image/svg+xml," + encodeURIComponent(SHAPE(accent, dark).replace(/\s+/g, " "));
-  let link = document.querySelector('link[rel="icon"]');
-  if (!link) {
-    link = document.createElement("link");
+  // Заменяем все объявленные иконки: если оставить старую ссылку на файл,
+  // браузер может продолжить показывать закэшированную версию.
+  const links = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+  if (!links.length) {
+    const link = document.createElement("link");
     link.rel = "icon";
     link.type = "image/svg+xml";
+    link.href = uri;
     document.head.appendChild(link);
+  } else {
+    links.forEach(l => { l.type = "image/svg+xml"; l.href = uri; });
   }
-  link.href = uri;
 
   // цвет строки состояния на телефоне — под фон темы
   let theme = document.querySelector('meta[name="theme-color"]');

@@ -4,8 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NyashBoard ♡ — Настройки</title>
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="assets/favicon.svg">
+  <script>
+    // Тема применяется до отрисовки, иначе при каждом переходе между вкладками
+    // страница мигает оформлением по умолчанию, пока подгружаются модули.
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem("nyash_settings")) || {};
+        var r = document.documentElement;
+        r.dataset.theme = s.theme || "default";
+        r.dataset.accent = s.accent || "pink";
+        r.dataset.particles = s.particles || "stars";
+        r.dataset.emoji = s.emoji || "noto";
+        r.dataset.time = s.timeFormat || "relative";
+        r.dataset.tz = s.timezone || "auto";
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="icon" href="assets/favicon.svg?v=2" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="assets/favicon.svg?v=2">
   <link rel="manifest" href="site.webmanifest">
   <meta name="theme-color" content="#17131c">
   <link rel="stylesheet" href="style.css">

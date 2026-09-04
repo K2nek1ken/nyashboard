@@ -56,7 +56,11 @@ export async function ensureUserDoc(fbUser) {
   batch.set(ref, base);
   batch.set(doc(db, "usernames", username.toLowerCase()), { type: "user", ownerId: fbUser.uid });
   await batch.commit();
-  await registerNuid(fbUser.uid, nuid, "user");
+  // NUID пишется в отдельные коллекции; если правила для них ещё не залиты,
+  // аккаунт всё равно должен создаться — идентификатор допишется позже
+  await registerNuid(fbUser.uid, nuid, "user").catch(e => {
+    console.warn("NUID не записался (проверь правила firestore):", e.message);
+  });
   return base;
 }
 
