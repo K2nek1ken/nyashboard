@@ -11,6 +11,7 @@ import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
 import { openEmojiPicker } from "./emoji.js";
 import { ICON } from "./icons.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 applySettings();
 
@@ -76,7 +77,7 @@ async function init() {
   document.getElementById("dmUsername").textContent = u.username || "???";
   document.getElementById("dmStatus").textContent = u.statusEmoji || "";
   const av = document.getElementById("dmAvatar");
-  av.src = u.avatarUrl || "assets/anon.svg";
+  av.src = u.avatarUrl || defaultAvatar();
   av.className = `avatar-shaped ${shapeClass(u.avatarShape)}`;
   document.getElementById("dmHeader").addEventListener("click", () => {
     location.href = `user.html?uid=${otherUid}`;

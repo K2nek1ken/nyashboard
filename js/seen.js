@@ -1,38 +1,53 @@
-// Отметки «видел». Хранятся локально: на сервере это была бы запись на каждый
-// показ каждого поста каждым человеком — самый дорогой способ спалить бесплатный
-// лимит Firestore. Локально же это бесплатно и мгновенно, а минус только один:
-// на другом устройстве лента снова покажется свежей.
-const KEY = "nyash_seen_posts";
-const MAX = 800; // чтобы localStorage не рос бесконечно
+import { createSyncedStore } from "./synced-store.js";
 
-function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
-  catch { return {}; }
+// Отметки «прочитано». Привязаны к аккаунту, поэтому лента не «сбрасывается»
+// при заходе с другого устройства. У гостей остаются только в браузере —
+// им просто некуда синхронизировать.
+//
+// Запись отложенная (см. synced-store): сохранять каждый просмотр отдельным
+// запросом было бы дорого, поэтому накопленное уходит пачкой.
+const MAX = 800;   // потолок, чтобы документ не рос бесконечно
+
+function empty() { return {}; }
+
+// При входе объединяем: то, что прочитано гостем на этом устройстве,
+// добавляется к прочитанному в аккаунте.
+function mergeSeen(remote, local) {
+  return { ...remote, ...local };
 }
-let cache = load();
+
+const store = createSyncedStore({
+  localKey: "nyash_seen_posts",
+  docName: "seen",
+  empty,
+  merge: mergeSeen
+});
+
+export const loadSeen = store.load;
 
 export function isSeen(postId) {
-  return Object.prototype.hasOwnProperty.call(cache, postId);
+  return Object.prototype.hasOwnProperty.call(store.get(), postId);
 }
 
 export function markSeen(postId) {
   if (isSeen(postId)) return;
-  cache[postId] = Date.now();
-  const keys = Object.keys(cache);
-  if (keys.length > MAX) {
-    // выкидываем самые старые отметки
-    keys.sort((a, b) => cache[a] - cache[b]).slice(0, keys.length - MAX).forEach(k => delete cache[k]);
-  }
-  localStorage.setItem(KEY, JSON.stringify(cache));
+  store.update(data => {
+    data[postId] = Date.now();
+    const keys = Object.keys(data);
+    if (keys.length > MAX) {
+      keys.sort((a, b) => data[a] - data[b])
+          .slice(0, keys.length - MAX)
+          .forEach(k => delete data[k]);
+    }
+  });
 }
 
 export function clearSeen() {
-  cache = {};
-  localStorage.removeItem(KEY);
+  store.reset();
 }
 
-// Помечаем пост просмотренным, когда он реально побыл на экране пару секунд,
-// а не просто пролетел мимо при быстром скролле.
+// Помечаем запись прочитанной, когда она реально побыла на экране пару секунд,
+// а не просто пролетела мимо при быстром скролле.
 let observer = null;
 const timers = new WeakMap();
 

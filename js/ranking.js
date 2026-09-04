@@ -1,35 +1,49 @@
 import { isSeen } from "./seen.js";
 import { getSubscriptionsSync } from "./subscriptions.js";
+import { getFriendsSync } from "./friends.js";
+import { interestScore } from "./interests.js";
 import { getSettings } from "./settings.js";
 
-// Умная лента. Идея простая и предсказуемая (никакого чёрного ящика):
-// каждому посту начисляем очки, сортируем по убыванию.
+// Умная лента. В ленту попадают ВСЕ записи — ничего не отфильтровывается,
+// меняется только порядок. Логика прозрачная, без чёрного ящика:
 //
-//   +1000  пост от канала, на который ты подписан(а), и ты его ещё не видел(а)
-//          — именно это даёт «старые посты подписок всё равно наверху»
-//   +300   любой другой непросмотренный пост
-//   +N     свежесть: чем новее, тем больше (затухает за неделю)
-//   -700   уже просмотренные — уезжают вниз, но не исчезают совсем
+//   +1000  запись подписки или друга, ещё не прочитанная
+//          — именно это держит их наверху даже когда они старые
+//   +300   любая другая непрочитанная
+//   +200   запись подписки или друга, уже прочитанная
+//          (иначе канал утонул бы навсегда после первого прочтения)
+//   ±400   похожесть на то, что ты лайкала — см. interests.js
+//   +250   свежесть, затухает за неделю
+//   -700   уже прочитано: уезжает вниз, но не исчезает
 //
 // Порядок пересчитывается только при загрузке страницы: если бы он менялся
-// прямо во время чтения, лента прыгала бы под пальцами.
+// во время чтения, лента прыгала бы под пальцами.
 const WEIGHTS = {
-  subscribedUnseen: 1000,
+  followedUnseen: 1000,
   unseen: 300,
-  seenPenalty: -700,
-  freshnessMax: 250
+  followedBonus: 200,
+  interest: 400,
+  freshnessMax: 250,
+  seenPenalty: -700
 };
 
-export function scorePost(post, subs) {
+export function scorePost(post, subs, friends) {
   const seen = isSeen(post.id);
-  const fromSubscription = post.channelId && subs.includes(post.channelId);
+  // «Свой» источник — это и канал из подписок, и друг: логика одна и та же
+  const followed =
+    (post.channelId && subs.includes(post.channelId)) ||
+    (post.authorUid && friends.includes(post.authorUid));
 
   let score = 0;
-  if (!seen && fromSubscription) score += WEIGHTS.subscribedUnseen;
+  if (!seen && followed) score += WEIGHTS.followedUnseen;
   else if (!seen) score += WEIGHTS.unseen;
   if (seen) score += WEIGHTS.seenPenalty;
-  // подписки получают бонус и после прочтения, иначе канал утонет навсегда
-  if (fromSubscription) score += 200;
+  if (followed) score += WEIGHTS.followedBonus;
+
+  // похожесть на понравившееся; отрицательная — если тема отмечена как ненужная
+  if (getSettings().recommendations !== "off") {
+    score += interestScore(post) * WEIGHTS.interest;
+  }
 
   const ms = post.createdAt?.toMillis?.() || 0;
   if (ms) {
@@ -45,8 +59,9 @@ export function rankPosts(posts) {
       (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
   }
   const subs = getSubscriptionsSync();
+  const friends = getFriendsSync();
   return [...posts]
-    .map(p => ({ post: p, score: scorePost(p, subs) }))
+    .map(p => ({ post: p, score: scorePost(p, subs, friends) }))
     .sort((a, b) => b.score - a.score)
     .map(x => x.post);
 }

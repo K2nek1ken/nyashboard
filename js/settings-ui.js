@@ -1,5 +1,8 @@
 import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, DEFAULTS } from "./settings.js";
 import { showToast } from "./ui.js";
+import { refreshDefaultAvatars } from "./default-avatar.js";
+import { clearInterests, interestsSummary } from "./interests.js";
+import { clearSeen } from "./seen.js";
 
 function row(label, hint, controlHtml) {
   return `
@@ -54,26 +57,44 @@ export function initSettingsPage() {
       <div class="section-title">Лента</div>
       ${row("Умная лента", "подписки и непросмотренное поднимаются вверх; выключено — просто по времени",
         toggle("feedMode", s.feedMode === "smart"))}
+      ${row("Рекомендации", "поднимать записи, похожие на то, что ты лайкала",
+        toggle("recommendations", s.recommendations === "on"))}
+      <div class="section-title">Мои данные</div>
+      <p class="muted" style="font-size:12px; margin-top:0;">
+        Интересы — это словарь слов, хештегов и авторов, который наполняется твоими
+        лайками и дизлайками. По нему лента поднимает похожие записи наверх.
+        Данные привязаны к аккаунту, поэтому одинаковы на всех твоих устройствах.
+      </p>
+      <p class="muted" style="font-size:12px;" id="interestsInfo"></p>
+      <button id="clearInterestsBtn" class="dangerBtn">Очистить интересы</button>
       <button id="clearSeenBtn" class="secondaryBtn">Сбросить «просмотренное»</button>
-      <p class="muted" style="font-size:12px;">Все посты снова станут новыми для умной ленты.</p>
+      <p class="muted" style="font-size:12px;">
+        После сброса «просмотренного» все записи снова считаются непрочитанными
+        и поднимаются в ленте.
+      </p>
     `;
 
     host.querySelectorAll("[data-select]").forEach(sel => {
       sel.addEventListener("change", () => {
         setSetting(sel.dataset.select, sel.value);
+        refreshDefaultAvatars();   // стандартные аватарки перекрашиваем под новую тему
         if (sel.dataset.select === "particles") showToast("Обновится после перезагрузки страницы");
       });
     });
 
     host.querySelectorAll("[data-accent]").forEach(btn => {
-      btn.addEventListener("click", () => { setSetting("accent", btn.dataset.accent); render(); });
+      btn.addEventListener("click", () => {
+        setSetting("accent", btn.dataset.accent);
+        refreshDefaultAvatars();
+        render();
+      });
     });
 
     host.querySelectorAll("[data-toggle]").forEach(btn => {
       btn.addEventListener("click", () => {
         const key = btn.dataset.toggle;
         const isOn = btn.classList.contains("on");
-        const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"] };
+        const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"], recommendations: ["on", "off"] };
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);
         render();
@@ -82,8 +103,32 @@ export function initSettingsPage() {
 
     renderTabOrder();
 
+    const sum = interestsSummary();
+    const info = host.querySelector("#interestsInfo");
+    info.textContent = sum.words || sum.tags
+      ? `Накоплено: ${sum.words} слов, ${sum.tags} тегов, ${sum.authors} авторов.` +
+        (sum.topTags.length ? ` Чаще всего: ${sum.topTags.join(", ")}.` : "") +
+        " Всё хранится только на этом устройстве."
+      : "Профиль интересов пока пуст — он наполняется лайками. Хранится только на этом устройстве.";
+
+    host.querySelector("#clearInterestsBtn").addEventListener("click", () => {
+      // подтверждение: кнопка стоит рядом с остальными, промахнуться легко,
+      // а восстановить накопленное потом уже нельзя
+      const ok = confirm(
+        "Очистить интересы?\n\n" +
+        "Будет удалён словарь слов, хештегов и авторов, собранный из твоих лайков. " +
+        "Лента перестанет поднимать похожие записи, пока ты не налайкаешь заново.\n\n" +
+        "Это действие нельзя отменить."
+      );
+      if (!ok) return;
+      clearInterests();
+      showToast("Интересы очищены ♡");
+      render();
+    });
+
     host.querySelector("#clearSeenBtn").addEventListener("click", () => {
-      localStorage.removeItem("nyash_seen_posts");
+      if (!confirm("Сбросить отметки «просмотрено»?\n\nВсе записи снова станут непрочитанными.")) return;
+      clearSeen();
       showToast("Сброшено ♡");
     });
   }

@@ -2,7 +2,7 @@ import { currentUser, currentUserDoc, onAuthChange, patchCurrentUserDoc, logout,
 import { updateUserDoc, isUsernameTaken, changeUsername } from "./data.js";
 import { uploadImage, exportLocalBackup } from "./storage.js";
 import { showToast } from "./ui.js";
-import { shapeClass, shapePickerHtml, openCropper } from "./avatar.js";
+import { shapeClass, shapePickerHtml, openCropper, applyAvatar } from "./avatar.js";
 import { openEmojiPicker } from "./emoji.js";
 import { requestNuid } from "./nuid.js";
 
@@ -23,6 +23,7 @@ export function initProfilePageForm() {
   const statusBtn = document.getElementById("statusEmojiBtn");
   const statusPreview = document.getElementById("statusEmojiPreview");
   const nuidVisibility = document.getElementById("nuidVisibility");
+  const repostVisibility = document.getElementById("repostVisibility");
 
   let pendingAvatarFile = null;
   let pendingShape = "circle";
@@ -47,7 +48,8 @@ export function initProfilePageForm() {
     if (currentUser && currentUserDoc) {
       loggedOutNote.classList.add("hidden");
       form.classList.remove("hidden");
-      pageAvatar.src = currentUserDoc.avatarUrl || "assets/anon.svg";
+      applyAvatar(pageAvatar, currentUserDoc, "neko");
+      pageAvatar.style.width = pageAvatar.style.height = "88px";
       nicknameInput.value = currentUserDoc.nickname || "";
       usernameInput.value = currentUserDoc.username || "";
       bioInput.value = currentUserDoc.bio || "";
@@ -55,6 +57,7 @@ export function initProfilePageForm() {
       uidDisplay.textContent = "загружаю…";
       requestNuid(currentUser.uid).then(n => { uidDisplay.textContent = n || "—"; });
       nuidVisibility.value = currentUserDoc.nuidVisibility || "friends";
+      repostVisibility.value = currentUserDoc.repostVisibility || "everyone";
       pendingShape = currentUserDoc.avatarShape || "circle";
       pendingStatus = currentUserDoc.statusEmoji || "";
       pageStatus.textContent = pendingStatus;
@@ -121,7 +124,8 @@ export function initProfilePageForm() {
         bio: bioInput.value.trim(),
         avatarShape: pendingShape,
         statusEmoji: pendingStatus,
-        nuidVisibility: nuidVisibility.value
+        nuidVisibility: nuidVisibility.value,
+        repostVisibility: repostVisibility.value
       };
       if (pendingAvatarFile) {
         showToast("Загружаю аватарку...");

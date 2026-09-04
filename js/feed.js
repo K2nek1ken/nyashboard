@@ -6,18 +6,20 @@ import {
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { uploadImages } from "./storage.js";
 import { showToast, escapeHtml, timeAgo } from "./ui.js";
-import { ICON } from "./icons.js";
+import { ICON, SVG_ICON } from "./icons.js";
 import { fetchReplies, sendReply, replyRowHtml, wireReplyLikes } from "./replies.js";
 import { imagesToHtml, wireCarousels, getPostImages } from "./carousel.js";
 import { markOwned, isOwned } from "./ownership.js";
 import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
-import { avatarHtml } from "./avatar.js";
+import { avatarHtml, applyAvatar } from "./avatar.js";
 import { openEmojiPicker } from "./emoji.js";
 import { extractHashtags } from "./hashtags.js";
 import { rankPosts } from "./ranking.js";
 import { loadSubscriptions } from "./subscriptions.js";
-import { observeSeen } from "./seen.js";
+import { loadFriends } from "./friends.js";
+import { learnFromPost, markNotInterested, loadInterests } from "./interests.js";
+import { observeSeen, loadSeen } from "./seen.js";
 
 const feedListEl = document.getElementById("feedList");
 let feedUnsub = null;
@@ -42,7 +44,9 @@ export function subscribeFeed() {
   // Подписки нужны для ранжирования, а они грузятся из аккаунта асинхронно.
   // Первый рендер идёт на локальном кэше (мгновенно), затем один раз
   // перерисовываем уже с актуальным списком из аккаунта.
-  loadSubscriptions().then(() => {
+  // подписки и друзья нужны ранжированию, а грузятся из аккаунта асинхронно:
+  // первый рендер идёт на локальном кэше, затем один раз перерисовываем
+  Promise.all([loadSubscriptions(), loadFriends(), loadSeen(), loadInterests()]).then(() => {
     if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
   });
 }
@@ -61,20 +65,27 @@ function canManagePost(p) {
   return isOwned("post", p.id);
 }
 
-export function postToHtml(p) {
+export function postToHtml(p, maskAuthor = false) {
   const isChannelPost = !!p.channelId;
+  // В контексте репоста имя автора закрыто звёздочками, пока сервер не
+  // подтвердит, что показывать можно
+  const masked = maskAuthor && !isChannelPost && !p.isAnonymous && p.authorUid;
   const authorName = isChannelPost
     ? escapeHtml(p.channelName || "канал")
-    : (p.isAnonymous ? "Аноним" : escapeHtml(p.authorNickname || "???"));
+    : (p.isAnonymous ? "Аноним"
+      : masked ? "•".repeat(Math.min(8, (p.authorNickname || "").length || 6))
+      : escapeHtml(p.authorNickname || "???"));
   const authorAttrs = isChannelPost
     ? `data-action="viewChannel" data-channel-id="${p.channelId}"`
     : `data-action="viewAuthor" data-uid="${p.authorUid || ""}"`;
   const liked = currentUser && (p.likedBy || []).includes(currentUser.uid);
+  const disliked = currentUser && (p.dislikedBy || []).includes(currentUser.uid);
   const canManage = canManagePost(p);
   const hasEditor = !!document.getElementById("postEditor");
   const onPostPage = location.pathname.endsWith("post.html");
   const kebabItems = [
     ...(onPostPage ? [] : [{ action: "openPost", label: "Открыть пост", icon: ICON.open }]),
+    { action: "notInterested", label: "Не рекомендовать", icon: ICON.down },
     ...(canManage
       ? [
           ...(hasEditor ? [{ action: "editPost", label: "Изменить", icon: ICON.pencil }] : []),
@@ -87,13 +98,14 @@ export function postToHtml(p) {
   const isLong = rawText.length > 420 || rawText.split("\n").length > 10;
   const authorForAvatar = isChannelPost
     ? { avatarUrl: p.channelAvatar, avatarShape: "rounded" }
-    : (p.isAnonymous ? { avatarUrl: "assets/anon.svg" }
+    : (p.isAnonymous || masked ? {}
                      : { avatarUrl: p.authorAvatar, avatarShape: p.authorShape, statusEmoji: p.authorStatus });
+  const avatarVariant = masked ? "hidden" : "neko";
   return `
     <article class="post-card" data-id="${p.id}">
       <div class="post-head">
-        <span ${authorAttrs} style="cursor:pointer;">${avatarHtml(authorForAvatar, 34)}</span>
-        <span class="post-author ${(!isChannelPost && p.isAnonymous) ? "anon" : ""}" ${authorAttrs}>${authorName}</span>
+        <span ${authorAttrs} style="cursor:pointer;">${avatarHtml(authorForAvatar, 34, "", avatarVariant)}</span>
+        <span class="post-author ${(!isChannelPost && p.isAnonymous) ? "anon" : ""} ${masked ? "author-masked" : ""}" ${authorAttrs}>${authorName}</span>
         <div class="post-meta-right">
           <span class="post-time">${timeAgo(p.createdAt)}${p.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
           ${kebabHtml(kebabItems, p.id)}
@@ -104,6 +116,7 @@ export function postToHtml(p) {
       ${imagesToHtml(getPostImages(p))}
       <div class="post-actions">
         <button data-action="like" class="${liked ? "liked" : ""}"><span class="nf">${liked ? ICON.heartFilled : ICON.heart}</span> <span class="likeCount">${p.likesCount || 0}</span></button>
+        <button data-action="dislike" class="${disliked ? "disliked" : ""}">${disliked ? SVG_ICON.heartBroken : SVG_ICON.heartBrokenOutline} <span class="dislikeCount">${p.dislikesCount || 0}</span></button>
         <button data-action="focusReply"><span class="nf">${ICON.comment}</span> ответить</button>
         <button data-action="repost"><span class="nf">${ICON.repost}</span> репост</button>
       </div>
@@ -144,10 +157,19 @@ export function wirePostCard(p, container = document) {
   });
 
   card.querySelector('[data-action="like"]').addEventListener("click", () => toggleLike(p));
+  card.querySelector('[data-action="dislike"]').addEventListener("click", () => toggleDislike(p));
   card.querySelector('[data-action="repost"]').addEventListener("click", () => repost(p));
 
   wireKebab(card, {
     openPost: () => { location.href = `post.html?id=${p.id}`; },
+    notInterested: () => {
+      // Только локально: понижаем вес темы и автора в своём профиле интересов,
+      // на сервер ничего не уходит. Запись при этом не исчезает — просто
+      // уедет вниз при следующей загрузке ленты.
+      markNotInterested(p);
+      card.style.opacity = "0.45";
+      showToast("Учла — такое будет ниже в ленте");
+    },
     editPost: () => openPostEditor(p),
     deletePost: () => deletePost(p, card)
   });
@@ -259,18 +281,32 @@ async function loadReplyPreview(postId, card) {
 
 async function toggleLike(p) {
   if (!currentUser) { showToast("Войди, чтобы лайкать ♡"); return; }
-  const ref = doc(db, "posts", p.id);
   const liked = (p.likedBy || []).includes(currentUser.uid);
-  await updateDoc(ref, {
+  await updateDoc(doc(db, "posts", p.id), {
     likedBy: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
     likesCount: increment(liked ? -1 : 1)
   });
+  // лайк — главный сигнал для рекомендаций; снятие лайка откатывает его
+  learnFromPost(p, liked ? -3 : 3);
+}
+
+async function toggleDislike(p) {
+  if (!currentUser) { showToast("Войди, чтобы дизлайкать"); return; }
+  const disliked = (p.dislikedBy || []).includes(currentUser.uid);
+  await updateDoc(doc(db, "posts", p.id), {
+    dislikedBy: disliked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+    dislikesCount: increment(disliked ? -1 : 1)
+  });
+  learnFromPost(p, disliked ? 3 : -3);
 }
 
 async function repost(p) {
   if (!currentUser) { showToast("Войди, чтобы репостить"); return; }
   if (p.authorUid === currentUser.uid) { showToast("Это уже твой пост ¯\\_(ツ)_/¯"); return; }
-  await addDoc(collection(db, "reposts"), {
+  // id вида {uid}_{postId}: один репост на пару «человек + запись», и правила
+  // могут по имени проверить, репостил ли конкретный человек эту запись —
+  // на этом держится режим «показывать автора только репостнувшим»
+  await setDoc(doc(db, "reposts", `${currentUser.uid}_${p.id}`), {
     uid: currentUser.uid,
     postId: p.id,
     createdAt: serverTimestamp()
@@ -415,12 +451,24 @@ export function initPostEditor() {
           imageUrls,
           likesCount: 0,
           likedBy: [],
+          dislikesCount: 0,
+          dislikedBy: [],
           createdAt: serverTimestamp()
         });
         // секрет владения — id совпадает с id поста, чтобы правила Firestore могли
         // найти его через get() по тому же пути; ownerUid = FUID текущей сессии
         // (реальный аккаунт ИЛИ анонимная гостевая сессия — она тоже валидна)
         await setDoc(doc(db, "postSecrets", ref.id), { ownerUid: auth.currentUser.uid });
+        // копия авторства для репостов: выдаётся по настройке приватности
+        if (!isAnon && currentUser && currentUserDoc) {
+          await setDoc(doc(db, "postAuthors", ref.id), {
+            uid: currentUser.uid,
+            nickname: currentUserDoc.nickname || "",
+            avatarUrl: currentUserDoc.avatarUrl || "",
+            avatarShape: currentUserDoc.avatarShape || "circle",
+            statusEmoji: currentUserDoc.statusEmoji || ""
+          }).catch(() => {});
+        }
         markOwned("post", ref.id);
         showToast("Опубликовано ♡");
       }
@@ -474,9 +522,41 @@ export async function loadChannelWall(channelId) {
 export function renderPostsInto(container, posts, ownerNickname) {
   if (!posts.length) { container.innerHTML = `<div class="stub-note">Тут пока пусто</div>`; return; }
   container.innerHTML = posts.map(p => {
-    const html = postToHtml(p);
+    // В репосте автор может быть скрыт — решает сервер, см. revealRepostAuthor
+    const html = postToHtml(p, p._isRepost);
     if (!p._isRepost) return html;
     return `<div class="repost-badge"><span class="nf">${ICON.repost}</span> ${escapeHtml(ownerNickname)} репостнул(а)</div>` + html;
   }).join("");
-  posts.forEach(p => wirePostCard(p, container));
+  posts.forEach(p => {
+    wirePostCard(p, container);
+    if (p._isRepost) revealRepostAuthor(p, container);
+  });
+}
+
+// Пока ответ сервера не пришёл, показываем ту же маску, что и при полном
+// скрытии — иначе по мельканию настоящего ника всё было бы видно.
+async function revealRepostAuthor(p, container) {
+  if (!p.authorUid || p.isAnonymous) return;
+  const card = container.querySelector(`.post-card[data-id="${p.id}"]`);
+  if (!card) return;
+  try {
+    const snap = await getDoc(doc(db, "postAuthors", p.id));
+    if (!snap.exists()) return;
+    const a = snap.data();
+    const nameEl = card.querySelector(".post-author");
+    if (nameEl) {
+      nameEl.textContent = a.nickname || "???";
+      nameEl.classList.remove("author-masked");
+    }
+    const wrap = card.querySelector(".post-head .avatar-wrap");
+    if (wrap) {
+      const img = wrap.querySelector("img");
+      applyAvatar(img, a, "neko");
+      img.style.width = img.style.height = "34px";
+      const st = wrap.querySelector(".avatar-status");
+      if (st) st.textContent = a.statusEmoji || "";
+    }
+  } catch {
+    // отказ сервера — значит автор закрыл доступ, маска остаётся
+  }
 }

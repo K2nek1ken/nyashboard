@@ -8,6 +8,7 @@ export const DEFAULTS = {
   particles: "stars",    // stars | flowers | leaves | off
   emoji: "noto",         // noto (CDN, лёгкий) | apple (локальный, 8 МБ) | system
   feedMode: "smart",     // smart = подписки и непросмотренное выше; new = просто по времени
+  recommendations: "on", // учитывать похожесть на лайкнутое
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»
   // порядок вкладок: на телефоне слева направо, на ПК сверху вниз

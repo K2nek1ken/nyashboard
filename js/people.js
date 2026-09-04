@@ -4,6 +4,7 @@ import { currentUser, authReady } from "./auth.js";
 import { escapeHtml } from "./ui.js";
 import { shapeClass } from "./avatar.js";
 import { resolveNuid } from "./nuid.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 const listEl = document.getElementById("peopleList");
 const searchEl = document.getElementById("peopleSearch");
@@ -20,7 +21,7 @@ function renderPeople(users) {
   listEl.innerHTML = users.map(u => `
     <div class="person-row" data-uid="${u.uid}">
       <span class="avatar-wrap" style="width:38px;height:38px;">
-        <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || "assets/anon.svg"}" style="width:38px;height:38px;">
+        <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || defaultAvatar()}" style="width:38px;height:38px;">
         <span class="avatar-status" style="width:16px;height:16px;font-size:9px;">${u.statusEmoji || ""}</span>
       </span>
       <div>
@@ -82,7 +83,7 @@ export async function openUserProfile(uid) {
 
   nameEl.textContent = user.nickname;
   userEl.textContent = user.username;
-  avatarEl.src = user.avatarUrl || "assets/anon.svg";
+  avatarEl.src = user.avatarUrl || defaultAvatar();
   avatarEl.className = `avatar-shaped ${shapeClass(user.avatarShape)}`;
   const statusEl = document.getElementById("vpStatus");
   if (statusEl) statusEl.textContent = user.statusEmoji || "";

@@ -3,6 +3,7 @@ import {
 } from "./firebase.js";
 import { ensureUserDoc } from "./data.js";
 import { showToast } from "./ui.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 export let currentUser = null;      // firebase auth user (или null)
 export let currentUserDoc = null;   // документ users/{uid} (или null)
@@ -137,7 +138,7 @@ export function initProfileDropdown() {
     if (shown) {
       loggedOutView.classList.add("hidden");
       loggedInView.classList.remove("hidden");
-      ddAvatar.src = shown.avatarUrl || "assets/anon.svg";
+      ddAvatar.src = shown.avatarUrl || defaultAvatar();
       ddNickname.textContent = shown.nickname || "";
       ddUsername.textContent = "@" + (shown.username || "");
       return;
@@ -145,7 +146,7 @@ export function initProfileDropdown() {
     if (currentUser && currentUserDoc) {
       loggedOutView.classList.add("hidden");
       loggedInView.classList.remove("hidden");
-      ddAvatar.src = currentUserDoc.avatarUrl || "assets/anon.svg";
+      ddAvatar.src = currentUserDoc.avatarUrl || defaultAvatar();
       ddNickname.textContent = currentUserDoc.nickname || "";
       ddUsername.textContent = "@" + (currentUserDoc.username || "");
     } else {
@@ -159,7 +160,7 @@ export function initProfileDropdown() {
   refreshDropdown();
 
   onAuthChange(() => {
-    profilePic.src = (currentUser && currentUserDoc && currentUserDoc.avatarUrl) || "assets/anon.svg";
+    profilePic.src = (currentUser && currentUserDoc && currentUserDoc.avatarUrl) || defaultAvatar();
     if (!dropdown.classList.contains("hidden")) refreshDropdown();
   });
 }

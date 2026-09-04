@@ -41,11 +41,12 @@ export async function ensureUserDoc(fbUser) {
     uid: fbUser.uid,
     username,
     nickname: fbUser.displayName || "Новый неко",
-    avatarUrl: fbUser.photoURL || "assets/anon.svg",
+    avatarUrl: fbUser.photoURL || "",
     avatarShape: "circle",   // форма применяетсяCSS-ом поверх, фото хранится необрезанным
     bio: "",
     statusEmoji: "",
-    nuidVisibility: "friends",   // everyone | friends | nobody
+    nuidVisibility: "friends",     // everyone | friends | nobody
+    repostVisibility: "everyone",  // кто видит меня автором в репостах
 
     createdAt: Date.now()
   };

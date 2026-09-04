@@ -8,6 +8,7 @@ import { getUserDoc } from "./data.js";
 import { shapeClass } from "./avatar.js";
 import { escapeHtml, timeAgo, showToast } from "./ui.js";
 import { ICON } from "./icons.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 applySettings();
 
@@ -15,7 +16,7 @@ function personRow(u, extraHtml = "", clickAttr = "") {
   return `
     <div class="person-row" ${clickAttr}>
       <span class="avatar-wrap" style="width:38px;height:38px;">
-        <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || "assets/anon.svg"}" style="width:38px;height:38px;">
+        <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || defaultAvatar()}" style="width:38px;height:38px;">
         <span class="avatar-status" style="width:16px;height:16px;font-size:9px;">${u.statusEmoji || ""}</span>
       </span>
       <div style="flex:1; min-width:0;">

@@ -8,6 +8,7 @@ import { loadFriends, isFriend, addFriend, removeFriend, isMutualFriend } from "
 import { openOrCreateChat } from "./dm.js";
 import { showToast } from "./ui.js";
 import { ICON } from "./icons.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 function getUid() {
   return new URLSearchParams(location.search).get("uid");
@@ -25,7 +26,7 @@ export async function initUserPage() {
   document.getElementById("uNickname").textContent = user.nickname;
   document.getElementById("uUsername").textContent = user.username;
   const avatarEl = document.getElementById("uAvatar");
-  avatarEl.src = user.avatarUrl || "assets/anon.svg";
+  avatarEl.src = user.avatarUrl || defaultAvatar();
   avatarEl.className = `avatar-shaped ${shapeClass(user.avatarShape)}`;
   document.getElementById("uStatus").textContent = user.statusEmoji || "";
   document.getElementById("uBio").textContent = user.bio || "";

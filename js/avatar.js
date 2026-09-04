@@ -1,4 +1,5 @@
 import { ICON } from "./icons.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 // Форма аватарки — только CSS-класс поверх картинки. Само изображение хранится
 // НЕобрезанным, поэтому форму можно менять когда угодно, задним числом, без
@@ -15,15 +16,29 @@ export function shapeClass(shape) {
 }
 
 // Единый рендер аватарки со статусом-эмодзи в углу.
-export function avatarHtml(user, size = 34, extraAttrs = "") {
+export function avatarHtml(user, size = 34, extraAttrs = "", variant = "neko") {
   const shape = shapeClass(user?.avatarShape);
-  const src = user?.avatarUrl || "assets/anon.svg";
+  const custom = user?.avatarUrl && user.avatarUrl !== "assets/anon.svg";
+  const src = custom ? user.avatarUrl : defaultAvatar(variant);
+  // data-default-avatar помечает сгенерированные аватарки, чтобы перекрасить их
+  // на месте при смене темы
+  const mark = custom ? "" : `data-default-avatar="${variant}"`;
   const status = user?.statusEmoji || "";
   return `
     <span class="avatar-wrap" style="width:${size}px;height:${size}px;">
-      <img class="avatar-shaped ${shape}" src="${src}" style="width:${size}px;height:${size}px;" ${extraAttrs}>
+      <img class="avatar-shaped ${shape}" src="${src}" style="width:${size}px;height:${size}px;" ${mark} ${extraAttrs}>
       ${status ? `<span class="avatar-status">${status}</span>` : ""}
     </span>`;
+}
+
+// Для мест, где аватарка ставится напрямую в существующий <img>
+export function applyAvatar(imgEl, user, variant = "neko") {
+  if (!imgEl) return;
+  const custom = user?.avatarUrl && user.avatarUrl !== "assets/anon.svg";
+  imgEl.src = custom ? user.avatarUrl : defaultAvatar(variant);
+  if (custom) imgEl.removeAttribute("data-default-avatar");
+  else imgEl.dataset.defaultAvatar = variant;
+  imgEl.className = `avatar-shaped ${shapeClass(user?.avatarShape)}`;
 }
 
 export function shapePickerHtml(selected = "circle") {

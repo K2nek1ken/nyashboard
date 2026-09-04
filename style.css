@@ -710,3 +710,12 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
 
 /* свои сообщения в личном чате — прижаты вправо */
 .chat-msg.mine { margin-left: auto; background: var(--card-hover); }
+
+/* имя автора, скрытое в репосте */
+.post-author.author-masked {
+  color: var(--muted); letter-spacing: 2px; cursor: default; font-family: monospace;
+}
+
+/* SVG-иконки в кнопках (там, где в шрифте нужного глифа нет) */
+.svg-ic { width: 1.05em; height: 1.05em; vertical-align: -0.15em; display: inline-block; }
+.post-actions button.disliked { color: var(--accent-2); }

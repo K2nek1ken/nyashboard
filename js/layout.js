@@ -1,5 +1,6 @@
 import { ICON } from "./icons.js";
 import { getSettings } from "./settings.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 // Единая навигация для всех страниц. Раньше шапка была скопирована в каждый из
 // 10 HTML-файлов — любая правка означала 10 одинаковых редактирований и риск,
@@ -61,7 +62,7 @@ export function initLayout() {
       }).join("")}
     </nav>
     <div id="profileIcon" class="profile-icon" title="профиль">
-      <img id="profilePic" src="assets/anon.svg" alt="профиль">
+      <img id="profilePic" src="${defaultAvatar()}" data-default-avatar="neko" alt="профиль">
     </div>`;
 }
 

@@ -20,7 +20,7 @@ function randomNick() {
 export function getGuestIdentity() {
   let raw = localStorage.getItem(KEY);
   if (!raw) {
-    const identity = { id: randomId(), nickname: randomNick(), avatar: "assets/anon.svg" };
+    const identity = { id: randomId(), nickname: randomNick(), avatar: "" };
     localStorage.setItem(KEY, JSON.stringify(identity));
     return identity;
   }

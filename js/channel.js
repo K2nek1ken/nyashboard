@@ -11,6 +11,7 @@ import { loadChannelWall, renderPostsInto } from "./feed.js";
 import { uploadImage, uploadImages } from "./storage.js";
 import { showToast, escapeHtml } from "./ui.js";
 import { ICON } from "./icons.js";
+import { defaultAvatar } from "./default-avatar.js";
 
 function getChannelId() {
   return new URLSearchParams(location.search).get("id");
@@ -32,7 +33,7 @@ export async function initChannelPage() {
   if (!channel) { wallEl.innerHTML = `<div class="stub-note">Канал не найден</div>`; return; }
 
   document.title = `NyashBoard ♡ — ${channel.name}`;
-  document.getElementById("chAvatar").src = channel.avatarUrl || "assets/anon.svg";
+  document.getElementById("chAvatar").src = channel.avatarUrl || defaultAvatar();
   document.getElementById("chName").textContent = channel.name;
   document.getElementById("chUsername").textContent = channel.username;
   document.getElementById("chNuid").textContent = channel.publicUid || "";
@@ -179,7 +180,7 @@ function wirePeopleModal(channelId) {
       listEl.innerHTML = subs.length
         ? subs.map(u => `
           <div class="person-row" style="cursor:default;">
-            <img src="${u.avatarUrl || "assets/anon.svg"}">
+            <img src="${u.avatarUrl || defaultAvatar()}">
             <div><div>${escapeHtml(u.nickname)}</div><div class="pmuted">@${escapeHtml(u.username)}</div></div>
           </div>`).join("")
         : `<div class="stub-note">Пока никто явно не подписан (или все скрылись)</div>`;
@@ -252,7 +253,7 @@ function wireSettingsModal(channelId) {
   }
 
   openBtn.addEventListener("click", async () => {
-    avatarImg.src = channel.avatarUrl || "assets/anon.svg";
+    avatarImg.src = channel.avatarUrl || defaultAvatar();
     nameInput.value = channel.name;
     usernameInput.value = (channel.username || "").replace(/^ch_/, "");
     descInput.value = channel.description || "";
@@ -289,7 +290,7 @@ function wireSettingsModal(channelId) {
         await changeChannelUsername(channelId, channel.username, usernameSuffix);
       }
       channel = await getChannel(channelId);
-      document.getElementById("chAvatar").src = channel.avatarUrl || "assets/anon.svg";
+      document.getElementById("chAvatar").src = channel.avatarUrl || defaultAvatar();
       document.getElementById("chName").textContent = channel.name;
       document.getElementById("chUsername").textContent = channel.username;
       document.getElementById("chDescription").textContent = channel.description || "";

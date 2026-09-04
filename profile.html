@@ -21,7 +21,7 @@
     <div id="profileForm" class="hidden">
       <div class="profile-page-head">
         <span class="avatar-wrap" style="width:88px;height:88px;">
-          <img id="pageAvatar" src="assets/anon.svg" class="avatar-shaped shape-circle" style="width:88px;height:88px;cursor:pointer;" title="нажми, чтобы сменить">
+          <img id="pageAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-shaped shape-circle" style="width:88px;height:88px;cursor:pointer;" title="нажми, чтобы сменить">
           <span class="avatar-status" id="pageStatus"></span>
         </span>
         <input type="file" id="avatarInput" accept="image/*" hidden>
@@ -43,6 +43,14 @@
         <div class="username-row"><span class="at-sign">@</span><input id="usernameInput" class="inlineEdit" placeholder="username" maxlength="20"></div>
         <textarea id="bioInput" class="bioInput" placeholder="Описание профиля — расскажи о себе" maxlength="300"></textarea>
         <div class="uid-row">NUID: <code id="uidDisplay"></code><br><span class="muted">(неизменно, не отправляй кому попало)</span></div>
+        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+          <span class="muted" style="font-size:13px;">Кто видит меня как автора в репостах:</span>
+          <select id="repostVisibility" class="settingSelect">
+            <option value="everyone">Все</option>
+            <option value="reposters">Только репостнувшие</option>
+            <option value="nobody">Никто</option>
+          </select>
+        </div>
         <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
           <span class="muted" style="font-size:13px;">Кто видит мой NUID:</span>
           <select id="nuidVisibility" class="settingSelect">
@@ -70,7 +78,7 @@
   </div>
   <div id="ddLoggedIn" class="hidden">
     <div class="dropdown-user-row">
-      <img id="ddAvatar" src="assets/anon.svg" class="avatar-sm">
+      <img id="ddAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-sm">
       <div>
         <div id="ddNickname" class="nick-sm"></div>
         <div id="ddUsername" class="muted" style="font-size:12px;"></div>
