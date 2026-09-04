@@ -1,6 +1,6 @@
 import { currentUser, currentUserDoc, authPending, onAuthChange, patchCurrentUserDoc, logout, loginWithGoogle } from "./auth.js";
 import { updateUserDoc, isUsernameTaken, changeUsername, getUserDoc } from "./data.js";
-import { uploadImage, exportLocalBackup } from "./storage.js";
+import { uploadImage } from "./storage.js";
 import { showToast } from "./ui.js";
 import { shapeClass, shapePickerHtml, openCropper, applyAvatar } from "./avatar.js";
 import { openEmojiPicker } from "./emoji.js";
@@ -18,7 +18,6 @@ export function initProfilePageForm() {
   const bioInput = document.getElementById("bioInput");
   const uidDisplay = document.getElementById("uidDisplay");
   const saveBtn = document.getElementById("saveProfileBtn");
-  const exportBtn = document.getElementById("exportLocalBtn");
   const logoutBtn = document.getElementById("logoutBtnPage");
   const shapeHost = document.getElementById("shapePickerHost");
   const statusBtn = document.getElementById("statusEmojiBtn");
@@ -181,11 +180,6 @@ export function initProfilePageForm() {
     } finally {
       saveBtn.disabled = false;
     }
-  });
-
-  exportBtn.addEventListener("click", () => {
-    exportLocalBackup({ user: currentUserDoc, exportedAt: new Date().toISOString() });
-    showToast("Бэкап скачан");
   });
 
   logoutBtn.addEventListener("click", async () => {

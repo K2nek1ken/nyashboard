@@ -17,7 +17,8 @@ export const DEFAULTS = {
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»
   // порядок вкладок: на телефоне слева направо, на ПК сверху вниз
-  tabOrder: ["feed", "chat", "friends", "content", "people"]
+  showAbout: "on",       // вкладка «Возможности»
+  tabOrder: ["feed", "chat", "friends", "content", "people", "about"]
 };
 
 export const THEMES = {
@@ -90,7 +91,8 @@ export const TAB_LABELS = {
   chat:    "Чат",
   friends: "Друзья",
   content: "Контент",
-  people:  "Люди"
+  people:  "Люди",
+  about:   "Возможности"
 };
 
 export const EMOJI_SOURCES = {
@@ -139,4 +141,57 @@ export function applySettings(settings = getSettings()) {
   root.dataset.time = settings.timeFormat;
   root.dataset.tz = settings.timezone;
   ensureNotoLink(settings.emoji === "noto");
+}
+
+
+// ============================================================
+//  Сохранение и восстановление настроек
+//
+//  Настройки отвечают за внешний вид и удобство, а не за данные аккаунта,
+//  поэтому в базе им делать нечего. Зато перенести подобранное оформление
+//  на другое устройство — как раз то, ради чего стоит держать файл.
+// ============================================================
+export function exportSettings() {
+  const data = {
+    kind: "nyashboard-settings",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: getSettings()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `nyashboard-настройки-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Принимаем только известные ключи: чужой или битый файл не должен занести
+// в настройки мусор, из-за которого потом ничего не открывается.
+export async function importSettings(file) {
+  const text = await file.text();
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch { throw new Error("это не файл настроек"); }
+
+  const incoming = parsed?.settings || parsed;
+  if (!incoming || typeof incoming !== "object") throw new Error("в файле нет настроек");
+
+  const clean = {};
+  for (const key of Object.keys(DEFAULTS)) {
+    if (incoming[key] === undefined) continue;
+    // порядок вкладок — массив, остальное простые значения
+    if (key === "tabOrder") {
+      if (Array.isArray(incoming[key])) clean[key] = incoming[key].filter(k => typeof k === "string");
+    } else if (typeof incoming[key] === typeof DEFAULTS[key]) {
+      clean[key] = incoming[key];
+    }
+  }
+  if (!Object.keys(clean).length) throw new Error("не нашла знакомых настроек");
+
+  const next = { ...getSettings(), ...clean };
+  localStorage.setItem(KEY, JSON.stringify(next));
+  applySettings(next);
+  return Object.keys(clean).length;
 }

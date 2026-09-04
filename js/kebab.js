@@ -1,4 +1,5 @@
 import { ICON } from "./icons.js";
+import { keepInViewport } from "./anchor.js";
 
 // items: [{ action: "editPost", label: "Изменить", icon: ICON.pencil, danger: false }, ...]
 // kebabId нужен только чтобы отличать несколько меню на одной странице друг от друга.
@@ -31,6 +32,7 @@ export function wireKebab(container, handlers) {
     e.stopPropagation();
     document.querySelectorAll(".kebabMenu").forEach(m => { if (m !== menu) m.classList.add("hidden"); });
     menu.classList.toggle("hidden");
+    if (!menu.classList.contains("hidden")) keepInViewport(menu);
   });
 
   menu.querySelectorAll("[data-action]").forEach(btn => {

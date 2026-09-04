@@ -826,20 +826,17 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
   /* Абсолютное позиционирование от кнопки на узком экране уводило панель за
      край. Центрируем по обеим осям: раньше был только центр по горизонтали,
      и панель прижималась к самому низу страницы. */
-  .kebabMenu {
-    position: fixed; left: 50%; right: auto; top: 50%; bottom: auto;
-    transform: translate(-50%, -50%);
-    width: min(280px, calc(100vw - 24px)); max-width: none;
-    max-height: 70vh; overflow-y: auto;
-  }
+  /* Кебаб и выпадашка профиля остаются привязанными к своей кнопке — это их
+     точка отсчёта, и центрировать их по экрану неправильно. От выхода за край
+     страхует JS: он сдвигает панель внутрь окна после открытия. */
+  .kebabMenu { max-width: calc(100vw - 20px); max-height: 70vh; overflow-y: auto; }
   .modal { padding: 10px; align-items: center; }
   .modal-content {
     max-width: none; width: calc(100vw - 20px);
     max-height: 86vh; overflow-y: auto; margin: auto;
   }
   .profile-dropdown {
-    position: fixed; top: 50%; bottom: auto; left: 50%; right: auto;
-    transform: translate(-50%, -50%); width: min(260px, calc(100vw - 24px));
+    width: min(260px, calc(100vw - 20px));
     max-height: 76vh; overflow-y: auto;
   }
   /* пикер эмодзи тоже по центру, а не у нижнего края */
@@ -989,3 +986,74 @@ html[data-theme="quiet"] .searchBox {
   border-radius: 999px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit;
 }
 .chat-hint-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* форма «цветок» из Pixel: маска объявлена в layout.js как SVG clipPath */
+.shape-flower {
+  border-radius: 0;
+  clip-path: url(#flowerShape);
+  border: none;                      /* рамку по такому контуру не нарисовать */
+  background: var(--card);
+}
+.shapeOption.shape-flower { border: 2px solid #3a2f47; }
+
+/* ---------- вкладка «Возможности» ---------- */
+.about-hero { padding: 4px 0 18px; }
+.about-hero h1 { font-size: 22px; margin: 0 0 6px; }
+.about-list { display: grid; gap: 14px; }
+@media (min-width: 900px) { .about-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.about-card { background: var(--card); border-radius: var(--radius); padding: 16px; }
+.about-card-title {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 700; margin-bottom: 10px;
+}
+.about-card-title .nf { color: var(--accent); font-size: 18px; }
+.about-card ul { margin: 0; padding-left: 18px; }
+.about-card li { margin-bottom: 7px; line-height: 1.45; color: var(--muted); font-size: 14px; }
+.about-card li:last-child { margin-bottom: 0; }
+
+/* ============================================================
+   ТЕЛЕФОН: компактнее, чтобы вкладок помещалось больше
+   Вкладок стало шесть, и при прежних размерах они налезали на иконку
+   профиля. Уменьшаем шапку и отступы — места под контент только прибавится.
+   ============================================================ */
+@media (max-width: 899px) {
+  #navHost { gap: 8px; padding: 7px 10px; }
+  .brand { font-size: 15px; padding: 3px 4px; gap: 4px; }
+  .brand-text { display: none; }          /* на телефоне хватает сердечка */
+  .brand-mark { font-size: 20px; }
+  #navTabs { gap: 4px; }
+  .navBtn { min-width: 50px; padding: 5px 7px; font-size: 10px; gap: 2px; border-radius: 11px; }
+  .navBtn .nf { font-size: 18px; }
+  .profile-icon img { width: 30px; height: 30px; border-width: 2px; }
+
+  #app { padding: 10px; padding-bottom: 84px; }
+  .post-card { padding: 12px; }
+  .feed-list { gap: 10px; }
+  .section-title { margin: 14px 0 7px; }
+}
+
+/* совсем узкие экраны: прячем подписи, оставляем только иконки */
+@media (max-width: 400px) {
+  .navBtn { min-width: 40px; padding: 6px; }
+  .navBtn-label { display: none; }
+  .navBtn .nf { font-size: 19px; }
+}
+
+/* Лепесток в узоре цитаты — форма из файла, подставленная маской.
+   Маска использует только прозрачность, поэтому цвет берётся из currentColor
+   и остаётся адаптивным, как у обычных символов. */
+.chat-reply-quote .petals .petal-shape {
+  width: 13px; height: 13px; display: block;
+  background: currentColor;
+  -webkit-mask: url("assets/petal.svg") center / contain no-repeat;
+  mask: url("assets/petal.svg") center / contain no-repeat;
+}
+
+/* лепесток в превью настроек — та же форма, что и на фоне */
+.petal-preview {
+  width: 19px; height: 19px; display: block;
+  background: currentColor;
+  -webkit-mask: url("assets/petal.svg") center / contain no-repeat;
+  mask: url("assets/petal.svg") center / contain no-repeat;
+}
+.particle-preview .svg-ic { vertical-align: middle; }

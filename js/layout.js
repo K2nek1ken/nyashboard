@@ -18,7 +18,8 @@ const NAV_ITEMS = {
   chat:    { href: "chat.html",    label: "Чат",     icon: ICON.comment },
   friends: { href: "friends.html", label: "Друзья",  icon: ICON.users },
   content: { href: "content.html", label: "Контент", icon: ICON.hash },
-  people:  { href: "people.html",  label: "Люди",    icon: ICON.user }
+  people:  { href: "people.html",  label: "Люди",    icon: ICON.user },
+  about:   { href: "about.html",   label: "Возможности", icon: ICON.smile }
 };
 
 // какие страницы подсвечивают какой пункт (подстраницы наследуют родителя)
@@ -27,13 +28,40 @@ const ACTIVE_ALIASES = {
   "channel.html": "content.html",
   "my-channels.html": "content.html",
   "user.html": "people.html",
+  "about.html": "about.html",
   "tag.html": "index.html",
   "dm.html": "friends.html",
   "profile.html": "",
   "settings.html": ""
 };
 
+// Форма «цветок» из Pixel. В присланном виде контур выходит за границы
+// (координаты от -9 до 109), поэтому масштабируем в единичный квадрат:
+// сдвигаем на 9 и делим на 118. clipPathUnits="objectBoundingBox" позволяет
+// применять маску к элементу любого размера без пересчёта.
+const FLOWER_PATH = "M 50,0 C 57.5,0 62.5,9 70,12 C 77.5,15 85,15 88,22 " +
+  "C 91,29 91,37.5 100,45 C 109,52.5 100,62.5 100,70 C 100,77.5 91,85 88,88 " +
+  "C 85,91 77.5,91 70,100 C 62.5,109 57.5,100 50,100 C 42.5,100 37.5,109 30,100 " +
+  "C 22.5,91 15,91 12,88 C 9,85 0,77.5 0,70 C 0,62.5 -9,52.5 0,45 " +
+  "C 9,37.5 9,29 12,22 C 15,15 22.5,15 30,12 C 37.5,9 42.5,0 50,0 Z";
+
+function injectShapeMasks() {
+  if (document.getElementById("nyashShapes")) return;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.id = "nyashShapes";
+  svg.setAttribute("aria-hidden", "true");
+  svg.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;";
+  svg.innerHTML = `
+    <defs>
+      <clipPath id="flowerShape" clipPathUnits="objectBoundingBox">
+        <path transform="scale(0.008475) translate(9,9)" d="${FLOWER_PATH}"/>
+      </clipPath>
+    </defs>`;
+  document.body.appendChild(svg);
+}
+
 export function initLayout() {
+  injectShapeMasks();
   const host = document.getElementById("navHost");
   if (!host) return;
 
@@ -47,7 +75,8 @@ export function initLayout() {
   const order = [
     ...settings.tabOrder.filter(k => NAV_ITEMS[k]),
     ...Object.keys(NAV_ITEMS).filter(k => !settings.tabOrder.includes(k))
-  ].filter(k => k !== "friends" || settings.showFriends === "on");
+  ].filter(k => (k !== "friends" || settings.showFriends === "on")
+             && (k !== "about"   || settings.showAbout   === "on"));
 
   host.innerHTML = `
     <button class="brand" id="brandBtn" type="button" title="нажми ♡">
@@ -115,6 +144,8 @@ export function initStarfield() {
   // stars | flowers | leaves — выбирается в настройках
   const particleKind = document.documentElement.dataset.particles || "stars";
 
+  let lastWidth = 0;
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = window.innerWidth * dpr;
@@ -123,7 +154,16 @@ export function initStarfield() {
     canvas.style.height = window.innerHeight + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // на узких экранах звёзд меньше — и чтобы не сорить, и чтобы не грузить батарею
+    // Частицы пересоздаются ТОЛЬКО при смене ширины. На телефоне появление
+    // экранной клавиатуры меняет высоту окна и раньше вызывало полное
+    // пересоздание — частицы прыгали на новые места при каждом касании поля
+    // ввода. Смена высоты сама по себе ничего не ломает: холст просто
+    // растягивается, а частицы продолжают лететь.
+    const widthChanged = Math.abs(window.innerWidth - lastWidth) > 1;
+    lastWidth = window.innerWidth;
+    if (!widthChanged && stars.length) return;
+
+    // на узких экранах частиц меньше — и чтобы не сорить, и чтобы не грузить батарею
     const count = window.innerWidth < 900 ? 18 : 42;
     stars = Array.from({ length: count }, () => spawn(true));
   }
@@ -148,7 +188,7 @@ export function initStarfield() {
   const GLYPHS = {
     stars:   null,        // звёзды рисуем векторно: символ ★ выглядит грубее
     petals:  null,        // лепестки — своя картинка, см. petalImage
-    flowers: "\u273f",    // ✿
+    flowers: "\u2740",    // ❀ — крупнее и аккуратнее, чем ✿
     leaves:  "\uD83C\uDF41",  // 🍁
     sakura:  "\uD83C\uDF38"   // 🌸
   };

@@ -4,6 +4,7 @@ import {
 import { ensureUserDoc } from "./data.js";
 import { showToast, setGenderSource, gendered } from "./ui.js";
 import { getSettings } from "./settings.js";
+import { keepInViewport } from "./anchor.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 export let currentUser = null;      // firebase auth user (или null)
@@ -141,6 +142,7 @@ export function initProfileDropdown() {
     e.stopPropagation();
     refreshDropdown();
     dropdown.classList.toggle("hidden");
+    if (!dropdown.classList.contains("hidden")) keepInViewport(dropdown);
   });
 
   document.addEventListener("click", (e) => {

@@ -117,14 +117,3 @@ function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
-
-// «Сохранить всё локально» — выгружает снепшот того, что сейчас в памяти приложения, в JSON-файл.
-export function exportLocalBackup(state) {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `nyashboard-backup-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}

@@ -38,17 +38,21 @@ export function subscribeChat() {
 // Узор на фоне цитаты. Символ выбирается в настройках — та же логика, что и у
 // частиц фона. Позиция, поворот и размер у каждого свои, а сетка с разбросом
 // не даёт им наложиться друг на друга.
+// Лепесток — не символ, а настоящая форма из assets/petal.svg. Он подставляется
+// маской, поэтому красится текущим акцентом так же, как обычные символы.
+// Остальное — обычные глифы.
 const DECOR_GLYPHS = {
-  flowers: "\u273f",         // ✿
-  petals:  "\u2740",         // ❀ — ближе всего к лепестку в текстовом виде
+  flowers: "\u2740",         // ❀
   stars:   "\u2726",         // ✦
   leaves:  "\uD83C\uDF41"     // 🍁
 };
+const SHAPE_DECOR = new Set(["petals"]);
 
 function decorHtml() {
   const kind = getSettings().quoteDecor || "flowers";
+  const isShape = SHAPE_DECOR.has(kind);
   const glyph = DECOR_GLYPHS[kind];
-  if (!glyph) return "";                    // выбран вариант «без узора»
+  if (!glyph && !isShape) return "";        // выбран вариант «без узора»
 
   const cols = 6, rows = 2;
   const out = [];
@@ -59,8 +63,11 @@ function decorHtml() {
       const y = (r + 0.5) / rows * 100 + (Math.random() - 0.5) * 30;
       const rot = Math.floor(Math.random() * 360);
       const scale = (0.7 + Math.random()).toFixed(2);   // не больше двух минимумов
-      out.push(`<span style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
-               `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})">${glyph}</span>`);
+      const style = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
+                    `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})`;
+      out.push(isShape
+        ? `<span class="petal-shape" style="${style}"></span>`
+        : `<span style="${style}">${glyph}</span>`);
     }
   }
   return out.join("");

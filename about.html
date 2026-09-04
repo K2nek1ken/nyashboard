@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NyashBoard ♡ — Возможности</title>
+  <script>
+    // Тема применяется до отрисовки, иначе при каждом переходе между вкладками
+    // страница мигает оформлением по умолчанию, пока подгружаются модули.
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem("nyash_settings")) || {};
+        var r = document.documentElement;
+        r.dataset.theme = s.theme || "default";
+        r.dataset.accent = s.accent || "pink";
+        r.dataset.particles = s.particles || "stars";
+        r.dataset.emoji = s.emoji || "noto";
+        r.dataset.time = s.timeFormat || "relative";
+        r.dataset.tz = s.timezone || "auto";
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="icon" href="assets/favicon.svg?v=2" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="assets/favicon.svg?v=2">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#17131c">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="navHost"></header>
+
+<main id="app">
+  <section class="tab active">
+    <div class="about-hero">
+      <h1>Что тут есть ♡</h1>
+      <p class="muted">Самое интересное сверху. Если вкладка не нужна — её можно убрать кнопкой внизу.</p>
+    </div>
+    <div id="aboutList" class="about-list"></div>
+    <button id="hideAboutBtn" class="secondaryBtn" style="margin-top:20px;">
+      Скрыть эту вкладку
+    </button>
+  </section>
+</main>
+
+<!-- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ -->
+<div id="viewProfileModal" class="modal hidden">
+  <div class="modal-content">
+    <button class="closeBtn modalClose" id="closeViewProfile"><span class="nf">&#xf00d;</span></button>
+    <div class="profile-head">
+      <span class="avatar-wrap" style="width:64px;height:64px;">
+        <img id="vpAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-shaped shape-circle" style="width:64px;height:64px;">
+        <span class="avatar-status" id="vpStatus"></span>
+      </span>
+      <div>
+        <div id="vpNickname" class="nick-lg"></div>
+        <div class="muted">@<span id="vpUsername"></span></div>
+        <div class="profile-bio" id="vpBio" style="font-size:13px;"></div>
+      </div>
+    </div>
+    <a id="vpFullProfileLink" href="#" class="viewFullProfileLink">Открыть профиль полностью &#8594;</a>
+    <div id="vpPosts" class="feed-list"></div>
+  </div>
+</div>
+
+<!-- ВЫПАДАШКА ПРОФИЛЯ (не модалка — открывается прямо у иконки) -->
+<div id="profileDropdown" class="profile-dropdown hidden">
+  <div id="ddLoggedOut">
+    <p class="muted" style="margin-top:0;">Ты пока не в аккаунте</p>
+    <button id="googleLoginBtn" class="primaryBtn">Войти через Google</button>
+    <hr>
+    <a href="settings.html" class="dropdownBtn"><span class="nf">&#xf013;</span> Настройки</a>
+  </div>
+  <div id="ddLoggedIn" class="hidden">
+    <div class="dropdown-user-row">
+      <img id="ddAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-sm">
+      <div>
+        <div id="ddNickname" class="nick-sm"></div>
+        <div id="ddUsername" class="muted" style="font-size:12px;"></div>
+      </div>
+    </div>
+    <a href="profile.html" class="dropdownBtn"><span class="nf">&#xf007;</span> Профиль</a>
+    <a href="my-channels.html" class="dropdownBtn"><span class="nf">&#xf292;</span> Мои каналы</a>
+    <a href="settings.html" class="dropdownBtn"><span class="nf">&#xf013;</span> Настройки</a>
+    <hr>
+    <button id="logoutBtn" class="dangerBtn">Выйти</button>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="js/about-page.js"></script>
+</body>
+</html>
