@@ -1,5 +1,5 @@
 import { currentUser, currentUserDoc, authPending, onAuthChange, patchCurrentUserDoc, logout, loginWithGoogle } from "./auth.js";
-import { updateUserDoc, isUsernameTaken, changeUsername } from "./data.js";
+import { updateUserDoc, isUsernameTaken, changeUsername, getUserDoc } from "./data.js";
 import { uploadImage, exportLocalBackup } from "./storage.js";
 import { showToast } from "./ui.js";
 import { shapeClass, shapePickerHtml, openCropper, applyAvatar } from "./avatar.js";
@@ -124,6 +124,12 @@ export function initProfilePageForm() {
 
   saveBtn.addEventListener("click", async () => {
     if (!currentUser) return;
+    // Если профиль не загрузился, в форме лежат придуманные значения —
+    // сохранять их означало бы затереть настоящие данные в базе.
+    if (currentUserDoc?._incomplete) {
+      showToast("Профиль не загружен, сохранять нечего. Ошибка: " + (currentUserDoc._error || "неизвестна"));
+      return;
+    }
     const newUsername = usernameInput.value.trim().replace(/^@/, "");
     const newNickname = nicknameInput.value.trim();
     if (!newUsername || !/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) {
@@ -159,6 +165,14 @@ export function initProfilePageForm() {
         patch.username = newUsername;
       }
       await updateUserDoc(currentUser.uid, patch);
+
+      // Проверяем, что запись реально долетела до сервера. Firestore применяет
+      // изменения локально сразу, поэтому без перечитывания можно показать
+      // «сохранено» там, где сервер на самом деле отказал.
+      const saved = await getUserDoc(currentUser.uid);
+      if (!saved || saved.nickname !== patch.nickname) {
+        throw new Error("сервер не принял изменения — проверь правила базы");
+      }
       patchCurrentUserDoc(patch);
       showToast("Профиль сохранён ♡");
     } catch (e) {

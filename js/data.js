@@ -22,7 +22,18 @@ export async function reserveUsername(username, type, ownerId) {
 // ================== Пользователи ==================
 export async function ensureUserDoc(fbUser) {
   const ref = doc(db, "users", fbUser.uid);
-  const snap = await getDoc(ref);
+
+  // Чтение профиля вынесено в отдельную попытку: если падает именно оно,
+  // причина почти всегда одна — правила базы не залиты или залиты старые.
+  // Сообщение об этом должно быть внятным, а не «профиль не загрузился».
+  let snap;
+  try {
+    snap = await getDoc(ref);
+  } catch (e) {
+    throw new Error(`не удалось прочитать профиль (${e.code || e.message}). ` +
+                    `Скорее всего, правила Firestore не задеплоены`);
+  }
+
   if (snap.exists()) {
     const data = snap.data();
     // аккаунты, созданные до отдельного хранилища NUID, переносим на лету
@@ -63,7 +74,12 @@ export async function ensureUserDoc(fbUser) {
   // Раньше сначала подбирался NUID, и его неудача (например, при незалитых
   // правилах) означала, что документ users/{uid} не появлялся вообще — а потом
   // любое сохранение профиля падало с «No document to update».
-  await setDoc(ref, base);
+  try {
+    await setDoc(ref, base);
+  } catch (e) {
+    throw new Error(`не удалось создать профиль (${e.code || e.message}). ` +
+                    `Проверь, что правила Firestore задеплоены`);
+  }
 
   // Бронь юзернейма — уже не критично: без неё профиль просто останется с
   // именем по умолчанию, но работать будет.
@@ -88,7 +104,17 @@ export async function getUserDoc(uid) {
 // документа могло не быть вовсе, и обновление падало с «No document to update».
 // Так профиль сам восстановится при первом же сохранении.
 export async function updateUserDoc(uid, patch) {
-  await setDoc(doc(db, "users", uid), patch, { merge: true });
+  // undefined в любом поле Firestore не принимает и падает с невнятной
+  // ошибкой — вычищаем заранее (например, если загрузка картинки вернула пусто)
+  const clean = Object.fromEntries(
+    Object.entries(patch).filter(([, v]) => v !== undefined)
+  );
+  try {
+    await setDoc(doc(db, "users", uid), clean, { merge: true });
+  } catch (e) {
+    throw new Error(`${e.code || e.message}. Если это про доступ — проверь, ` +
+                    `что правила Firestore задеплоены`);
+  }
 }
 
 // Смена юзернейма — старая бронь освобождается, новая занимается, само поле в

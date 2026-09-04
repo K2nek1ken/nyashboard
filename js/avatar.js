@@ -107,6 +107,8 @@ export function openCropper(file, onDone) {
   }
 
   let dragging = false, lastX = 0, lastY = 0;
+  // Пересчёт в координаты холста: контейнер на узком экране может быть меньше
+  // 300px, поэтому опираемся на его фактический размер, а не на константу.
   const toLocal = (e) => {
     const r = stage.getBoundingClientRect();
     const p = e.touches ? e.touches[0] : e;

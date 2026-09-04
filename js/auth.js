@@ -85,18 +85,23 @@ onAuthStateChanged(auth, async (fbUser) => {
       // userNuids) роняла весь обработчик: аккаунт в базе создавался, а
       // интерфейс так и оставался в состоянии «не вошёл». Теперь вход
       // доводится до конца с тем, что есть, а проблема просто пишется в консоль.
-      console.error("Профиль не догрузился, вхожу с минимальными данными:", e);
+      console.error("Профиль не догрузился:", e);
+      // ВАЖНО: подставляем заглушку, но помечаем её как неполную. Раньше эти
+      // придуманные значения попадали в форму профиля, и первое же сохранение
+      // записывало их поверх настоящих данных — ник, аватарка и описание
+      // затирались. Теперь сохранение такой профиль не пропустит.
       currentUserDoc = {
         uid: fbUser.uid,
-        username: "user_" + fbUser.uid.slice(0, 6),
-        nickname: fbUser.displayName || "Новый неко",
+        username: "",
+        nickname: fbUser.displayName || "",
         avatarUrl: fbUser.photoURL || "",
-        _incomplete: true
+        _incomplete: true,
+        _error: e.message
       };
-      showToast("Вошли, но профиль подгрузился не полностью");
+      showToast("Профиль не загрузился: " + e.message);
     }
     cachedUserDoc = currentUserDoc;
-    writeProfileCache(currentUserDoc);
+    if (!currentUserDoc._incomplete) writeProfileCache(currentUserDoc);
   }
   authPending = false;
   emitAuthChange();

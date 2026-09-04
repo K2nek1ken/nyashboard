@@ -604,12 +604,18 @@ button, input, textarea { font-family: inherit; color: inherit; }
 .emoji-picker button:hover { background: var(--card); }
 
 /* ---------- кадрирование аватарки ---------- */
+/* Холст внутри квадратный (300×300), поэтому и контейнер обязан быть квадратным.
+   Раньше он растягивался по ширине окна, и картинка сплющивалась по вертикали. */
 .crop-stage {
-  position: relative; width: 100%; height: 300px; background: #14101a;
+  position: relative; width: min(300px, 100%); aspect-ratio: 1; height: auto;
+  margin: 0 auto; background: #14101a;
   border-radius: 12px; overflow: hidden; touch-action: none; cursor: grab;
 }
 .crop-stage:active { cursor: grabbing; }
-.crop-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.crop-stage canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block;
+}
 .crop-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .crop-controls input[type=range] { flex: 1; accent-color: var(--accent); }
 
