@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NyashBoard ♡ — Пост</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="navHost"></header>
+
+<main id="app">
+  <section class="tab active">
+    <div id="postDetail" class="feed-list"><div class="stub-note">Загружаю пост...</div></div>
+
+    <div class="section-title">Все ответы</div>
+    <div id="allReplies" class="replies-preview full-thread"></div>
+    <div class="reply-input-row">
+      <input type="text" placeholder="Твой ответ..." id="detailReplyInput">
+      <button id="detailSendReply" class="sendBtn nf">&#xf1d8;</button>
+    </div>
+  </section>
+</main>
+
+<!-- ПОЛНОЭКРАННЫЙ РЕДАКТОР ПОСТА (для правки этого же поста) -->
+<div id="postEditor" class="post-editor hidden">
+  <div class="post-editor-top">
+    <span id="editorTitle" class="muted">Новый пост</span>
+    <label class="toggle-anon" id="anonToggleRow">
+      <input type="checkbox" id="postAnonToggle">
+      <span id="postAnonLabel">от своего имени</span>
+    </label>
+    <button id="closeEditorBtn" class="closeBtn"><span class="nf">&#xf00d;</span></button>
+  </div>
+  <textarea id="postTextArea" placeholder="Что у тебя нового? ♡"></textarea>
+  <div id="postImageStrip" class="image-strip"></div>
+  <div class="post-editor-bottom">
+    <label class="attachBtn" for="postImageInput"><span class="nf">&#xf0c6;</span></label>
+    <input type="file" id="postImageInput" accept="image/*" multiple hidden>
+    <span class="muted" id="imageCountHint" style="font-size:12px;"></span>
+    <button id="publishPostBtn" class="publishBtn">Опубликовать</button>
+  </div>
+</div>
+
+<!-- ВЫПАДАШКА ПРОФИЛЯ (не модалка — открывается прямо у иконки) -->
+<div id="profileDropdown" class="profile-dropdown hidden">
+  <div id="ddLoggedOut">
+    <p class="muted" style="margin-top:0;">Ты не вошёл(а) ♡</p>
+    <button id="googleLoginBtn" class="primaryBtn">Войти через Google</button>
+  </div>
+  <div id="ddLoggedIn" class="hidden">
+    <div class="dropdown-user-row">
+      <img id="ddAvatar" src="assets/anon.svg" class="avatar-sm">
+      <div>
+        <div id="ddNickname" class="nick-sm"></div>
+        <div id="ddUsername" class="muted" style="font-size:12px;"></div>
+      </div>
+    </div>
+    <a href="profile.html" class="dropdownBtn"><span class="nf">&#xf007;</span> Профиль</a>
+    <a href="my-channels.html" class="dropdownBtn"><span class="nf">&#xf292;</span> Мои каналы</a>
+    <a href="settings.html" class="dropdownBtn"><span class="nf">&#xf013;</span> Настройки</a>
+    <hr>
+    <button id="logoutBtn" class="dangerBtn">Выйти</button>
+  </div>
+</div>
+
+<!-- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ -->
+<div id="viewProfileModal" class="modal hidden">
+  <div class="modal-content">
+    <button class="closeBtn modalClose" id="closeViewProfile"><span class="nf">&#xf00d;</span></button>
+    <div class="profile-head">
+      <span class="avatar-wrap" style="width:64px;height:64px;">
+        <img id="vpAvatar" src="assets/anon.svg" class="avatar-shaped shape-circle" style="width:64px;height:64px;">
+        <span class="avatar-status" id="vpStatus"></span>
+      </span>
+      <div>
+        <div id="vpNickname" class="nick-lg"></div>
+        <div class="muted">@<span id="vpUsername"></span></div>
+        <div class="profile-bio" id="vpBio" style="font-size:13px;"></div>
+      </div>
+    </div>
+    <a id="vpFullProfileLink" href="#" class="viewFullProfileLink">Открыть профиль полностью &#8594;</a>
+    <div id="vpPosts" class="feed-list"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="js/post-page.js"></script>
+</body>
+</html>

@@ -1,0 +1,712 @@
+@font-face {
+  font-family: "Monaspace Neon NF";
+  src: url("assets/fonts/MonaspaceNeonNF-Regular.otf") format("opentype");
+  font-display: swap;
+}
+.nf {
+  font-family: "Monaspace Neon NF", monospace;
+  font-style: normal;
+  line-height: 1;
+  display: inline-block;
+}
+
+:root {
+  --bg: #17131c;
+  --bg-soft: #221c2b;
+  --card: #2a2333;
+  --card-hover: #322a3d;
+  --accent: #e88fd0;
+  --accent-2: #a98bf0;
+  --text: #f1e9f7;
+  --muted: #9d8fae;
+  --danger: #ef6f6f;
+  --radius: 16px;
+  font-family: "Monaspace Neon NF", "Monaspace Neon", ui-monospace, "Cascadia Code", monospace;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  height: 100%;
+}
+button, input, textarea { font-family: inherit; color: inherit; }
+.hidden { display: none !important; }
+
+/* ---------- навигация: база = мобильная (полоса сверху) ---------- */
+#navHost {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  position: sticky; top: 0; z-index: 20;
+  border-bottom: 1px solid #3a2f47;
+}
+.brand {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 700; font-size: 17px; white-space: nowrap;
+  text-decoration: none; color: var(--text);
+}
+.brand-mark { color: var(--accent); }
+.brand-text span { color: var(--accent); }
+#navTabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+.navBtn {
+  display: flex; align-items: center; gap: 7px;
+  background: none; border: none; padding: 8px 12px;
+  border-radius: 999px; cursor: pointer; color: var(--muted);
+  font-size: 14px; white-space: nowrap; text-decoration: none;
+}
+.navBtn .nf { font-size: 16px; }
+.navBtn-label { display: none; }
+.navBtn.active { background: var(--card); color: var(--accent); font-weight: 600; }
+.navBtn:hover { color: var(--text); }
+.profile-icon { cursor: pointer; flex-shrink: 0; position: relative; }
+.profile-icon img {
+  width: 34px; height: 34px; border-radius: 50%;
+  object-fit: cover; border: 2px solid var(--accent-2);
+}
+
+/* ---------- выпадашка профиля (не модалка!) ---------- */
+.profile-dropdown {
+  position: fixed; top: 58px; right: 16px; z-index: 70;
+  width: 230px; background: var(--bg-soft); border-radius: 14px;
+  padding: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.45);
+  border: 1px solid #3a2f47;
+}
+.dropdown-user-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.avatar-sm { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.nick-sm { font-weight: 600; font-size: 14px; }
+.dropdownBtn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px; border-radius: 10px; color: var(--text);
+  text-decoration: none; font-size: 14px; margin-bottom: 4px;
+}
+.dropdownBtn:hover { background: var(--card); }
+.dropdownBtn .nf { color: var(--accent-2); font-size: 15px; width: 16px; }
+.profile-dropdown hr { border: none; border-top: 1px solid #3a2f47; margin: 10px 0; }
+
+/* ---------- фон со звёздочками ---------- */
+#starfield {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+#navHost, #app, .post-editor, .modal, .chat-floating-bar, .profile-dropdown, .toast {
+  position: relative; z-index: 1;
+}
+#navHost { z-index: 20; }
+
+/* ---------- layout ---------- */
+#app { max-width: 640px; margin: 0 auto; padding: 12px; padding-bottom: 90px; }
+/* в чате внизу висит панель ввода — оставляем под неё место, чтобы последние
+   сообщения не оказывались под ней */
+.chat-page-body #app { padding-bottom: 150px; }
+
+/* ---------- скроллбары в стиле сайта, а не системные ---------- */
+* { scrollbar-width: thin; scrollbar-color: var(--card-hover) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--card-hover); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--accent-2); }
+.tab { display: none; }
+.tab.active { display: block; }
+
+/* ---------- feed ---------- */
+.feed-list { display: flex; flex-direction: column; gap: 12px; }
+.post-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 14px; position: relative;
+}
+.post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.post-head img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; cursor: pointer; }
+.post-author { font-weight: 600; cursor: pointer; }
+.post-author.anon { color: var(--muted); font-style: italic; cursor: default; }
+.post-time { font-size: 12px; color: var(--muted); }
+.post-meta-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.post-text { white-space: pre-wrap; line-height: 1.45; word-break: break-word; }
+.post-img { margin-top: 8px; max-width: 100%; border-radius: 12px; display: block; }
+
+/* ---------- карусель нескольких фото поста ---------- */
+.carousel { position: relative; margin-top: 8px; }
+.carousel-track {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  border-radius: 12px; gap: 0; scrollbar-width: none;
+  aspect-ratio: 4 / 3; background: var(--bg-soft);
+}
+.carousel-track::-webkit-scrollbar { display: none; }
+.carousel-slide {
+  flex: 0 0 100%; scroll-snap-align: start;
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; overflow: hidden;
+}
+.carousel-slide img {
+  max-width: 100%; max-height: 100%; width: auto; height: auto;
+  object-fit: contain; display: block; border-radius: 12px;
+}
+.carousel-badge {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  background: rgba(0,0,0,0.55); color: #fff; font-size: 11px;
+  padding: 3px 9px; border-radius: 999px; pointer-events: none;
+}
+
+.post-edited-tag { font-size: 11px; color: var(--muted); margin-left: 6px; }
+.mention { color: var(--accent-2); cursor: pointer; font-weight: 600; }
+.mention:hover { text-decoration: underline; }
+
+/* ---------- кебаб-меню (три точки → выпадающий список), как в тг ---------- */
+.kebab { position: relative; }
+.kebabTrigger {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 18px; padding: 6px 8px; line-height: 1; border-radius: 8px;
+}
+.kebabTrigger:hover { color: var(--text); background: var(--card-hover); }
+.kebabMenu {
+  position: absolute; top: 100%; right: 0; z-index: 40;
+  background: var(--bg-soft); border: 1px solid #3a2f47; border-radius: 12px;
+  padding: 6px; min-width: 170px; box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+}
+.kebabItem {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: none; color: var(--text); cursor: pointer;
+  font-size: 14px; padding: 9px 10px; border-radius: 8px; text-align: left;
+}
+.kebabItem:hover { background: var(--card); }
+.kebabItem .nf { font-size: 15px; width: 16px; color: var(--accent-2); }
+.kebabItem.danger { color: var(--danger); }
+.kebabItem.danger .nf { color: var(--danger); }
+.repost-badge {
+  font-size: 12px; color: var(--accent-2); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.post-actions { display: flex; gap: 18px; margin-top: 10px; }
+.post-actions button {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px;
+}
+.post-actions button .nf { font-size: 20px; }
+.post-actions button.liked { color: var(--accent); }
+.post-actions button:hover { color: var(--text); }
+.replies-preview { margin-top: 10px; }
+.replies-preview.full-thread { margin-top: 0; }
+.reply-row {
+  font-size: 13px; padding: 8px 0 8px 12px;
+  border-left: 2px solid #3a2f47; margin-top: 6px;
+}
+.reply-row-head { display: flex; align-items: center; gap: 6px; }
+.reply-row-head .kebab { margin-left: auto; }
+.reply-row-head .kebabTrigger { font-size: 15px; padding: 3px 6px; }
+.reply-row b { color: var(--accent-2); }
+.reply-row b.anon { color: var(--muted); font-style: italic; }
+.reply-text { margin-top: 2px; line-height: 1.4; word-break: break-word; }
+.replyLikeBtn {
+  background: none; border: none; color: var(--muted); font-size: 12px;
+  cursor: pointer; margin-top: 4px; display: flex; align-items: center; gap: 4px; padding: 0;
+}
+.replyLikeBtn .nf { font-size: 17px; }
+.replyLikeBtn.liked { color: var(--accent); }
+.showMoreReplies {
+  display: block; margin-top: 8px; font-size: 13px;
+  color: var(--accent-2); text-decoration: none; padding-left: 12px;
+}
+.reply-input-row { display: flex; gap: 6px; margin-top: 10px; }
+.reply-input-row input {
+  flex: 1; background: var(--bg-soft); border: 1px solid #3a2f47;
+  border-radius: 999px; padding: 8px 14px; color: var(--text); outline: none;
+}
+.reply-input-row button { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 16px; }
+
+.fab {
+  position: fixed; right: 20px; bottom: 26px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #1a1420; font-size: 26px; border: none; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(232,143,208,0.4); z-index: 15;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ---------- post editor (fullscreen) ---------- */
+.post-editor {
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--bg); display: flex; flex-direction: column;
+  padding: 14px;
+}
+.post-editor-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+#editorTitle { font-size: 13px; }
+.toggle-anon { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin-left: auto; }
+#postTextArea {
+  flex: 1; width: 100%; resize: none; border: none; outline: none;
+  background: transparent; color: var(--text); font-size: 18px; line-height: 1.5;
+}
+.post-editor-bottom { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.publishBtn {
+  margin-left: auto; background: var(--accent); color: #1a1420;
+  border: none; padding: 10px 22px; border-radius: 999px; font-weight: 700; cursor: pointer;
+}
+.attachBtn { font-size: 30px; cursor: pointer; padding: 4px; }
+.closeBtn { background: none; border: none; color: var(--text); font-size: 26px; cursor: pointer; padding: 4px; }
+
+/* стрип миниатюр в редакторе поста — до 10 фото, скролл по горизонтали */
+.image-strip {
+  display: flex; gap: 8px; overflow-x: auto; padding: 6px 0;
+}
+.image-strip:empty { display: none; }
+.image-strip .thumb {
+  position: relative; flex: 0 0 76px; width: 76px; height: 76px;
+  border-radius: 10px; overflow: hidden;
+}
+.image-strip .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.image-strip .thumb .removeThumb {
+  position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.6);
+  border: none; color: #fff; border-radius: 50%; width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer;
+}
+
+/* ---------- chat (плавающая нижняя панель) ---------- */
+#tab-chat, .chat-page-body { padding-bottom: 0; }
+.chat-messages {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 4px 2px 12px;
+  min-height: 40vh;
+}
+.chat-msg { background: var(--card); border-radius: 12px; padding: 8px 12px; max-width: 80%; }
+.chat-msg-head { display: flex; align-items: center; gap: 6px; }
+.chat-msg-head .kebab { margin-left: auto; }
+.chat-msg b { color: var(--accent-2); font-size: 13px; }
+.chat-msg .txt { margin-top: 2px; word-break: break-word; }
+.chat-msg img { max-width: 100%; border-radius: 8px; margin-top: 6px; }
+
+.chat-floating-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+  /* сам бар кликов НЕ ловит — иначе его прозрачная область (раньше ещё и с
+     высоким градиентом) перехватывала нажатия по сообщениям и пунктам кебаба
+     над полем ввода. Кликабельна только внутренняя часть с реальными контролами. */
+  pointer-events: none;
+}
+.chat-floating-inner {
+  max-width: 640px; margin: 0 auto;
+  pointer-events: auto;
+  background: var(--bg);
+  border-radius: 18px 18px 0 0;
+  padding: 10px 6px 4px;
+}
+.chat-nick-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted); margin-bottom: 6px; padding: 0 6px;
+}
+.chat-nick-row .nf { color: var(--accent-2); cursor: pointer; font-size: 20px; padding: 2px 4px; }
+.chat-input-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 999px; padding: 6px 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+}
+.chat-input-row input[type=text] {
+  flex: 1; background: none; border: none; outline: none; color: var(--text); padding: 6px;
+}
+.sendBtn, .attachBtn { background: none; border: none; color: var(--accent); font-size: 26px; cursor: pointer; padding: 4px; }
+.image-preview { margin: 8px 0; position: relative; }
+.image-preview img { max-width: 160px; border-radius: 10px; display: block; }
+.image-preview .removeImg {
+  position: absolute; top: -6px; left: 150px; background: var(--danger);
+  border: none; color: #fff; border-radius: 50%; width: 20px; height: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 11px;
+}
+
+/* ---------- people ---------- */
+.searchBox {
+  width: 100%; padding: 10px 14px; border-radius: 999px; border: 1px solid #3a2f47;
+  background: var(--card); color: var(--text); margin-bottom: 12px; outline: none;
+}
+.people-list { display: flex; flex-direction: column; gap: 8px; }
+.person-row {
+  display: flex; align-items: center; gap: 10px; background: var(--card);
+  padding: 10px 12px; border-radius: 12px; cursor: pointer;
+}
+.person-row img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.person-row .pmuted { color: var(--muted); font-size: 12px; }
+
+.stub-note { color: var(--muted); text-align: center; padding: 40px 20px; }
+
+/* ---------- channels (контент) ---------- */
+.section-title { font-size: 13px; color: var(--muted); margin: 18px 0 8px; padding: 0 2px; }
+.section-title:first-child { margin-top: 0; }
+.channel-list { display: flex; flex-direction: column; gap: 8px; }
+.channel-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border-radius: 12px; padding: 12px;
+  text-decoration: none; color: var(--text);
+}
+.channel-icon {
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: flex; align-items: center; justify-content: center; color: #1a1420; font-size: 18px;
+}
+.channel-info { flex: 1; min-width: 0; }
+.channel-name { font-weight: 600; }
+.channel-desc { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subBtn {
+  border: 1px solid var(--accent-2); background: none; color: var(--accent-2);
+  border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; flex-shrink: 0;
+}
+.subBtn.subscribed { background: var(--accent-2); color: #1a1420; border-color: var(--accent-2); }
+.manage-toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+.manage-toolbar button { margin-top: 0; }
+
+/* модалка создания канала */
+.create-channel-form input, .create-channel-form textarea {
+  width: 100%; background: var(--card); border: 1px solid #3a2f47; border-radius: 10px;
+  padding: 10px 12px; color: var(--text); margin-bottom: 10px; outline: none;
+}
+.create-channel-form textarea { resize: vertical; min-height: 70px; }
+
+/* ---------- modals ---------- */
+.modal {
+  position: fixed; inset: 0; background: rgba(10,8,14,0.7);
+  display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px;
+}
+.modal-content {
+  background: var(--bg-soft); border-radius: var(--radius);
+  padding: 22px; width: 100%; max-width: 420px; position: relative;
+  max-height: 88vh; overflow-y: auto;
+}
+.modalClose { position: absolute; top: 12px; right: 14px; }
+.profile-head { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; }
+.avatar-lg { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+.nick-lg { font-size: 18px; font-weight: 700; }
+.inlineEdit {
+  background: var(--card); border: 1px solid #3a2f47; border-radius: 8px;
+  padding: 6px 10px; color: var(--text); width: 100%; margin-bottom: 4px; outline: none;
+}
+.inlineEdit.small { width: auto; display: inline-block; padding: 4px 6px; }
+.username-row { display: flex; align-items: center; gap: 2px; color: var(--muted); font-size: 13px; }
+.uid-row { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.uid-row code { font-family: "Monaspace Neon NF", monospace; color: var(--text); }
+
+/* ---------- страница профиля / карточки-превью пользователя ---------- */
+.avatar-edit-wrap { position: relative; display: inline-block; cursor: pointer; }
+.avatar-edit-badge {
+  position: absolute; bottom: -2px; right: -2px; width: 24px; height: 24px;
+  background: var(--accent); color: #1a1420; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
+  border: 2px solid var(--bg-soft);
+}
+.profile-page-head { text-align: center; padding: 20px 0 6px; }
+.profile-page-head .inlineEdit { text-align: center; font-size: 17px; font-weight: 600; }
+.profile-page-head .username-row { justify-content: center; }
+/* ник и юзернейм одной ширины — раньше поле юзернейма было втрое уже и это
+   выглядело как недоделка */
+.profile-page-head .username-row { position: relative; }
+.profile-page-head .username-row .at-sign {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 14px; pointer-events: none;
+}
+.profile-page-head .username-row .inlineEdit {
+  width: 100%; padding-left: 24px; font-size: 14px; font-weight: 400;
+}
+.profile-page-head .uid-row { text-align: center; }
+.viewFullProfileLink {
+  display: block; text-align: center; margin-top: 14px; color: var(--accent-2);
+  text-decoration: none; font-size: 13px;
+}
+.muted { color: var(--muted); font-size: 13px; }
+
+.primaryBtn, .secondaryBtn, .dangerBtn, .linkBtn {
+  display: block; width: 100%; margin-top: 10px; padding: 10px;
+  border-radius: 10px; border: none; cursor: pointer; font-size: 14px; text-align: center;
+}
+.primaryBtn { background: var(--accent); color: #1a1420; font-weight: 700; }
+.secondaryBtn { background: var(--card); color: var(--text); }
+.dangerBtn { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.linkBtn { background: none; color: var(--accent-2); text-decoration: underline; width: auto; padding: 4px 0; }
+
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--card); padding: 10px 18px; border-radius: 999px;
+  font-size: 13px; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+/* ============================================================
+   ПК-МАКЕТ: навигация уезжает в колонку слева, контент шире
+   ============================================================ */
+@media (min-width: 900px) {
+  #navHost {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 232px; flex-direction: column; align-items: stretch;
+    gap: 6px; padding: 22px 14px;
+    border-bottom: none; border-right: 1px solid #3a2f47;
+  }
+  .brand { font-size: 20px; padding: 0 10px 14px; }
+  #navTabs { flex-direction: column; flex: 0 0 auto; gap: 4px; overflow: visible; }
+  .navBtn { padding: 11px 12px; font-size: 15px; border-radius: 12px; }
+  .navBtn .nf { font-size: 18px; width: 20px; text-align: center; }
+  .navBtn-label { display: inline; }   /* на ПК подписи видны, на телефоне — только иконки */
+  .profile-icon { margin-top: auto; align-self: flex-start; }
+  .profile-icon img { width: 42px; height: 42px; }
+
+  .profile-dropdown { top: auto; bottom: 20px; left: 246px; right: auto; }
+
+  #app {
+    max-width: 1100px;
+    margin-left: 232px;
+    padding: 26px 32px 60px;
+  }
+  /* лента и стена канала — двухколоночная сетка, чтобы не было полосы
+     контента посреди пустого экрана */
+  .feed-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  #vpPosts.feed-list { grid-template-columns: 1fr; }  /* в модалке колонка одна */
+
+  /* чат на ПК: используем всю ширину, панель ввода прижата к правой части */
+  .chat-page-body #app { max-width: 900px; padding-bottom: 130px; }
+  .chat-floating-bar { left: 232px; padding-bottom: 18px; }
+  .chat-floating-inner { max-width: 836px; }
+  .chat-msg { max-width: 68%; }
+
+  /* редактор поста на ПК — не на весь экран, а карточкой по центру */
+  .post-editor {
+    inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(680px, 92vw); height: min(76vh, 720px);
+    border-radius: 18px; border: 1px solid #3a2f47;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+
+  /* стрелки карусели показываем только там, где есть мышь */
+  .carousel-nav { display: flex; }
+}
+
+@media (min-width: 1400px) {
+  .feed-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ---------- стрелки карусели (ПК: мышью не свайпнёшь) ---------- */
+.carousel-nav {
+  display: none; position: absolute; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; border-radius: 50%; z-index: 3;
+  background: rgba(0,0,0,0.55); color: #fff; border: none; cursor: pointer;
+  align-items: center; justify-content: center; font-size: 15px;
+}
+.carousel-nav:hover { background: rgba(0,0,0,0.78); }
+.carousel-nav[disabled] { opacity: 0.25; cursor: default; }
+.carousel-nav.prev { left: 8px; }
+.carousel-nav.next { right: 8px; }
+
+/* ---------- сворачиваемый длинный текст поста ---------- */
+.post-text.collapsible { position: relative; max-height: 15em; overflow: hidden; }
+.post-text.collapsible::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4em;
+  background: linear-gradient(180deg, transparent, var(--card));
+  pointer-events: none;
+}
+.post-text.expanded { max-height: none; }
+.post-text.expanded::after { display: none; }
+.expandBtn {
+  background: none; border: none; color: var(--accent-2); cursor: pointer;
+  font-size: 13px; padding: 6px 0 0; display: flex; align-items: center; gap: 6px;
+}
+
+/* ---------- хештеги ---------- */
+.hashtag { color: var(--accent); cursor: pointer; font-weight: 600; }
+.hashtag:hover { text-decoration: underline; }
+
+/* ---------- аватарки: форма + прозрачные PNG ---------- */
+.avatar-shaped {
+  background: var(--card);
+  border: 2px solid #3a2f47;   /* рамка, чтобы прозрачный PNG не «терялся» на фоне */
+  object-fit: cover;
+}
+.shape-circle { border-radius: 50%; }
+.shape-rounded { border-radius: 26%; }
+.shape-squircle {
+  border-radius: 42% 58% 43% 57% / 52% 44% 56% 48%;
+}
+.shape-picker { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.shapeOption {
+  width: 42px; height: 42px; cursor: pointer; background: var(--card);
+  border: 2px solid #3a2f47; padding: 0;
+}
+.shapeOption.selected { border-color: var(--accent); background: var(--card-hover); }
+
+/* ---------- эмодзи-статус на аватарке ---------- */
+.avatar-wrap { position: relative; display: inline-block; }
+.avatar-status {
+  position: absolute; top: -2px; right: -2px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--bg-soft); border: 2px solid var(--bg);
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+}
+.avatar-status:empty { display: none; }
+.post-head .avatar-wrap .avatar-status { width: 16px; height: 16px; font-size: 9px; top: -3px; right: -3px; }
+
+/* ---------- описание профиля ---------- */
+.profile-bio { white-space: pre-wrap; line-height: 1.45; margin-top: 8px; }
+.bioInput {
+  width: 100%; background: var(--card); border: 1px solid #3a2f47; border-radius: 10px;
+  padding: 10px 12px; color: var(--text); outline: none; resize: vertical; min-height: 64px;
+  font-family: inherit; font-size: 14px; margin-top: 10px;
+}
+
+/* ---------- ответ на сообщение в чате (как в тг) ---------- */
+.chat-reply-quote {
+  border-left: 3px solid var(--accent-2); padding: 4px 8px; margin-bottom: 6px;
+  background: rgba(169,139,240,0.10); border-radius: 0 8px 8px 0;
+  font-size: 12px; cursor: pointer; position: relative; overflow: hidden;
+}
+.chat-reply-quote b { color: var(--accent-2); }
+.chat-reply-quote .quote-text { color: var(--muted); display: block; margin-top: 1px; }
+.chat-reply-quote .petals {
+  position: absolute; inset: 0; pointer-events: none;
+  color: var(--accent); opacity: 0.16; font-size: 11px;
+  letter-spacing: 12px; line-height: 15px; overflow: hidden; white-space: pre-wrap;
+}
+.chat-msg.is-reply-target { animation: flashTarget 1.1s ease; }
+@keyframes flashTarget {
+  0%, 100% { background: var(--card); }
+  35% { background: var(--card-hover); }
+}
+.reply-compose-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 12px; padding: 6px 10px; margin-bottom: 6px;
+  font-size: 12px; color: var(--muted);
+}
+.reply-compose-bar b { color: var(--accent-2); }
+.reply-compose-bar .cancelReply {
+  margin-left: auto; background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 16px;
+}
+
+/* ---------- пикер эмодзи ---------- */
+.emoji-picker {
+  position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; z-index: 60;
+  background: var(--bg-soft); border: 1px solid #3a2f47; border-radius: 14px;
+  padding: 10px; width: 268px; max-height: 210px; overflow-y: auto;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+}
+.emoji-picker button {
+  background: none; border: none; cursor: pointer; font-size: 19px;
+  padding: 5px; border-radius: 8px; line-height: 1;
+}
+.emoji-picker button:hover { background: var(--card); }
+
+/* ---------- кадрирование аватарки ---------- */
+.crop-stage {
+  position: relative; width: 100%; height: 300px; background: #14101a;
+  border-radius: 12px; overflow: hidden; touch-action: none; cursor: grab;
+}
+.crop-stage:active { cursor: grabbing; }
+.crop-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.crop-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.crop-controls input[type=range] { flex: 1; accent-color: var(--accent); }
+
+/* ---------- скрытый NUID ---------- */
+.nuid-hidden {
+  filter: blur(5px); cursor: pointer; user-select: none;
+  transition: filter 0.15s;
+}
+.nuid-hidden:hover { filter: blur(3px); }
+.nuid-hidden.revealed { filter: none; user-select: text; }
+
+/* ---------- фото в ответах ---------- */
+.reply-img { max-width: 220px; border-radius: 10px; margin-top: 6px; display: block; }
+.reply-input-row .attachBtn { font-size: 20px; }
+
+/* ============================================================
+   ЭМОДЗИ-ШРИФТ (Apple, subset)
+   unicode-range = браузер скачает файл ТОЛЬКО если на странице реально
+   встретились эмодзи. Формат CBDT: работает в Chrome/Firefox/Android,
+   Safari его не поддерживает и молча возьмёт системный Apple Color Emoji —
+   там он выглядит так же, так что деградация незаметная.
+   Включается/выключается тумблером в настройках (файл всё-таки 8 МБ).
+   ============================================================ */
+@font-face {
+  font-family: "NyashEmoji";
+  src: url("assets/fonts/AppleColorEmoji-subset.ttf") format("truetype");
+  font-display: swap;
+  unicode-range: U+203C-3299, U+1F000-1FAFF, U+FE0F, U+200D, U+20E3, U+2190-27BF;
+}
+html[data-emoji="apple"] body,
+html[data-emoji="apple"] .emoji-picker button,
+html[data-emoji="apple"] .avatar-status {
+  font-family: "NyashEmoji", "Monaspace Neon NF", ui-monospace, monospace;
+}
+/* иконки интерфейса всегда рисуются Nerd Font — эмодзи-шрифт их не перебивает */
+html[data-emoji="apple"] .nf { font-family: "Monaspace Neon NF", monospace !important; }
+
+/* ---------- страница настроек ---------- */
+.setting-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 0; border-bottom: 1px solid #3a2f47;
+}
+.setting-label { flex: 1; min-width: 0; }
+.settingSelect {
+  background: var(--card); border: 1px solid #3a2f47; border-radius: 10px;
+  padding: 8px 12px; color: var(--text); outline: none; font-family: inherit;
+}
+.toggleSwitch {
+  width: 48px; height: 27px; border-radius: 999px; flex-shrink: 0;
+  background: var(--card); border: 1px solid #3a2f47; cursor: pointer;
+  position: relative; padding: 0; transition: background 0.16s;
+}
+.toggleSwitch span {
+  position: absolute; top: 2px; left: 2px; width: 21px; height: 21px;
+  border-radius: 50%; background: var(--muted); transition: transform 0.16s, background 0.16s;
+}
+.toggleSwitch.on { background: var(--accent); border-color: var(--accent); }
+.toggleSwitch.on span { transform: translateX(21px); background: #1a1420; }
+
+/* просмотренные посты чуть приглушены — видно, что уже читал */
+.post-card.was-seen .post-head { opacity: 0.72; }
+
+/* ---------- дополнительные темы ---------- */
+html[data-theme="midnight"] {
+  --bg: #0d1017; --bg-soft: #151a24; --card: #1c2230; --card-hover: #252c3d;
+  --accent: #6fd3e8; --accent-2: #7f9cf5; --text: #e6edf6; --muted: #8695ad;
+}
+html[data-theme="sakura"] {
+  --bg: #1d1418; --bg-soft: #2a1d24; --card: #352430; --card-hover: #402c3a;
+  --accent: #ff8fb1; --accent-2: #ffb3c8; --text: #fdeef3; --muted: #b58c9c;
+}
+
+/* ---------- акцентные цвета (поверх любой темы) ---------- */
+html[data-accent="orange"] { --accent: #f5a45c; --accent-2: #e8865f; }
+html[data-accent="mint"]   { --accent: #8fe0b0; --accent-2: #79c8a8; }
+
+.accent-picker { display: flex; gap: 8px; }
+.accentOption {
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; padding: 0;
+}
+.accentOption.selected { border-color: var(--text); }
+.accentOption.accent-pink   { background: linear-gradient(135deg, #e88fd0, #a98bf0); }
+.accentOption.accent-orange { background: linear-gradient(135deg, #f5a45c, #e8865f); }
+.accentOption.accent-mint   { background: linear-gradient(135deg, #8fe0b0, #79c8a8); }
+
+/* эмодзи: Noto с CDN либо локальный Apple */
+html[data-emoji="noto"] body,
+html[data-emoji="noto"] .emoji-picker button,
+html[data-emoji="noto"] .avatar-status {
+  font-family: "Noto Color Emoji", "Monaspace Neon NF", ui-monospace, monospace;
+}
+html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !important; }
+
+/* NUID до запроса — маска, а не размытое настоящее значение:
+   реального идентификатора в браузере на этот момент просто нет */
+.nuid-masked {
+  cursor: pointer; color: var(--accent-2); border-bottom: 1px dashed var(--accent-2);
+}
+.nuid-masked:hover { color: var(--accent); }
+
+/* ---------- порядок вкладок в настройках ---------- */
+.tab-order { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.tab-order-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 10px; padding: 9px 12px;
+}
+.tab-order-name { flex: 1; }
+.tabMoveBtn {
+  background: none; border: 1px solid #3a2f47; border-radius: 8px;
+  color: var(--text); cursor: pointer; width: 30px; height: 30px; font-size: 13px;
+}
+.tabMoveBtn:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); }
+.tabMoveBtn[disabled] { opacity: 0.3; cursor: default; }
+
+/* свои сообщения в личном чате — прижаты вправо */
+.chat-msg.mine { margin-left: auto; background: var(--card-hover); }

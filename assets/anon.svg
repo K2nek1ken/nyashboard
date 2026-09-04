@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="circleMask">
+      <circle cx="50" cy="50" r="50"/>
+    </clipPath>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="#d8b4e2"/>
+  <g clip-path="url(#circleMask)">
+    <ellipse cx="50" cy="94" rx="25" ry="42" fill="#fff5fb"/>
+    <path d="M68,20 L64.25,40.05 L48.77,26.77 Z" fill="#fff5fb"/>
+    <path d="M32,20 L35.75,40.05 L51.23,26.77 Z" fill="#fff5fb"/>
+    <circle cx="50" cy="41" r="18" fill="#fff5fb"/>
+  </g>
+</svg>

@@ -1,0 +1,293 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===================== ПОЛЬЗОВАТЕЛИ =====================
+    // Профили — читать может любой, писать только сам владелец (FUID == id документа),
+    // и только не-анонимной сессией (гости профиль не заводят).
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // ===================== NUID: ХРАНИЛИЩЕ И ИНДЕКС =====================
+    // Настоящее сокрытие NUID, а не блюр в интерфейсе.
+    //
+    // Сам NUID лежит НЕ в users/{uid} (тот документ читается публично целиком),
+    // а здесь. Правило смотрит на настройку приватности владельца и решает,
+    // отдавать ли документ вообще. Если нельзя — Firestore возвращает отказ,
+    // и значение физически не попадает в браузер запросившего.
+    match /userNuids/{userId} {
+      // Порядок условий важен: свой идентификатор отдаётся сразу, без обращения
+      // к профилю — это и быстрее, и на одно платное чтение меньше.
+      //
+      // get(...).data.get('nuidVisibility', 'friends') — явная подстановка
+      // умолчания для аккаунтов, созданных до появления настройки: у них поля
+      // просто нет. Без второго аргумента вернулся бы null, доступ всё равно
+      // закрылся бы, но уже неочевидным образом.
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        get(/databases/$(database)/documents/users/$(userId))
+          .data.get('nuidVisibility', 'friends') == 'everyone' ||
+        (get(/databases/$(database)/documents/users/$(userId))
+           .data.get('nuidVisibility', 'friends') == 'friends' &&
+         exists(/databases/$(database)/documents/users/$(userId)/friends/$(request.auth.uid)))
+      );
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if false;
+    }
+
+    // Обратный индекс NUID -> uid, чтобы работал поиск по идентификатору.
+    // Тонкость: get разрешён, list запрещён. То есть зная конкретный NUID,
+    // человека найти можно — а выкачать всю коллекцию и получить чужие
+    // идентификаторы нельзя. Именно та асимметрия, ради которой NUID и нужен:
+    // «дал кому-то свой ID — тебя найдут; не дал — не узнают».
+    match /nuidIndex/{nuid} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // ===================== ДРУЗЬЯ =====================
+    // Список друзей полностью приватный: читать его может только сам владелец.
+    // Поэтому скрываться, как в каналах, тут не от кого — никто и так не видит,
+    // кто у тебя в друзьях.
+    //
+    // Правила при этом могут проверять exists() по этому пути, даже когда клиент
+    // читать не вправе. На этом и держится «показывать NUID только друзьям»:
+    // база сама смотрит, есть ли запрашивающий в списке владельца.
+    //
+    // Дружба односторонняя, как подписка: ты добавляешь человека, его посты
+    // появляются в твоей ленте, и он получает доступ к твоему NUID. Личный чат
+    // открывается только при взаимности — см. dmChats ниже.
+    match /users/{userId}/friends/{friendUid} {
+      // Владелец читает весь свой список.
+      // Кто угодно другой может прочитать РОВНО ОДИН документ — свой собственный,
+      // то есть узнать «а добавил ли меня этот человек». Список при этом не
+      // раскрывается: get разрешён точечно, list — только владельцу, так что
+      // перебрать чужих друзей нельзя.
+      allow get: if request.auth != null &&
+        (request.auth.uid == userId || request.auth.uid == friendUid);
+      allow list: if request.auth != null && request.auth.uid == userId;
+      allow create, delete: if request.auth != null && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // ===================== ЛИЧНЫЕ ЧАТЫ =====================
+    // id чата — оба uid по алфавиту через подчёркивание, чтобы у пары людей
+    // всегда был ровно один чат независимо от того, кто написал первым.
+    match /dmChats/{chatId} {
+      // видят только участники
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      // создать может только участник и только при ВЗАИМНОЙ дружбе —
+      // иначе в личку мог бы написать кто угодно
+      allow create: if request.auth != null
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants.size() == 2
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.participants[0])/friends/$(request.resource.data.participants[1]))
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.participants[1])/friends/$(request.resource.data.participants[0]));
+      // обновляется только превью последнего сообщения
+      allow update: if request.auth != null
+        && request.auth.uid in resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['lastMessage', 'lastAt', 'lastSender']);
+      allow delete: if false;
+
+      match /messages/{msgId} {
+        allow read: if request.auth != null &&
+          request.auth.uid in get(/databases/$(database)/documents/dmChats/$(chatId)).data.participants;
+        allow create: if request.auth != null &&
+          request.auth.uid in get(/databases/$(database)/documents/dmChats/$(chatId)).data.participants &&
+          request.resource.data.senderUid == request.auth.uid;
+        allow update: if request.auth != null &&
+          resource.data.senderUid == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']);
+        allow delete: if request.auth != null && resource.data.senderUid == request.auth.uid;
+      }
+    }
+
+    // ===================== ПОДПИСКИ ПОЛЬЗОВАТЕЛЯ (приватные) =====================
+    // Личный список «на что я подписан». Читать и писать может ТОЛЬКО сам владелец —
+    // ни админы каналов, ни кто-либо ещё сюда не заглянут. Именно поэтому подписки
+    // можно спокойно хранить на сервере и синхронизировать между устройствами,
+    // не ломая анонимность: список подписчиков, видимый администрации канала, —
+    // это отдельная коллекция channels/{id}/subscribers, и она наполняется только
+    // по явному согласию (кнопки «подписаться» / «проявиться»).
+    match /users/{userId}/subscriptions/{channelId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ===================== РЕЕСТР ЮЗЕРНЕЙМОВ (общий для юзеров и каналов) =====================
+    // id документа = сам юзернейм в нижнем регистре. exists()-проверка в самом правиле
+    // create даёт атомарную уникальность без гонок — либо документа ещё нет и его можно
+    // создать, либо он уже есть и Firestore просто откажет.
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && !exists(/databases/$(database)/documents/usernames/$(username))
+        && request.resource.data.ownerId is string
+        && request.resource.data.type in ['user', 'channel'];
+      // удалить старую бронь можно только если ты и есть её владелец (юзер) либо
+      // создатель канала-владельца (проверяется через секреты канала)
+      allow delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        (resource.data.type == 'channel' &&
+          request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(resource.data.ownerId)).data.creatorUid)
+      );
+      allow update: if false;
+    }
+
+    // ===================== СЕКРЕТЫ ВЛАДЕНИЯ ПОСТАМИ =====================
+    // Никогда не читается клиентом напрямую (allow read: if false) — используется только
+    // через get() внутри правил ниже. Это то, что делает возможным удаление/редактирование
+    // постов гостями: у гостя тоже есть request.auth.uid (анонимная firebase-сессия),
+    // просто она не связана ни с каким аккаунтом.
+    match /postSecrets/{postId} {
+      allow read: if false;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['ownerUid'])
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /replySecrets/{replyId} {
+      allow read: if false;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['ownerUid'])
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /chatMessageSecrets/{msgId} {
+      allow read: if false;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['ownerUid'])
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ===================== ПОСТЫ ЛЕНТЫ =====================
+    // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
+    // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null
+    // (кто именно из админов нажал "опубликовать" — не сохраняется нигде), а право
+    // публиковать проверяется через creatorUid/adminUids канала.
+    // Править можно текст/картинки/editedAt — только владелец (через postSecrets).
+    // Лайк — отдельная ветка update, тоже разрешена всем, независимо от владения.
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null && (
+        (request.resource.data.channelId == null &&
+          (request.resource.data.authorUid == null || request.resource.data.authorUid == request.auth.uid))
+        ||
+        (request.resource.data.channelId != null &&
+          request.resource.data.authorUid == null &&
+          (request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(request.resource.data.channelId)).data.creatorUid ||
+           request.auth.uid in get(/databases/$(database)/documents/channels/$(request.resource.data.channelId)).data.adminUids))
+      );
+      allow update: if request.auth != null && (
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likesCount'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'editedAt']) &&
+          request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid)
+      );
+      allow delete: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid;
+    }
+
+    // ===================== ОТВЕТЫ =====================
+    match /replies/{replyId} {
+      allow read: if true;
+      allow create: if request.auth != null &&
+        (request.resource.data.authorUid == null || request.resource.data.authorUid == request.auth.uid);
+      allow update: if request.auth != null && (
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likesCount'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'imageUrl', 'editedAt']) &&
+          request.auth.uid == get(/databases/$(database)/documents/replySecrets/$(replyId)).data.ownerUid)
+      );
+      allow delete: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/replySecrets/$(replyId)).data.ownerUid;
+    }
+
+    // ===================== РЕПОСТЫ =====================
+    match /reposts/{repostId} {
+      allow read: if true;
+      allow create: if request.auth != null &&
+        request.auth.token.firebase.sign_in_provider != 'anonymous' &&
+        request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow update: if false;
+    }
+
+    // ===================== ЧАТ =====================
+    match /chatMessages/{msgId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']) &&
+        request.auth.uid == get(/databases/$(database)/documents/chatMessageSecrets/$(msgId)).data.ownerUid;
+      allow delete: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/chatMessageSecrets/$(msgId)).data.ownerUid;
+    }
+
+    // ===================== СЕКРЕТ ВЛАДЕНИЯ КАНАЛОМ =====================
+    // Единственное место, где хранится FUID создателя канала. Никогда не читается напрямую
+    // клиентом (кроме самого владельца — это нужно, чтобы строить список "Мои каналы"
+    // через where('creatorUid','==', мой uid), Firestore разрешает такие точечные query-правила).
+    match /channelSecrets/{channelId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.creatorUid;
+      allow create: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['creatorUid'])
+        && request.resource.data.creatorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ===================== КАНАЛЫ =====================
+    // Сам документ канала НЕ содержит creatorUid — это и есть та самая "истинная анонимность":
+    // владелец проверяется только косвенно, через get() секрета, а не через поле в самом канале.
+    match /channels/{channelId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 60
+        && request.resource.data.description.size() < 500
+        && request.resource.data.username.matches('ch_[a-zA-Z0-9_]{2,17}')
+        && request.resource.data.adminUids == [];
+      // Менять название/юзернейм/аватарку/описание/админов может только создатель.
+      // Одна ветка вместо двух: hasOnly() пропускает ЛЮБОЕ подмножество этого списка,
+      // так что и смена одного поля, и нескольких разом — всё покрыто.
+      // (Раньше 'username' не был перечислен нигде — из-за этого смена юзернейма
+      // канала падала с permission-denied.)
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'username', 'description', 'avatarUrl', 'adminUids']) &&
+        (!('username' in request.resource.data.diff(resource.data).affectedKeys()) ||
+          request.resource.data.username.matches('ch_[a-zA-Z0-9_]{2,17}')) &&
+        request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(channelId)).data.creatorUid;
+      allow delete: if false;
+    }
+
+    // ===================== ПОДПИСЧИКИ КАНАЛА (именные) =====================
+    // uid в пути — это FUID самого подписчика. Видеть список целиком могут только
+    // создатель/админы канала, либо сам подписчик — свою собственную запись.
+    // Удалить ("скрыться") запись может только сам человек — админы не могут никого
+    // принудительно скрыть или, наоборот, раскрыть без его действия.
+    match /channels/{channelId}/subscribers/{uid} {
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(channelId)).data.creatorUid ||
+        request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.adminUids
+      );
+      // создать запись может сам человек ("подписаться"/"проявиться"), либо
+      // создатель/админ ("добавить людей")
+      allow create: if request.auth != null && (
+        request.auth.uid == uid ||
+        request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(channelId)).data.creatorUid ||
+        request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.adminUids
+      );
+      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow update: if false;
+    }
+  }
+}

@@ -1,0 +1,150 @@
+import {
+  createChannel, listChannels, isSubscribedLocal, subscribeToChannel,
+  unsubscribeFromChannel, suggestChannels, fetchManagedChannelIds
+} from "./channels.js";
+import { loadSubscriptions, getSubscriptionsSync } from "./subscriptions.js";
+import { currentUser, authReady } from "./auth.js";
+import { showToast, escapeHtml } from "./ui.js";
+import { ICON } from "./icons.js";
+
+let allChannels = [];
+let managedIds = new Set(); // каналы, где я создатель/админ — там кнопки "подписаться" нет
+
+export async function initContentTab() {
+  await authReady;
+  await loadSubscriptions();   // иначе кнопки покажут «подписаться» на уже подписанных
+  managedIds = currentUser ? await fetchManagedChannelIds().catch(() => new Set()) : new Set();
+  await reload();
+  wireSearch();
+  wireCreateModal();
+}
+
+async function reload() {
+  document.getElementById("allChannelsList").innerHTML = `<div class="stub-note">Загружаю каналы...</div>`;
+  try {
+    allChannels = await listChannels();
+  } catch (e) {
+    console.error(e);
+    document.getElementById("allChannelsList").innerHTML =
+      `<div class="stub-note">Не смогла загрузить каналы: ${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  renderAll(allChannels);
+  renderSuggested();
+}
+
+function channelCard(c) {
+  const subbed = isSubscribedLocal(c.id);
+  const isManaged = managedIds.has(c.id);
+  const icon = c.avatarUrl
+    ? `<img src="${c.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">`
+    : `<span class="nf">${ICON.hash}</span>`;
+  return `
+    <a class="channel-card" href="channel.html?id=${c.id}" data-id="${c.id}">
+      <div class="channel-icon">${icon}</div>
+      <div class="channel-info">
+        <div class="channel-name">${escapeHtml(c.name)}</div>
+        <div class="channel-desc">@${escapeHtml(c.username)} · ${escapeHtml(c.description || "без описания")}</div>
+      </div>
+      ${isManaged
+        ? `<span class="subBtn subscribed" style="pointer-events:none;">управляю</span>`
+        : `<button class="subBtn ${subbed ? "subscribed" : ""}" data-action="sub" data-id="${c.id}">
+             ${subbed ? `<span class="nf">${ICON.check}</span> подписан(а)` : "подписаться"}
+           </button>`}
+    </a>`;
+}
+
+function wireCards(container) {
+  container.querySelectorAll('[data-action="sub"]').forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        if (isSubscribedLocal(id)) {
+          await unsubscribeFromChannel(id);
+          showToast("Отписалась");
+        } else {
+          await subscribeToChannel(id);
+          showToast("Подписалась ♡");
+        }
+        renderAll(allChannels);
+        renderSuggested();
+      } catch (err) {
+        console.error(err);
+        showToast("Ошибка: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+function renderAll(list) {
+  const el = document.getElementById("allChannelsList");
+  if (!list.length) { el.innerHTML = `<div class="stub-note">Каналов пока нет — создай первый ♡</div>`; return; }
+  el.innerHTML = list.map(channelCard).join("");
+  wireCards(el);
+}
+
+function renderSuggested() {
+  const block = document.getElementById("suggestedBlock");
+  const el = document.getElementById("suggestedList");
+  const subs = getSubscriptionsSync();
+  const suggested = suggestChannels(allChannels, subs);
+  if (!suggested.length) { block.classList.add("hidden"); return; }
+  block.classList.remove("hidden");
+  el.innerHTML = suggested.map(channelCard).join("");
+  wireCards(el);
+}
+
+function wireSearch() {
+  const input = document.getElementById("channelSearch");
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) { renderAll(allChannels); return; }
+    renderAll(allChannels.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.username.toLowerCase().includes(q) ||
+      (c.publicUid || "").toLowerCase().includes(q) ||
+      (c.description || "").toLowerCase().includes(q)
+    ));
+  });
+}
+
+function wireCreateModal() {
+  const modal = document.getElementById("createChannelModal");
+  const fab = document.getElementById("newChannelFab");
+  const closeBtn = document.getElementById("closeCreateChannel");
+  const nameInput = document.getElementById("channelNameInput");
+  const descInput = document.getElementById("channelDescInput");
+  const createBtn = document.getElementById("createChannelBtn");
+
+  fab.addEventListener("click", () => {
+    if (!currentUser) { showToast("Нужен аккаунт, чтобы создать канал (иначе некому будет им управлять)"); return; }
+    nameInput.value = "";
+    descInput.value = "";
+    modal.classList.remove("hidden");
+  });
+  closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+
+  createBtn.addEventListener("click", async () => {
+    const name = nameInput.value.trim();
+    const description = descInput.value.trim();
+    if (!name) { showToast("Название обязательно"); return; }
+    createBtn.disabled = true;
+    try {
+      const channelId = await createChannel(name, description);
+      modal.classList.add("hidden");
+      showToast("Канал создан ♡ (анонимно)");
+      location.href = `channel.html?id=${channelId}`;
+    } catch (e) {
+      console.error(e);
+      showToast("Ошибка: " + e.message);
+    } finally {
+      createBtn.disabled = false;
+    }
+  });
+}
