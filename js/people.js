@@ -3,6 +3,8 @@ import { loadUserFeed, renderPostsInto } from "./feed.js";
 import { currentUser, authReady } from "./auth.js";
 import { escapeHtml } from "./ui.js";
 import { shapeClass } from "./avatar.js";
+import { relationBadge, badgeHtml, nameHtml } from "./person.js";
+import { loadFriends } from "./friends.js";
 import { resolveNuid } from "./nuid.js";
 import { defaultAvatar } from "./default-avatar.js";
 
@@ -16,16 +18,25 @@ export async function loadPeopleTab() {
   renderPeople(allUsers);
 }
 
-function renderPeople(users) {
+async function renderPeople(users) {
   if (!users.length) { listEl.innerHTML = `<div class="stub-note">Пока тут никого нет</div>`; return; }
+
+  // Метки считаются заранее: для каждой нужен запрос про взаимность, и делать
+  // их по одному во время отрисовки означало бы мигающий список.
+  await loadFriends().catch(() => {});
+  const badges = new Map();
+  await Promise.all(users.map(async u => {
+    badges.set(u.uid, await relationBadge(u.uid, u).catch(() => null));
+  }));
+
   listEl.innerHTML = users.map(u => `
     <div class="person-row" data-uid="${u.uid}">
       <span class="avatar-wrap" style="width:38px;height:38px;">
         <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || defaultAvatar()}" style="width:38px;height:38px;">
         <span class="avatar-status" style="width:16px;height:16px;font-size:9px;">${u.statusEmoji || ""}</span>
       </span>
-      <div>
-        <div>${escapeHtml(u.nickname)}</div>
+      <div style="min-width:0;">
+        <div>${nameHtml(u, { clickable: false })}${badgeHtml(badges.get(u.uid))}</div>
         <div class="pmuted">@${escapeHtml(u.username)}</div>
       </div>
     </div>`).join("");
@@ -81,7 +92,8 @@ export async function openUserProfile(uid) {
   const user = await getUserDoc(uid);
   if (!user) { postsEl.innerHTML = `<div class="stub-note">Профиль не найден</div>`; return; }
 
-  nameEl.textContent = user.nickname;
+  const badge = await relationBadge(uid, user).catch(() => null);
+  nameEl.innerHTML = nameHtml(user, { clickable: false }) + badgeHtml(badge);
   userEl.textContent = user.username;
   avatarEl.src = user.avatarUrl || defaultAvatar();
   avatarEl.className = `avatar-shaped ${shapeClass(user.avatarShape)}`;

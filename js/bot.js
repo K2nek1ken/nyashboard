@@ -24,7 +24,7 @@ const COMMANDS = [
   {
     names: ["погладить", "погладь"],
     needsTarget: true,
-    text: (a, b) => `${a} погла́ди${gendered("л", "ла", "л(а)")} ${b}`
+    text: (a, b) => `${a} поглади${gendered("л", "ла", "л(а)")} ${b}`
   },
   {
     names: ["пнуть", "пни"],
@@ -42,12 +42,17 @@ const COMMANDS = [
     text: (a, b) => `${a} накорми${gendered("л", "ла", "л(а)")} ${b}`
   },
   {
+    names: ["трахнуть", "трахни"],
+    needsTarget: true,
+    text: (a, b) => `${a} трахну${gendered("л", "ла", "л(а)")} ${b}`
+  },
+  {
     names: ["мяукнуть", "мяу"],
     needsTarget: false,
     text: (a) => `${a} мяукнул${gendered("", "а", "(а)")}`
   },
   {
-    names: ["кинуть", "кинь"],
+    names: ["кубик", "кинуть", "кинь"],
     needsTarget: false,
     text: (a) => {
       const n = Math.floor(Math.random() * 6) + 1;

@@ -2,10 +2,12 @@ import { currentUser, authReady } from "./auth.js";
 import { fetchManagedChannels } from "./channels.js";
 import { escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
+import { shapeClass } from "./avatar.js";
 
 function cardHtml(c) {
   const icon = c.avatarUrl
-    ? `<img src="${c.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">`
+    ? `<img src="${c.avatarUrl}" class="avatar-shaped ${shapeClass(c.avatarShape)}"
+            style="width:100%;height:100%;object-fit:cover;border:none;">`
     : `<span class="nf">${ICON.hash}</span>`;
   return `
     <a class="channel-card" href="channel.html?id=${c.id}">

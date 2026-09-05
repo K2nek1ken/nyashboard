@@ -51,9 +51,21 @@ export async function deleteReply(replyId) {
   await deleteDoc(doc(db, "replies", replyId));
 }
 
+export async function editReply(replyId, text) {
+  await updateDoc(doc(db, "replies", replyId), { text, editedAt: serverTimestamp() });
+}
+
 export async function toggleReplyLike(reply) {
   if (!currentUser) { showToast("Войди, чтобы лайкать ♡"); return; }
   const liked = (reply.likedBy || []).includes(currentUser.uid);
+
+  // Обновляем данные в памяти сразу: список ответов читается разово, без живой
+  // подписки, поэтому иначе счётчик менялся только после перезагрузки.
+  reply.likedBy = liked
+    ? (reply.likedBy || []).filter(u => u !== currentUser.uid)
+    : [...(reply.likedBy || []), currentUser.uid];
+  reply.likesCount = Math.max(0, (reply.likesCount || 0) + (liked ? -1 : 1));
+
   await updateDoc(doc(db, "replies", reply.id), {
     likedBy: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
     likesCount: increment(liked ? -1 : 1)
@@ -69,7 +81,10 @@ export function replyRowHtml(r) {
   const name = r.isAnonymous ? "Аноним" : escapeHtml(r.authorNickname || "???");
   const liked = currentUser && (r.likedBy || []).includes(currentUser.uid);
   const canManage = canManageReply(r);
-  const kebabItems = canManage ? [{ action: "deleteReply", label: "Удалить", icon: ICON.close, danger: true }] : [];
+  const kebabItems = canManage ? [
+    { action: "editReply", label: "Изменить", icon: ICON.pencil },
+    { action: "deleteReply", label: "Удалить", icon: ICON.close, danger: true }
+  ] : [];
   return `
     <div class="reply-row" data-reply-id="${r.id}">
       <div class="reply-row-head">
@@ -90,10 +105,29 @@ export function wireReplyLikes(container, replies, onDeleted) {
   container.querySelectorAll("[data-reply-id]").forEach(row => {
     const r = replies.find(x => x.id === row.dataset.replyId);
     if (!r) return;
-    row.querySelector('[data-action="likeReply"]').addEventListener("click", async () => {
+    const likeBtn = row.querySelector('[data-action="likeReply"]');
+    likeBtn.addEventListener("click", async () => {
       await toggleReplyLike(r);
+      // перерисовываем саму кнопку, чтобы счётчик и сердечко обновились на месте
+      const liked = currentUser && (r.likedBy || []).includes(currentUser.uid);
+      likeBtn.classList.toggle("liked", !!liked);
+      likeBtn.innerHTML = `<span class="nf">${liked ? ICON.heartFilled : ICON.heart}</span> ${r.likesCount || 0}`;
     });
     wireKebab(row, {
+      editReply: async () => {
+        const cur = row.querySelector(".reply-text")?.textContent || "";
+        const next = await askText("Изменить ответ", { value: cur, maxlength: 500 });
+        if (next === null || !next.trim() || next.trim() === cur) return;
+        try {
+          await editReply(r.id, next.trim());
+          r.text = next.trim();
+          row.querySelector(".reply-text").innerHTML = linkifyMentions(escapeHtml(r.text));
+          showToast("Изменено ♡");
+        } catch (e) {
+          console.error(e);
+          showToast("Не вышло: " + e.message);
+        }
+      },
       deleteReply: async () => {
         if (!await askConfirm("Удалить ответ?", { okLabel: "Удалить", danger: true })) return;
         try {

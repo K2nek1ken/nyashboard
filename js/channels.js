@@ -31,6 +31,7 @@ export async function createChannel(name, description, avatarUrl = null) {
     name: name.trim(),
     description: (description || "").trim(),
     avatarUrl: avatarUrl || null,
+    avatarShape: "circle",   // как у профилей: форма задаётся, а не жёстко квадрат
     adminUids: [],
     createdAt: serverTimestamp()
   });

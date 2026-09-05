@@ -66,7 +66,10 @@ export function defaultAvatar(variant = "neko") {
 // перезагрузки страницы.
 export function refreshDefaultAvatars() {
   cache.clear();
-  document.querySelectorAll('img[data-default-avatar]').forEach(img => {
+  // Только те, что мы сами и нарисовали: пометка data-default-avatar стоит
+  // исключительно на сгенерированных. Загруженные картинки трогать нельзя,
+  // иначе при смене темы своя аватарка подменялась бы анонимной.
+  document.querySelectorAll("img[data-default-avatar]").forEach(img => {
     img.src = defaultAvatar(img.dataset.defaultAvatar);
   });
 }

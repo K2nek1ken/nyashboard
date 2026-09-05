@@ -32,7 +32,14 @@ export function wireKebab(container, handlers) {
     e.stopPropagation();
     document.querySelectorAll(".kebabMenu").forEach(m => { if (m !== menu) m.classList.add("hidden"); });
     menu.classList.toggle("hidden");
-    if (!menu.classList.contains("hidden")) keepInViewport(menu);
+    if (!menu.classList.contains("hidden")) {
+      // Панель ввода в чате закреплена внизу и перекрывала меню у последних
+      // сообщений. Считаем её высоту как нижнюю границу, чтобы меню
+      // разворачивалось вверх, а не пряталось под ней.
+      const bar = document.querySelector(".chat-floating-bar");
+      const bottomLimit = bar ? bar.getBoundingClientRect().height + 12 : 10;
+      keepInViewport(menu, 10, bottomLimit);
+    }
   });
 
   menu.querySelectorAll("[data-action]").forEach(btn => {

@@ -5,6 +5,7 @@ import { ensureUserDoc } from "./data.js";
 import { showToast, setGenderSource, gendered } from "./ui.js";
 import { getSettings } from "./settings.js";
 import { positionNear } from "./anchor.js";
+import { applyAvatar } from "./avatar.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 export let currentUser = null;      // firebase auth user (или null)
@@ -149,7 +150,10 @@ export function initProfileDropdown() {
       const wide = window.matchMedia("(min-width: 900px)").matches;
       positionNear(dropdown, profileIcon, {
         prefer: wide ? "top" : "bottom",
-        align: wide ? "left" : "right"
+        align: wide ? "left" : "right",
+        // на широком экране чуть подвинуть внутрь колонки, иначе край панели
+        // совпадает с её границей и выглядит прижатым
+        offsetX: wide ? -10 : 0
       });
     }
   });
@@ -193,11 +197,19 @@ export function initProfileDropdown() {
   }
 
   // аватарка в шапке — сразу из кэша, до ответа Firebase
-  if (cachedUserDoc?.avatarUrl) profilePic.src = cachedUserDoc.avatarUrl;
+  // Аватарку в шапке ставим через общий помощник: он снимает пометку
+  // «сгенерированная», иначе при смене темы своя картинка подменялась анонимом.
+  function paintHeaderAvatar() {
+    const doc = currentUserDoc || (authPending ? cachedUserDoc : null);
+    applyAvatar(profilePic, doc, "neko");
+    profilePic.style.width = profilePic.style.height = "";
+  }
+
+  paintHeaderAvatar();
   refreshDropdown();
 
   onAuthChange(() => {
-    profilePic.src = (currentUser && currentUserDoc && currentUserDoc.avatarUrl) || defaultAvatar();
+    paintHeaderAvatar();
     if (!dropdown.classList.contains("hidden")) refreshDropdown();
   });
 }

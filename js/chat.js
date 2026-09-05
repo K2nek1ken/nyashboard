@@ -1,8 +1,8 @@
 import {
-  db, auth, collection, addDoc, doc, setDoc, updateDoc, deleteDoc,
-  query, orderBy, limit, onSnapshot, serverTimestamp
+  db, auth, collection, addDoc, doc, setDoc, updateDoc, deleteDoc, getDocs,
+  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp
 } from "./firebase.js";
-import { getGuestIdentity, setGuestNickname } from "./identity.js";
+import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
 import { getSettings } from "./settings.js";
 import { parseCommand, listCommands } from "./bot.js";
 import { wireImageZoom } from "./lightbox.js";
@@ -19,20 +19,72 @@ const messagesEl = document.getElementById("chatMessages");
 const nickLabel = document.getElementById("chatNickLabel");
 let chatUnsub = null;
 let pendingChatImage = null;
+
+// Сколько сообщений показываем сразу и сколько добавляем за одну подгрузку
+const PAGE_SIZE = 10;
+let olderMessages = [];   // подгруженная история, старше живой подписки
+let oldestDoc = null;     // граница, от которой продолжаем читать
+let loadingOlder = false;
+
+// Подгрузка истории при прокрутке к началу переписки.
+function wireHistoryLoader() {
+  window.addEventListener("scroll", async () => {
+    if (loadingOlder || window.scrollY > 120 || !oldestDoc) return;
+    loadingOlder = true;
+    const heightBefore = document.body.scrollHeight;
+    try {
+      const older = await loadOlderMessages();
+      if (older.length) {
+        olderMessages = [...older, ...olderMessages];
+        lastMessages = [...older, ...lastMessages];
+        renderChat(lastMessages, { keepScroll: true });
+        // сохраняем положение: иначе добавленные сверху сообщения
+        // «выталкивают» переписку из виду
+        window.scrollTo({ top: document.body.scrollHeight - heightBefore + window.scrollY });
+      }
+    } catch (e) {
+      console.warn("История не догрузилась:", e.message);
+    } finally {
+      loadingOlder = false;
+    }
+  }, { passive: true });
+}
+
+async function loadOlderMessages() {
+  const q = query(collection(db, "chatMessages"),
+                  orderBy("createdAt", "desc"),
+                  startAfter(oldestDoc),
+                  limit(PAGE_SIZE));
+  const snap = await getDocs(q);
+  if (snap.empty) { oldestDoc = null; return []; }   // дошли до начала переписки
+  oldestDoc = snap.docs[snap.docs.length - 1];
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
+}
 let replyingTo = null;   // { id, nickname, text }
 let lastMessages = [];
 
 export function subscribeChat() {
   nickLabel.textContent = getGuestIdentity().nickname;
+  // подтягиваем ник из аккаунта: локальный мог слететь или отличаться
+  syncChatNickname().then(n => { if (n) nickLabel.textContent = n; });
   if (chatUnsub) return;
-  const q = query(collection(db, "chatMessages"), orderBy("createdAt", "asc"), limit(100));
+  // Живая подписка только на последние сообщения: грузить всю переписку разом
+  // и долго, и дорого по обращениям к базе. Остальное подтягивается порциями
+  // при прокрутке вверх.
+  const q = query(collection(db, "chatMessages"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
   chatUnsub = onSnapshot(q, (snap) => {
-    lastMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
+    oldestDoc = snap.docs[snap.docs.length - 1] || oldestDoc;
+    // склеиваем с ранее подгруженной историей, без повторов
+    const seenIds = new Set(fresh.map(m => m.id));
+    lastMessages = [...olderMessages.filter(m => !seenIds.has(m.id)), ...fresh];
     renderChat(lastMessages);
   }, (err) => {
     console.error(err);
     messagesEl.innerHTML = `<div class="stub-note">Не смогла загрузить чат — проверь конфиг Firebase</div>`;
   });
+
+  wireHistoryLoader();
 }
 
 // Узор на фоне цитаты. Символ выбирается в настройках — та же логика, что и у
@@ -84,9 +136,9 @@ function quoteHtml(m) {
     </div>`;
 }
 
-function renderChat(msgs) {
+function renderChat(msgs, { keepScroll = false } = {}) {
   const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
-  const wasAtBottom = nearBottom || messagesEl.childElementCount === 0;
+  const wasAtBottom = !keepScroll && (nearBottom || messagesEl.childElementCount === 0);
   messagesEl.innerHTML = msgs.map(m => {
     const canManage = isOwned("chatMessage", m.id);
     const kebabItems = [

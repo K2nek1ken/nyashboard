@@ -1,5 +1,4 @@
 import { db, doc, getDoc, setDoc, collection, query, where, getDocs } from "./firebase.js";
-import { currentUser } from "./auth.js";
 
 // ============================================================
 //  NUID — публичный человекочитаемый идентификатор (U1xxxxxx / U4xxxxxx)
@@ -83,11 +82,14 @@ export async function resolveNuid(nuid) {
 
 // Разовый перенос для аккаунтов, созданных до появления отдельного хранилища:
 // у них идентификатор всё ещё лежит в users/{uid}.publicUid.
-export async function migrateLegacyNuid(userDoc) {
-  if (!currentUser || !userDoc?.publicUid) return;
-  const existing = await getDoc(doc(db, "userNuids", currentUser.uid)).catch(() => null);
+// Идентификатор владельца передаётся аргументом, а не берётся из состояния
+// авторизации: иначе получалась круговая зависимость модулей
+// (авторизация → данные → идентификаторы → снова авторизация).
+export async function migrateLegacyNuid(uid, userDoc) {
+  if (!uid || !userDoc?.publicUid) return;
+  const existing = await getDoc(doc(db, "userNuids", uid)).catch(() => null);
   if (existing?.exists()) return;
-  await registerNuid(currentUser.uid, userDoc.publicUid, "user").catch(() => {});
+  await registerNuid(uid, userDoc.publicUid, "user").catch(() => {});
 }
 
 // Досоздание идентификатора для аккаунтов, у которых он не записался при

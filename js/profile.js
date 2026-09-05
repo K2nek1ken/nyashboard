@@ -4,6 +4,8 @@ import { uploadImage } from "./storage.js";
 import { showToast } from "./ui.js";
 import { shapeClass, shapePickerHtml, openCropper, applyAvatar } from "./avatar.js";
 import { openEmojiPicker } from "./emoji.js";
+import { ACCESSORIES, accessoryHtml } from "./accessories.js";
+import { paletteEntries, paletteColor } from "./palette.js";
 import { ICON } from "./icons.js";
 import { requestNuid, ensureNuidExists } from "./nuid.js";
 
@@ -29,6 +31,84 @@ export function initProfilePageForm() {
   let pendingAvatarFile = null;
   let pendingShape = "circle";
   let pendingStatus = "";
+  let pendingAccessory = "none";
+  let pendingBorder = "pink";
+  let pendingNickColor = "";
+
+  const accessoryHost = document.getElementById("accessoryPickerHost");
+  const colorHost = document.getElementById("colorPickerHost");
+  const nickColorHost = document.getElementById("nickColorHost");
+
+  // Живой предпросмотр: украшение и рамка сразу видны на аватарке сверху,
+  // чтобы не приходилось сохранять ради проверки.
+  function applyDecorPreview() {
+    const wrap = pageAvatar.closest(".avatar-wrap");
+    if (!wrap) return;
+    pageAvatar.style.borderColor = paletteColor(pendingBorder);
+    wrap.querySelector(".avatar-accessory")?.remove();
+    const html = accessoryHtml(pendingAccessory, pendingBorder);
+    if (html) pageAvatar.insertAdjacentHTML("afterend", html);
+  }
+
+  function renderAccessoryPicker() {
+    accessoryHost.innerHTML = `<div class="accessory-picker">
+      ${Object.entries(ACCESSORIES).map(([key, label]) => `
+        <button type="button" class="accessoryOption ${key === pendingAccessory ? "selected" : ""}"
+                data-accessory="${key}" title="${label}">
+          ${key === "none" ? '<span class="none-label">нет</span>'
+                           : accessoryHtml(key, pendingBorder).replace("avatar-accessory", "")}
+        </button>`).join("")}
+    </div>`;
+    accessoryHost.querySelectorAll("[data-accessory]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        pendingAccessory = btn.dataset.accessory;
+        renderAccessoryPicker();
+        applyDecorPreview();
+      });
+    });
+  }
+
+  // Цвет ника — отдельно от рамки: это разные части образа, и часто хочется
+  // яркое имя при спокойной рамке. Пустой вариант = обычный цвет текста.
+  function renderNickColorPicker() {
+    nickColorHost.innerHTML = `<div class="color-picker">
+      <button type="button" class="colorOption ${!pendingNickColor ? "selected" : ""}"
+              data-nick-color="" title="Обычный"
+              style="background:var(--text);"></button>
+      ${paletteEntries().map(p => `
+        <button type="button" class="colorOption ${p.key === pendingNickColor ? "selected" : ""}"
+                data-nick-color="${p.key}" title="${p.label}"
+                style="background:${p.color};"></button>`).join("")}
+    </div>
+    <div style="text-align:center; margin-top:8px;">
+      <span class="person-name" style="${pendingNickColor ? `color:${paletteColor(pendingNickColor)}` : ""}">
+        ${nicknameInput.value || "твой ник"}
+      </span>
+    </div>`;
+    nickColorHost.querySelectorAll("[data-nick-color]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        pendingNickColor = btn.dataset.nickColor;
+        renderNickColorPicker();
+      });
+    });
+  }
+
+  function renderColorPicker() {
+    colorHost.innerHTML = `<div class="color-picker">
+      ${paletteEntries().map(p => `
+        <button type="button" class="colorOption ${p.key === pendingBorder ? "selected" : ""}"
+                data-color="${p.key}" title="${p.label}"
+                style="background:${p.color};"></button>`).join("")}
+    </div>`;
+    colorHost.querySelectorAll("[data-color]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        pendingBorder = btn.dataset.color;
+        renderColorPicker();
+        renderAccessoryPicker();   // украшения перекрашиваем вместе с рамкой
+        applyDecorPreview();
+      });
+    });
+  }
 
   function applyShapePreview() {
     pageAvatar.className = `avatar-shaped ${shapeClass(pendingShape)}`;
@@ -77,8 +157,15 @@ export function initProfilePageForm() {
       pendingStatus = currentUserDoc.statusEmoji || "";
       pageStatus.textContent = pendingStatus;
       statusPreview.textContent = pendingStatus || "выбрать";
+      pendingAccessory = currentUserDoc.accessory || "none";
+      pendingBorder = currentUserDoc.avatarBorder || "pink";
       applyShapePreview();
       renderShapePicker();
+      pendingNickColor = currentUserDoc.nickColor || "";
+      renderAccessoryPicker();
+      renderColorPicker();
+      renderNickColorPicker();
+      applyDecorPreview();
     } else {
       loggedOutNote.classList.remove("hidden");
       // возвращаем исходную разметку: её могла затереть заглушка загрузки
@@ -150,6 +237,9 @@ export function initProfilePageForm() {
         bio: bioInput.value.trim(),
         avatarShape: pendingShape,
         statusEmoji: pendingStatus,
+        accessory: pendingAccessory,
+        avatarBorder: pendingBorder,
+        nickColor: pendingNickColor,
         nuidVisibility: nuidVisibility.value,
         repostVisibility: repostVisibility.value,
         gender: genderSelect.value

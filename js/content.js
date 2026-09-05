@@ -6,6 +6,7 @@ import { loadSubscriptions, getSubscriptionsSync } from "./subscriptions.js";
 import { currentUser, authReady } from "./auth.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
+import { shapeClass } from "./avatar.js";
 
 let allChannels = [];
 let managedIds = new Set(); // каналы, где я создатель/админ — там кнопки "подписаться" нет
@@ -29,6 +30,7 @@ async function reload() {
       `<div class="stub-note">Не смогла загрузить каналы: ${escapeHtml(e.message)}</div>`;
     return;
   }
+  renderMine();
   renderAll(allChannels);
   renderSuggested();
 }
@@ -37,7 +39,8 @@ function channelCard(c) {
   const subbed = isSubscribedLocal(c.id);
   const isManaged = managedIds.has(c.id);
   const icon = c.avatarUrl
-    ? `<img src="${c.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">`
+    ? `<img src="${c.avatarUrl}" class="avatar-shaped ${shapeClass(c.avatarShape)}"
+            style="width:100%;height:100%;object-fit:cover;border:none;">`
     : `<span class="nf">${ICON.hash}</span>`;
   return `
     <a class="channel-card" href="channel.html?id=${c.id}" data-id="${c.id}">
@@ -69,6 +72,7 @@ function wireCards(container) {
           await subscribeToChannel(id);
           showToast(`Подписал${gendered("ся", "ась", "ся(ась)")} ♡`);
         }
+        renderMine();
         renderAll(allChannels);
         renderSuggested();
       } catch (err) {
@@ -92,10 +96,25 @@ function renderSuggested() {
   const block = document.getElementById("suggestedBlock");
   const el = document.getElementById("suggestedList");
   const subs = getSubscriptionsSync();
-  const suggested = suggestChannels(allChannels, subs);
+  // Свои каналы из рекомендаций убираем: предлагать человеку то, чем он сам
+  // управляет, бессмысленно.
+  const pool = allChannels.filter(c => !managedIds.has(c.id));
+  const suggested = suggestChannels(pool, subs);
   if (!suggested.length) { block.classList.add("hidden"); return; }
   block.classList.remove("hidden");
   el.innerHTML = suggested.map(channelCard).join("");
+  wireCards(el);
+}
+
+// Отдельная категория со своими каналами — если они есть.
+function renderMine() {
+  const block = document.getElementById("mineBlock");
+  const el = document.getElementById("mineList");
+  if (!block) return;
+  const mine = allChannels.filter(c => managedIds.has(c.id));
+  if (!mine.length) { block.classList.add("hidden"); return; }
+  block.classList.remove("hidden");
+  el.innerHTML = mine.map(channelCard).join("");
   wireCards(el);
 }
 

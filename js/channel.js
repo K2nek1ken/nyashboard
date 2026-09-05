@@ -9,6 +9,7 @@ import {
 } from "./channels.js";
 import { loadSubscriptions } from "./subscriptions.js";
 import { loadChannelWall, renderPostsInto } from "./feed.js";
+import { getUserDoc } from "./data.js";
 import { uploadImage, uploadImages } from "./storage.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
@@ -237,10 +238,19 @@ function wireSettingsModal(channelId) {
     const fresh = await getChannel(channelId);
     channel = fresh;
     if (!fresh.adminUids.length) { adminsList.innerHTML = `<div class="stub-note">Админов пока нет</div>`; return; }
-    adminsList.innerHTML = fresh.adminUids.map(uid => `
+    // Показываем ник и юзернейм, а не внутренний идентификатор: по обрезанной
+    // строке невозможно понять, кого именно снимаешь с управления.
+    const profiles = await Promise.all(fresh.adminUids.map(async uid => {
+      const u = await getUserDoc(uid).catch(() => null);
+      return { uid, nickname: u?.nickname || "неизвестный", username: u?.username || "???" };
+    }));
+    adminsList.innerHTML = profiles.map(p => `
       <div class="person-row" style="cursor:default;">
-        <div style="flex:1;"><code style="font-size:11px;">${uid.slice(0, 10)}...</code></div>
-        <button class="dangerBtn" style="width:auto; margin:0;" data-remove-admin="${uid}">убрать</button>
+        <div style="flex:1; min-width:0;">
+          <div>${escapeHtml(p.nickname)}</div>
+          <div class="pmuted">@${escapeHtml(p.username)}</div>
+        </div>
+        <button class="dangerBtn" style="width:auto; margin:0;" data-remove-admin="${p.uid}">убрать</button>
       </div>`).join("");
     adminsList.querySelectorAll("[data-remove-admin]").forEach(btn => {
       btn.addEventListener("click", async () => {

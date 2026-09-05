@@ -1,6 +1,8 @@
 import { resolveHandle } from "./data.js";
 import { currentUser } from "./auth.js";
 import { showToast } from "./ui.js";
+import { openPersonPreview, openChannelPreview } from "./person-preview.js";
+import { resolveNuid } from "./nuid.js";
 
 // Вызывать ПОСЛЕ escapeHtml — работает с уже безопасным текстом, просто оборачивает
 // @хэндлы и #хештеги в кликабельные span'ы.
@@ -27,21 +29,21 @@ export function wireMentions(container) {
   container.querySelectorAll(".mention").forEach(el => {
     el.addEventListener("click", async (e) => {
       e.stopPropagation();
-      // клик по #U1666777 — это ссылка на аккаунт по NUID
+      // Клик по #U1666777 — показываем карточку, а не уводим со страницы:
+      // чаще всего человек просто хочет посмотреть, кто это.
       if (el.dataset.nuid) {
-        location.href = `people.html?q=${encodeURIComponent(el.dataset.nuid)}`;
+        const hit = await resolveNuid(el.dataset.nuid);
+        if (!hit) { showToast("Не нашла " + el.dataset.nuid); return; }
+        hit.type === "channel" ? openChannelPreview(hit.uid) : openPersonPreview(hit.uid);
         return;
       }
       const handle = el.dataset.mention;
       try {
         const resolved = await resolveHandle(handle);
         if (!resolved) { showToast("Не нашла @" + handle); return; }
-        if (resolved.type === "channel") {
-          location.href = `channel.html?id=${resolved.ownerId}`;
-        } else {
-          const isSelf = currentUser && resolved.ownerId === currentUser.uid;
-          location.href = isSelf ? "profile.html" : `user.html?uid=${resolved.ownerId}`;
-        }
+        // тоже карточка: перейти на страницу можно кнопкой внутри неё
+        if (resolved.type === "channel") openChannelPreview(resolved.ownerId);
+        else openPersonPreview(resolved.ownerId);
       } catch (err) {
         console.error(err);
         showToast("Ошибка поиска: " + err.message);

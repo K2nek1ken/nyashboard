@@ -40,7 +40,7 @@ export async function ensureUserDoc(fbUser) {
   if (snap.exists()) {
     const data = snap.data();
     // аккаунты, созданные до отдельного хранилища NUID, переносим на лету
-    if (data.publicUid) migrateLegacyNuid(data);
+    if (data.publicUid) migrateLegacyNuid(fbUser.uid, data);
     else ensureNuidExists(fbUser.uid);   // NUID мог не записаться при регистрации
     return data;
   }
@@ -69,6 +69,9 @@ export async function ensureUserDoc(fbUser) {
     nuidVisibility: "friends",     // everyone | friends | nobody
     repostVisibility: "everyone",  // кто видит меня автором в репостах
     gender: "x",                   // m | f | x — родовые окончания в интерфейсе
+    accessory: "none",             // украшение вокруг аватарки
+    avatarBorder: "pink",          // цвет рамки и украшения
+    nickColor: "",                 // цвет ника в чате; пусто — обычный
 
     createdAt: Date.now()
   };

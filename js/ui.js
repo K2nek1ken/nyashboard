@@ -1,10 +1,18 @@
 let toastTimer = null;
+let toastHideTimer = null;
 export function showToast(text) {
   const el = document.getElementById("toast");
-  el.textContent = text;
-  el.classList.remove("hidden");
+  if (!el) return;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), 2400);
+  clearTimeout(toastHideTimer);
+  el.textContent = text;
+  el.classList.remove("hidden", "leaving");
+  // перезапуск анимации, если подсказка показывается подряд
+  void el.offsetWidth;
+  toastTimer = setTimeout(() => {
+    el.classList.add("leaving");
+    toastHideTimer = setTimeout(() => el.classList.add("hidden"), 200);
+  }, 2400);
 }
 
 export function escapeHtml(str) {

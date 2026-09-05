@@ -52,7 +52,13 @@ button, input, textarea { font-family: inherit; color: inherit; }
 .brand-text span { color: var(--accent); }
 /* Вкладки одной ширины: так ряд выглядит ровным, а не рваным из-за
    слов разной длины. */
-#navTabs { display: flex; gap: 6px; flex: 1; overflow-x: auto; }
+/* overlay + hidden-полоса: без этого в шапке всегда торчал ползунок,
+   пропадавший только после прокрутки */
+#navTabs {
+  display: flex; gap: 6px; flex: 1;
+  overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+}
+#navTabs::-webkit-scrollbar { display: none; }
 #navTabs .navBtn { flex: 1 1 0; }
 .navBtn {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
@@ -75,7 +81,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
    иконка стоит то в строке сверху, то внизу боковой колонки, и жёсткие
    координаты в стилях каждый раз промахивались. */
 .profile-dropdown {
-  position: fixed; z-index: 70;
+  position: fixed; z-index: 80;   /* выше шапки (20), иначе прячется под колонку */
   width: 230px; background: var(--bg-soft); border-radius: 14px;
   padding: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.45);
   border: 1px solid #3a2f47;
@@ -237,7 +243,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
   width: 56px; height: 56px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #1a1420; font-size: 26px; border: none; cursor: pointer;
-  box-shadow: 0 6px 20px rgba(232,143,208,0.4); z-index: 15;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35); z-index: 15;
   display: flex; align-items: center; justify-content: center;
 }
 
@@ -696,8 +702,27 @@ html[data-theme="sakura"] {
 }
 
 /* ---------- акцентные цвета (поверх любой темы) ---------- */
+/* оттенки берутся из общей палитры (js/palette.js) */
+html[data-accent="pink"] { --accent: #e88fd0; --accent-2: #a98bf0; }
+html[data-accent="rose"] { --accent: #e78fa4; --accent-2: #f0aebe; }
+html[data-accent="crimson"] { --accent: #e05c6e; --accent-2: #f08a97; }
 html[data-accent="orange"] { --accent: #f5a45c; --accent-2: #e8865f; }
-html[data-accent="mint"]   { --accent: #8fe0b0; --accent-2: #79c8a8; }
+html[data-accent="amber"] { --accent: #f0c674; --accent-2: #e8b04b; }
+html[data-accent="gold"] { --accent: #e6cf8b; --accent-2: #d4b45e; }
+html[data-accent="lime"] { --accent: #c3e88d; --accent-2: #a8d672; }
+html[data-accent="mint"] { --accent: #8fe0b0; --accent-2: #79c8a8; }
+html[data-accent="emerald"] { --accent: #5ec9a0; --accent-2: #41a884; }
+html[data-accent="teal"] { --accent: #6fd3cf; --accent-2: #4fb3b0; }
+html[data-accent="sky"] { --accent: #7fc8f0; --accent-2: #5aa8d8; }
+html[data-accent="blue"] { --accent: #7f9cf5; --accent-2: #6b83d6; }
+html[data-accent="indigo"] { --accent: #9b8cf0; --accent-2: #7d6fd4; }
+html[data-accent="violet"] { --accent: #b48ce8; --accent-2: #9a72d0; }
+html[data-accent="lavender"] { --accent: #c9b6f5; --accent-2: #a894e0; }
+html[data-accent="plum"] { --accent: #c986c9; --accent-2: #a86ba8; }
+html[data-accent="peach"] { --accent: #f2b9a0; --accent-2: #e09b7e; }
+html[data-accent="sand"] { --accent: #dcc6a8; --accent-2: #c2a983; }
+html[data-accent="silver"] { --accent: #c3cad6; --accent-2: #9aa4b3; }
+html[data-accent="slate"] { --accent: #8d97a8; --accent-2: #6f7889; }
 
 .accent-picker { display: flex; gap: 8px; }
 .accentOption {
@@ -705,9 +730,8 @@ html[data-accent="mint"]   { --accent: #8fe0b0; --accent-2: #79c8a8; }
   border: 2px solid transparent; padding: 0;
 }
 .accentOption.selected { border-color: var(--text); }
-.accentOption.accent-pink   { background: linear-gradient(135deg, #e88fd0, #a98bf0); }
-.accentOption.accent-orange { background: linear-gradient(135deg, #f5a45c, #e8865f); }
-.accentOption.accent-mint   { background: linear-gradient(135deg, #8fe0b0, #79c8a8); }
+.accent-picker { flex-wrap: wrap; max-width: 260px; }
+.accentOption { width: 26px; height: 26px; }
 
 /* эмодзи: Noto с CDN либо локальный Apple */
 /* Порядок шрифтов принципиален: Google отдаёт Noto Color Emoji с диапазоном,
@@ -825,8 +849,14 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
 .settings-modal-content { max-width: 560px; max-height: 86vh; }
 
 /* ---------- 4) панель вкладок всегда на виду ---------- */
-#navHost { position: sticky; top: 0; }
-@media (min-width: 900px) { #navHost { position: fixed; } }
+/* На телефоне клавиатура меняет высоту окна, и sticky-шапка уезжала вверх.
+   Фиксируем её и отодвигаем содержимое ровно на её высоту. */
+#navHost { position: fixed; top: 0; left: 0; right: 0; }
+body { padding-top: 56px; }
+@media (min-width: 900px) {
+  #navHost { right: auto; bottom: 0; }
+  body { padding-top: 0; }
+}
 
 /* ---------- 3) на узком экране всплывающие панели показываем снизу ---------- */
 @media (max-width: 620px) {
@@ -1068,3 +1098,97 @@ html[data-theme="quiet"] .searchBox {
   text-align: center;
 }
 #profileLoggedOutNote .primaryBtn { width: auto; margin: 0; }
+
+/* ---------- украшения вокруг аватарки ----------
+   Слой выходит за пределы картинки, поэтому обёртка не обрезает содержимое.
+   Статус лежит выше по слою, чтобы оставался читаемым. */
+.avatar-wrap { overflow: visible; }
+.avatar-accessory {
+  position: absolute; inset: -18%; width: 136%; height: 136%;
+  pointer-events: none; overflow: visible; z-index: 1;
+}
+.avatar-status { z-index: 2; }
+
+/* выбор цвета и украшения в профиле */
+.color-picker { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 10px; }
+.colorOption {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; padding: 0;
+}
+.colorOption.selected { border-color: var(--text); transform: scale(1.12); }
+.accessory-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
+.accessoryOption {
+  position: relative; width: 52px; height: 52px; cursor: pointer;
+  background: var(--card); border: 2px solid #3a2f47; border-radius: 12px; padding: 0;
+}
+.accessoryOption.selected { border-color: var(--accent); }
+.accessoryOption svg { position: absolute; inset: 6%; width: 88%; height: 88%; }
+.accessoryOption .none-label { font-size: 10px; color: var(--muted); }
+
+/* Обе половинки разбитого сердца должны меняться одинаково: раньше правило
+   задевало только вложенный path, и при нажатии «росла» половина значка. */
+.post-actions button[data-action="dislike"] .svg-ic { transition: transform .12s; }
+.post-actions button[data-action="dislike"]:active .svg-ic { transform: scale(1.15); }
+.post-actions button .svg-ic path { transition: none; }
+
+/* появление и исчезновение всплывающих подсказок */
+.toast {
+  animation: toastIn .22s ease;
+}
+.toast.leaving { animation: toastOut .2s ease forwards; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(10px); }
+}
+
+/* Меню должно быть непрозрачным и выше соседних карточек: раньше сквозь него
+   просвечивал текст и фото, а у нижних записей оно уходило под поле ввода. */
+.kebabMenu {
+  background: var(--bg-soft);
+  backdrop-filter: blur(8px);
+  z-index: 60;
+}
+.post-card { position: relative; }
+.post-card:has(.kebabMenu:not(.hidden)) { z-index: 40; }
+
+/* Кнопки редактора записи не должны прятаться под экранной клавиатурой:
+   панель прижата к низу видимой области и остаётся доступной. */
+@media (max-width: 899px) {
+  .post-editor-bottom {
+    position: sticky; bottom: 0;
+    background: var(--bg);
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid #3a2f47;
+    z-index: 6;
+  }
+  .post-editor { display: flex; flex-direction: column; }
+  #postTextArea { flex: 1; }
+}
+
+/* ---------- метки и представление человека ---------- */
+.person-badge {
+  display: inline-block; font-size: 10px; line-height: 1;
+  padding: 3px 7px; border-radius: 999px; margin-left: 6px;
+  background: var(--card-hover); color: var(--muted);
+  vertical-align: middle; white-space: nowrap;
+}
+.badge-admin     { background: var(--accent); color: #1a1420; font-weight: 700; }
+.badge-friend    { background: color-mix(in oklab, var(--accent-2) 30%, var(--card)); color: var(--accent-2); }
+.badge-following { background: var(--card-hover); color: var(--muted); }
+
+.person-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.mini-avatar { border-radius: 50%; object-fit: cover; flex-shrink: 0; border: none; }
+.person-name { font-weight: 600; }
+.person-name.clickable { cursor: pointer; }
+.person-name.clickable:hover { text-decoration: underline; }
+
+/* ---------- карточка предпросмотра ---------- */
+.preview-content { max-width: 340px; }
+.preview-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.preview-name { font-size: 16px; font-weight: 700; }
+.preview-actions { display: flex; gap: 8px; margin-top: 16px; }
+.preview-actions .primaryBtn, .preview-actions .secondaryBtn { flex: 1; text-align: center; }

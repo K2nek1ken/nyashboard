@@ -5,7 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
-  query, orderBy, limit, onSnapshot, serverTimestamp, arrayUnion,
+  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion,
   arrayRemove, increment, where, getDocs, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
@@ -31,7 +31,7 @@ export const googleProvider = new GoogleAuthProvider();
 export {
   signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, setPersistence,
   collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
-  query, orderBy, limit, onSnapshot, serverTimestamp, arrayUnion,
+  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion,
   arrayRemove, increment, where, getDocs, writeBatch,
   ref, uploadBytes, getDownloadURL
 };

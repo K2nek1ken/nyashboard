@@ -1,10 +1,12 @@
-import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, DEFAULTS,
+import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, DEFAULTS,
   exportSettings, importSettings } from "./settings.js";
 import { showToast } from "./ui.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
 import { applyFavicon } from "./favicon.js";
 import { clearInterests, interestsSummary } from "./interests.js";
 import { clearSeen } from "./seen.js";
+import { paletteEntries } from "./palette.js";
+import { BUILD } from "./version.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
 import { currentUser } from "./auth.js";
 import { deleteMyAccount } from "./account.js";
@@ -62,8 +64,9 @@ export function initSettingsPage() {
       ${row("Тема", "основная палитра фона", select("theme", THEMES, s.theme))}
       ${row("Акцентный цвет", "кнопки, ссылки, частицы",
         `<div class="accent-picker">
-          ${Object.entries(ACCENTS).map(([k, v]) =>
-            `<button class="accentOption accent-${k} ${s.accent === k ? "selected" : ""}" data-accent="${k}" title="${v}"></button>`).join("")}
+          ${paletteEntries().map(p =>
+            `<button class="accentOption ${s.accent === p.key ? "selected" : ""}" data-accent="${p.key}"
+                     title="${p.label}" style="background:linear-gradient(135deg, ${p.color}, ${p.soft});"></button>`).join("")}
         </div>`)}
       ${row("Падающие частицы", "лёгкая анимация на фоне",
         `<div style="display:flex; align-items:center;">
@@ -128,6 +131,9 @@ export function initSettingsPage() {
       <p class="muted" style="font-size:12px;" id="interestsInfo"></p>
       <button id="clearInterestsBtn" class="dangerBtn">Очистить интересы</button>
       <button id="clearSeenBtn" class="secondaryBtn">Сбросить «просмотренное»</button>
+      <p class="muted" style="font-size:11px; text-align:center; margin-top:22px;">
+        Сборка от ${BUILD.date} — ${BUILD.name}
+      </p>
       ${currentUser ? `
         <div class="section-title">Аккаунт</div>
         <p class="muted" style="font-size:12px; margin-top:0;">
@@ -152,7 +158,10 @@ export function initSettingsPage() {
           const prev = host.querySelector("#decorPreview");
           if (prev) prev.innerHTML = decorGlyphPreview(sel.value);
         }
-        refreshDefaultAvatars();   // стандартные аватарки перекрашиваем под новую тему
+        // Перекрашиваем ТОЛЬКО сгенерированные аватарки. Раньше сюда попадали и
+        // загруженные пользователем: у них подменялся src, и вместо своей
+        // картинки появлялся стандартный аноним.
+        refreshDefaultAvatars();
         applyFavicon();
         if (sel.dataset.select === "particles") showToast("Обновится после перезагрузки страницы");
       });

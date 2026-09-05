@@ -1,7 +1,7 @@
 // Панель, привязанная к кнопке, не должна вылезать за край окна. Центрировать
 // её по экрану — неправильно: теряется связь с точкой, откуда её вызвали.
 // Поэтому оставляем на месте и лишь сдвигаем внутрь, если не помещается.
-export function keepInViewport(el, margin = 10) {
+export function keepInViewport(el, margin = 10, bottomLimit = null) {
   if (!el) return;
   // сбрасываем прошлую поправку, иначе они накапливаются при повторных открытиях
   el.style.transform = "";
@@ -10,7 +10,9 @@ export function keepInViewport(el, margin = 10) {
 
   if (r.right > window.innerWidth - margin) dx = window.innerWidth - margin - r.right;
   if (r.left + dx < margin) dx = margin - r.left;
-  if (r.bottom > window.innerHeight - margin) dy = window.innerHeight - margin - r.bottom;
+  // bottomLimit — сколько места снизу занято закреплённой панелью
+  const bottom = window.innerHeight - (bottomLimit ?? margin);
+  if (r.bottom > bottom) dy = bottom - r.bottom;
   if (r.top + dy < margin) dy = margin - r.top;
 
   if (dx || dy) el.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
@@ -20,7 +22,7 @@ export function keepInViewport(el, margin = 10) {
 // координатами, и на разных макетах панель оказывалась то под интерфейсом, то
 // в противоположном углу. Считать от самой кнопки надёжнее: где кнопка — там и
 // панель, независимо от того, вверху она в строке или внизу боковой колонки.
-export function positionNear(el, anchorEl, { gap = 8, prefer = "bottom", align = "right" } = {}) {
+export function positionNear(el, anchorEl, { gap = 8, prefer = "bottom", align = "right", offsetX = 0 } = {}) {
   if (!el || !anchorEl) return;
   el.style.transform = "";
   el.style.top = el.style.bottom = el.style.left = el.style.right = "auto";
@@ -37,7 +39,7 @@ export function positionNear(el, anchorEl, { gap = 8, prefer = "bottom", align =
   // по горизонтали: либо правые края совпадают, либо левые — смотря что удобнее
   // для конкретного места. В боковой колонке кнопка узкая, и выравнивание по
   // правому краю уводило панель далеко влево, за пределы самой колонки.
-  let left = align === "left" ? a.left : a.right - w;
+  let left = (align === "left" ? a.left : a.right - w) + offsetX;
   if (left + w > window.innerWidth - margin) left = window.innerWidth - margin - w;
   if (left < margin) left = margin;
 

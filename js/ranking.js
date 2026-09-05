@@ -3,6 +3,7 @@ import { getSubscriptionsSync } from "./subscriptions.js";
 import { getFriendsSync } from "./friends.js";
 import { interestScore } from "./interests.js";
 import { getSettings } from "./settings.js";
+import { currentUser } from "./auth.js";
 
 // Умная лента. В ленту попадают ВСЕ записи — ничего не отфильтровывается,
 // меняется только порядок. Логика прозрачная, без чёрного ящика:
@@ -40,8 +41,10 @@ export function scorePost(post, subs, friends) {
   if (seen) score += WEIGHTS.seenPenalty;
   if (followed) score += WEIGHTS.followedBonus;
 
-  // похожесть на понравившееся; отрицательная — если тема отмечена как ненужная
-  if (getSettings().recommendations !== "off") {
+  // Похожесть на понравившееся. Свои записи сюда не попадают: лайк собственной
+  // записи иначе поднимал бы её выше только что опубликованных, что бессмысленно.
+  const isMine = currentUser && post.authorUid === currentUser.uid;
+  if (!isMine && getSettings().recommendations !== "off") {
     score += interestScore(post) * WEIGHTS.interest;
   }
 
