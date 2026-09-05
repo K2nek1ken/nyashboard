@@ -696,8 +696,27 @@ html[data-theme="sakura"] {
 }
 
 /* ---------- акцентные цвета (поверх любой темы) ---------- */
+/* оттенки берутся из общей палитры (js/palette.js) */
+html[data-accent="pink"] { --accent: #e88fd0; --accent-2: #a98bf0; }
+html[data-accent="rose"] { --accent: #e78fa4; --accent-2: #f0aebe; }
+html[data-accent="crimson"] { --accent: #e05c6e; --accent-2: #f08a97; }
 html[data-accent="orange"] { --accent: #f5a45c; --accent-2: #e8865f; }
-html[data-accent="mint"]   { --accent: #8fe0b0; --accent-2: #79c8a8; }
+html[data-accent="amber"] { --accent: #f0c674; --accent-2: #e8b04b; }
+html[data-accent="gold"] { --accent: #e6cf8b; --accent-2: #d4b45e; }
+html[data-accent="lime"] { --accent: #c3e88d; --accent-2: #a8d672; }
+html[data-accent="mint"] { --accent: #8fe0b0; --accent-2: #79c8a8; }
+html[data-accent="emerald"] { --accent: #5ec9a0; --accent-2: #41a884; }
+html[data-accent="teal"] { --accent: #6fd3cf; --accent-2: #4fb3b0; }
+html[data-accent="sky"] { --accent: #7fc8f0; --accent-2: #5aa8d8; }
+html[data-accent="blue"] { --accent: #7f9cf5; --accent-2: #6b83d6; }
+html[data-accent="indigo"] { --accent: #9b8cf0; --accent-2: #7d6fd4; }
+html[data-accent="violet"] { --accent: #b48ce8; --accent-2: #9a72d0; }
+html[data-accent="lavender"] { --accent: #c9b6f5; --accent-2: #a894e0; }
+html[data-accent="plum"] { --accent: #c986c9; --accent-2: #a86ba8; }
+html[data-accent="peach"] { --accent: #f2b9a0; --accent-2: #e09b7e; }
+html[data-accent="sand"] { --accent: #dcc6a8; --accent-2: #c2a983; }
+html[data-accent="silver"] { --accent: #c3cad6; --accent-2: #9aa4b3; }
+html[data-accent="slate"] { --accent: #8d97a8; --accent-2: #6f7889; }
 
 .accent-picker { display: flex; gap: 8px; }
 .accentOption {
@@ -705,9 +724,8 @@ html[data-accent="mint"]   { --accent: #8fe0b0; --accent-2: #79c8a8; }
   border: 2px solid transparent; padding: 0;
 }
 .accentOption.selected { border-color: var(--text); }
-.accentOption.accent-pink   { background: linear-gradient(135deg, #e88fd0, #a98bf0); }
-.accentOption.accent-orange { background: linear-gradient(135deg, #f5a45c, #e8865f); }
-.accentOption.accent-mint   { background: linear-gradient(135deg, #8fe0b0, #79c8a8); }
+.accent-picker { flex-wrap: wrap; max-width: 260px; }
+.accentOption { width: 26px; height: 26px; }
 
 /* эмодзи: Noto с CDN либо локальный Apple */
 /* Порядок шрифтов принципиален: Google отдаёт Noto Color Emoji с диапазоном,
@@ -1068,3 +1086,29 @@ html[data-theme="quiet"] .searchBox {
   text-align: center;
 }
 #profileLoggedOutNote .primaryBtn { width: auto; margin: 0; }
+
+/* ---------- украшения вокруг аватарки ----------
+   Слой выходит за пределы картинки, поэтому обёртка не обрезает содержимое.
+   Статус лежит выше по слою, чтобы оставался читаемым. */
+.avatar-wrap { overflow: visible; }
+.avatar-accessory {
+  position: absolute; inset: -18%; width: 136%; height: 136%;
+  pointer-events: none; overflow: visible; z-index: 1;
+}
+.avatar-status { z-index: 2; }
+
+/* выбор цвета и украшения в профиле */
+.color-picker { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 10px; }
+.colorOption {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; padding: 0;
+}
+.colorOption.selected { border-color: var(--text); transform: scale(1.12); }
+.accessory-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
+.accessoryOption {
+  position: relative; width: 52px; height: 52px; cursor: pointer;
+  background: var(--card); border: 2px solid #3a2f47; border-radius: 12px; padding: 0;
+}
+.accessoryOption.selected { border-color: var(--accent); }
+.accessoryOption svg { position: absolute; inset: 6%; width: 88%; height: 88%; }
+.accessoryOption .none-label { font-size: 10px; color: var(--muted); }

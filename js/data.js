@@ -69,6 +69,8 @@ export async function ensureUserDoc(fbUser) {
     nuidVisibility: "friends",     // everyone | friends | nobody
     repostVisibility: "everyone",  // кто видит меня автором в репостах
     gender: "x",                   // m | f | x — родовые окончания в интерфейсе
+    accessory: "none",             // украшение вокруг аватарки
+    avatarBorder: "pink",          // цвет рамки и украшения
 
     createdAt: Date.now()
   };

@@ -142,7 +142,16 @@ export function initProfileDropdown() {
     e.stopPropagation();
     refreshDropdown();
     dropdown.classList.toggle("hidden");
-    if (!dropdown.classList.contains("hidden")) positionNear(dropdown, profileIcon);
+    if (!dropdown.classList.contains("hidden")) {
+      // На широком экране иконка стоит внизу боковой колонки, поэтому панель
+      // раскрывается вверх и прижимается к левому краю — так она остаётся
+      // внутри колонки, а не уползает вниз под остальной интерфейс.
+      const wide = window.matchMedia("(min-width: 900px)").matches;
+      positionNear(dropdown, profileIcon, {
+        prefer: wide ? "top" : "bottom",
+        align: wide ? "left" : "right"
+      });
+    }
   });
 
   document.addEventListener("click", (e) => {

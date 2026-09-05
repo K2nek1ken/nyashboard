@@ -1,10 +1,11 @@
-import { getSettings, setSetting, THEMES, ACCENTS, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, DEFAULTS,
+import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, DEFAULTS,
   exportSettings, importSettings } from "./settings.js";
 import { showToast } from "./ui.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
 import { applyFavicon } from "./favicon.js";
 import { clearInterests, interestsSummary } from "./interests.js";
 import { clearSeen } from "./seen.js";
+import { paletteEntries } from "./palette.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
 import { currentUser } from "./auth.js";
 import { deleteMyAccount } from "./account.js";
@@ -62,8 +63,9 @@ export function initSettingsPage() {
       ${row("Тема", "основная палитра фона", select("theme", THEMES, s.theme))}
       ${row("Акцентный цвет", "кнопки, ссылки, частицы",
         `<div class="accent-picker">
-          ${Object.entries(ACCENTS).map(([k, v]) =>
-            `<button class="accentOption accent-${k} ${s.accent === k ? "selected" : ""}" data-accent="${k}" title="${v}"></button>`).join("")}
+          ${paletteEntries().map(p =>
+            `<button class="accentOption ${s.accent === p.key ? "selected" : ""}" data-accent="${p.key}"
+                     title="${p.label}" style="background:linear-gradient(135deg, ${p.color}, ${p.soft});"></button>`).join("")}
         </div>`)}
       ${row("Падающие частицы", "лёгкая анимация на фоне",
         `<div style="display:flex; align-items:center;">
