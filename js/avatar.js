@@ -1,7 +1,5 @@
 import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
-import { accessoryHtml } from "./accessories.js";
-import { paletteColor } from "./palette.js";
 
 // Форма аватарки — только CSS-класс поверх картинки. Само изображение хранится
 // НЕобрезанным, поэтому форму можно менять когда угодно, задним числом, без
@@ -26,15 +24,9 @@ export function avatarHtml(user, size = 34, extraAttrs = "", variant = "neko") {
   // на месте при смене темы
   const mark = custom ? "" : `data-default-avatar="${variant}"`;
   const status = user?.statusEmoji || "";
-  const border = user?.avatarBorder
-    ? `border-color:${paletteColor(user.avatarBorder)};`
-    : "";
-  // Порядок слоёв: картинка → украшение → статус. Статус сверху, чтобы его
-  // всегда было видно, даже если украшение заходит в тот же угол.
   return `
     <span class="avatar-wrap" style="width:${size}px;height:${size}px;">
-      <img class="avatar-shaped ${shape}" src="${src}" style="width:${size}px;height:${size}px;${border}" ${mark} ${extraAttrs}>
-      ${accessoryHtml(user?.accessory, user?.avatarBorder)}
+      <img class="avatar-shaped ${shape}" src="${src}" style="width:${size}px;height:${size}px;" ${mark} ${extraAttrs}>
       ${status ? `<span class="avatar-status">${status}</span>` : ""}
     </span>`;
 }
@@ -47,15 +39,6 @@ export function applyAvatar(imgEl, user, variant = "neko") {
   if (custom) imgEl.removeAttribute("data-default-avatar");
   else imgEl.dataset.defaultAvatar = variant;
   imgEl.className = `avatar-shaped ${shapeClass(user?.avatarShape)}`;
-  imgEl.style.borderColor = user?.avatarBorder ? paletteColor(user.avatarBorder) : "";
-
-  // украшение подставляем в ту же обёртку, что и картинку
-  const wrap = imgEl.closest(".avatar-wrap");
-  if (wrap) {
-    wrap.querySelector(".avatar-accessory")?.remove();
-    const html = accessoryHtml(user?.accessory, user?.avatarBorder);
-    if (html) imgEl.insertAdjacentHTML("afterend", html);
-  }
 }
 
 export function shapePickerHtml(selected = "circle") {

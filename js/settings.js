@@ -37,9 +37,11 @@ export const QUOTE_DECOR = {
   none:    "Без узора"
 };
 
-// Акценты — та же палитра, что у рамок аватарок: один список оттенков на всё
-// оформление, чтобы цвета сайта и профиля были из одного набора.
-export { PALETTE as ACCENT_PALETTE } from "./palette.js";
+export const ACCENTS = {
+  pink:   "Розовый",
+  orange: "Оранжевый",
+  mint:   "Пастельно-зелёный"
+};
 
 export const PARTICLES = {
   stars:   "Звёздочки",
