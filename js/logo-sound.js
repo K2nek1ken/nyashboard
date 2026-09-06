@@ -20,6 +20,7 @@ function withStore(mode) {
 }
 
 export async function saveLogoSound(file) {
+  if (!file.size) throw new Error("файл не читается — скопируй его на устройство и выбери оттуда");
   if (file.size > 1024 * 1024) throw new Error("Файл больше мегабайта — возьми покороче");
   const { store } = await withStore("readwrite");
   return new Promise((resolve, reject) => {

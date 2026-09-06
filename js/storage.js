@@ -193,6 +193,9 @@ export function isAudioFile(file) {
 // этого непонятно, идёт ли отправка вообще. onProgress получает долю от 0 до 1.
 export async function uploadAudio(file, onProgress = null) {
   if (!isAudioFile(file)) throw new Error("это не аудиофайл");
+  // Нулевой размер означает, что файл лежит там, откуда браузер его прочитать
+  // не может: подключённый телефон, сетевой диск. Выбрать даёт, а содержимого нет.
+  if (!file.size) throw new Error("файл не читается — скопируй его на устройство и выбери оттуда");
   const mb = file.size / (1024 * 1024);
   if (mb > MAX_AUDIO_MB) throw new Error(`файл больше ${MAX_AUDIO_MB} МБ`);
 

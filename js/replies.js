@@ -1,5 +1,5 @@
 import {
-  db, auth, collection, addDoc, doc, setDoc, updateDoc, deleteDoc, getDocs, query, where,
+  db, auth, collection, addDoc, doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where,
   serverTimestamp, arrayUnion, arrayRemove, increment
 } from "./firebase.js";
 import { currentUser, currentUserDoc } from "./auth.js";
@@ -57,19 +57,30 @@ export async function editReply(replyId, text) {
 
 export async function toggleReplyLike(reply) {
   if (!currentUser) { showToast("Войди, чтобы лайкать ♡"); return; }
-  const liked = (reply.likedBy || []).includes(currentUser.uid);
 
-  // Обновляем данные в памяти сразу: список ответов читается разово, без живой
-  // подписки, поэтому иначе счётчик менялся только после перезагрузки.
+  // Смотрим актуальное состояние: ответы читаются разово, без живой подписки,
+  // и данные в памяти легко устаревают. По устаревшим отметка ставилась
+  // повторно, накручивая счётчик.
+  const ref = doc(db, "replies", reply.id);
+  const snap = await getDoc(ref).catch(() => null);
+  const fresh = snap?.exists() ? snap.data() : reply;
+  const liked = (fresh.likedBy || []).includes(currentUser.uid);
+
+  try {
+    await updateDoc(ref, {
+      likedBy: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+      likesCount: increment(liked ? -1 : 1)
+    });
+  } catch (e) {
+    console.warn("Отметка не прошла:", e.message);
+    showToast("Не вышло — обнови страницу");
+    return;
+  }
+
   reply.likedBy = liked
-    ? (reply.likedBy || []).filter(u => u !== currentUser.uid)
-    : [...(reply.likedBy || []), currentUser.uid];
-  reply.likesCount = Math.max(0, (reply.likesCount || 0) + (liked ? -1 : 1));
-
-  await updateDoc(doc(db, "replies", reply.id), {
-    likedBy: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
-    likesCount: increment(liked ? -1 : 1)
-  });
+    ? (fresh.likedBy || []).filter(u => u !== currentUser.uid)
+    : [...(fresh.likedBy || []), currentUser.uid];
+  reply.likesCount = Math.max(0, (fresh.likesCount || 0) + (liked ? -1 : 1));
 }
 
 function canManageReply(r) {

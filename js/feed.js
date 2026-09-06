@@ -499,26 +499,47 @@ async function loadReplyPreview(postId, card) {
   }
 }
 
-async function toggleLike(p) {
-  if (!currentUser) { showToast("Войди, чтобы лайкать ♡"); return; }
-  const liked = (p.likedBy || []).includes(currentUser.uid);
-  await updateDoc(doc(db, "posts", p.id), {
-    likedBy: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
-    likesCount: increment(liked ? -1 : 1)
-  });
-  // лайк — главный сигнал для рекомендаций; снятие лайка откатывает его
-  learnFromPost(p, liked ? -3 : 3);
+// Отметка ставится по актуальному состоянию документа, а не по тому, что
+// лежит в памяти страницы. Раньше при устаревших данных клиент считал, что
+// отметки нет, и добавлял единицу к счётчику ещё раз — список при этом
+// не менялся, потому что человек в нём уже был, и число накручивалось.
+async function toggleVote(p, { listField, countField, weight, collectionName = "posts" }) {
+  if (!currentUser) { showToast("Войди, чтобы оценивать ♡"); return; }
+
+  const ref = doc(db, collectionName, p.id);
+  const snap = await getDoc(ref).catch(() => null);
+  const fresh = snap?.exists() ? snap.data() : p;
+  const has = (fresh[listField] || []).includes(currentUser.uid);
+
+  try {
+    await updateDoc(ref, {
+      [listField]: has ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+      [countField]: increment(has ? -1 : 1)
+    });
+  } catch (e) {
+    // Сервер отклоняет несогласованные изменения — значит данные разъехались.
+    // Показываем актуальное состояние, чтобы человек видел правду.
+    console.warn("Отметка не прошла:", e.message);
+    if (snap?.exists()) updatePostCard({ id: p.id, ...fresh });
+    showToast("Не вышло — обнови ленту");
+    return;
+  }
+
+  // локальные данные приводим в соответствие, иначе следующее нажатие
+  // снова сработает по устаревшему состоянию
+  p[listField] = has
+    ? (fresh[listField] || []).filter(u => u !== currentUser.uid)
+    : [...(fresh[listField] || []), currentUser.uid];
+  p[countField] = Math.max(0, (fresh[countField] || 0) + (has ? -1 : 1));
+
+  learnFromPost(p, has ? -weight : weight);
 }
 
-async function toggleDislike(p) {
-  if (!currentUser) { showToast("Войди, чтобы дизлайкать"); return; }
-  const disliked = (p.dislikedBy || []).includes(currentUser.uid);
-  await updateDoc(doc(db, "posts", p.id), {
-    dislikedBy: disliked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
-    dislikesCount: increment(disliked ? -1 : 1)
-  });
-  learnFromPost(p, disliked ? 3 : -3);
-}
+const toggleLike = (p) =>
+  toggleVote(p, { listField: "likedBy", countField: "likesCount", weight: 3 });
+
+const toggleDislike = (p) =>
+  toggleVote(p, { listField: "dislikedBy", countField: "dislikesCount", weight: -3 });
 
 async function repost(p) {
   if (!currentUser) { showToast("Войди, чтобы репостить"); return; }

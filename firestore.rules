@@ -246,6 +246,23 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Проверка отметки «нравится» или «не нравится».
+    // Разрешаем ровно два случая: человек добавляет себя в список и счётчик
+    // растёт на единицу, либо убирает себя и счётчик уменьшается на единицу.
+    // Всё остальное — попытка накрутки.
+    function isVoteToggle(listField, countField) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let uid = request.auth.uid;
+      let wasIn = uid in before.get(listField, []);
+      let isIn = uid in after.get(listField, []);
+      let count = before.get(countField, 0);
+
+      return after.diff(before).affectedKeys().hasOnly([listField, countField])
+        && ((!wasIn && isIn && after.get(countField, 0) == count + 1)
+         || (wasIn && !isIn && after.get(countField, 0) == count - 1));
+    }
+
     // ===================== ПОСТЫ ЛЕНТЫ =====================
     // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
     // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null
@@ -265,8 +282,12 @@ service cloud.firestore {
            request.auth.uid in get(/databases/$(database)/documents/channels/$(request.resource.data.channelId)).data.adminUids))
       );
       allow update: if request.auth != null && (
-        (request.resource.data.diff(resource.data).affectedKeys()
-           .hasOnly(['likedBy', 'likesCount', 'dislikedBy', 'dislikesCount'])) ||
+        // Отметки проверяются на согласованность: счётчик должен меняться
+        // ровно на единицу и только вместе со списком. Раньше правило пускало
+        // любую пару значений, и повторное нажатие накручивало число —
+        // список не менялся (человек уже там), а счётчик рос.
+        isVoteToggle('likedBy', 'likesCount') ||
+        isVoteToggle('dislikedBy', 'dislikesCount') ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'editedAt']) &&
           (request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid ||
            canManageChannelPost(resource.data)))
@@ -283,7 +304,7 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         (request.resource.data.authorUid == null || request.resource.data.authorUid == request.auth.uid);
       allow update: if request.auth != null && (
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likesCount'])) ||
+        isVoteToggle('likedBy', 'likesCount') ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'imageUrl', 'editedAt']) &&
           request.auth.uid == get(/databases/$(database)/documents/replySecrets/$(replyId)).data.ownerUid)
       );
