@@ -18,6 +18,8 @@ import { openEmojiPicker } from "./emoji.js";
 import { ICON } from "./icons.js";
 import { initChatNav } from "./chat-nav.js";
 import { parseCommand } from "./bot.js";
+import { getSettings } from "./settings.js";
+import { getAlias, setAlias } from "./aliases.js";
 import { currentUserDoc } from "./auth.js";
 import { defaultAvatar } from "./default-avatar.js";
 
@@ -33,6 +35,8 @@ startPresence();
 const chatId = new URLSearchParams(location.search).get("chat");
 let pendingImage = null;
 let replyingTo = null;
+let otherUid = null;
+let otherUser = null;
 
 function renderReplyBar() {
   const host = document.getElementById("dmReplyHost");
@@ -50,10 +54,22 @@ function renderReplyBar() {
   });
 }
 
+let lastMessages = [];
+
 function render(msgs) {
+  lastMessages = msgs;
   const el = document.getElementById("dmMessages");
   const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
   const wasAtBottom = nearBottom || el.childElementCount === 0;
+
+  // Как называть собеседника: его ником, нейтрально или своим словом.
+  // Если ты переименовал его для себя — это имя главнее всего.
+  const settings = getSettings();
+  const alias = getAlias(otherUid);
+  const theirName = alias
+    || (settings.dmNaming === "neutral" ? "собеседник"
+      : settings.dmNaming === "custom" ? (settings.dmCustomName || "собеседник")
+      : (otherUser?.nickname || "собеседник"));
 
   el.innerHTML = msgs.map(m => {
     // Сторона определяется отправителем: команду набрал ты, значит и ответ бота
@@ -73,7 +89,7 @@ function render(msgs) {
     return `
       <div class="chat-msg ${mine ? "mine" : ""}" data-id="${m.id}">
         <div class="chat-msg-head">
-          <b>${mine ? "ты" : "собеседник"}</b>
+          <b>${mine ? "ты" : escapeHtml(theirName)}</b>
           <span class="muted">· ${timeAgo(m.createdAt)}${m.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
           ${kebabHtml(items, m.id)}
         </div>
@@ -107,7 +123,7 @@ function render(msgs) {
         const msg = msgs.find(x => x.id === id);
         replyingTo = msg ? {
           id: msg.id,
-          nickname: msg.senderUid === currentUser?.uid ? "себе" : "собеседнику",
+          nickname: msg.senderUid === currentUser?.uid ? "себе" : theirName,
           text: msg.text || "(фото)"
         } : null;
         renderReplyBar();
@@ -138,9 +154,10 @@ async function init() {
   const chatSnap = await getDoc(doc(db, "dmChats", chatId)).catch(() => null);
   if (!chatSnap?.exists()) { el.innerHTML = `<div class="stub-note">Чат недоступен</div>`; return; }
 
-  const otherUid = otherParticipant({ id: chatId, ...chatSnap.data() });
+  otherUid = otherParticipant({ id: chatId, ...chatSnap.data() });
   const u = (await getUserDoc(otherUid)) || {};
-  document.getElementById("dmNickname").textContent = u.nickname || "???";
+  otherUser = u;
+  document.getElementById("dmNickname").textContent = getAlias(otherUid) || u.nickname || "???";
   document.getElementById("dmUsername").textContent = u.username || "???";
   document.getElementById("dmStatus").textContent = u.statusEmoji || "";
   const av = document.getElementById("dmAvatar");
@@ -148,6 +165,22 @@ async function init() {
   av.className = `avatar-shaped ${shapeClass(u.avatarShape)}`;
   document.getElementById("dmHeader").addEventListener("click", () => {
     location.href = `user.html?uid=${otherUid}`;
+  });
+
+  // Переименование для себя — как в записанных контактах: имя видно только тебе.
+  document.getElementById("dmRenameBtn")?.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const next = await askText("Как называть этого человека", {
+      value: getAlias(otherUid) || "",
+      placeholder: u.nickname || "",
+      hint: "Имя видно только тебе. Пустое поле вернёт настоящее.",
+      maxlength: 40
+    });
+    if (next === null) return;
+    setAlias(otherUid, next);
+    showToast(next ? "Переименован ♡" : "Имя возвращено");
+    document.getElementById("dmNickname").textContent = next || u.nickname || "???";
+    render(lastMessages);
   });
   document.title = `NyashBoard ♡ — ${u.nickname || "чат"}`;
 
@@ -192,7 +225,7 @@ async function init() {
       // Команды бота работают и в личке — раньше они разбирались только
       // в общем чате, хотя логика одна и та же.
       const myName = currentUserDoc?.nickname || "ты";
-      const parsed = parseCommand(text, myName, replyingTo ? "собеседника" : null);
+      const parsed = parseCommand(text, myName, replyingTo ? theirName : null);
       if (parsed?.error) { showToast(parsed.error); return; }
 
       const imageUrl = pendingImage ? await uploadImage(pendingImage) : null;

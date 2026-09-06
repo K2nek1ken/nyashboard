@@ -1,4 +1,4 @@
-import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, CHAT_IDENTITY, DEFAULTS,
+import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, CHAT_IDENTITY, DM_NAMING, DEFAULTS,
   exportSettings, importSettings } from "./settings.js";
 import { showToast } from "./ui.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
@@ -120,6 +120,11 @@ export function initSettingsPage() {
           select("chatIdentity", CHAT_IDENTITY, s.chatIdentity))}
         ${row("Отзываться на «мяукнуть»", "звук и подсказка, когда кто-то мяукает",
           toggle("meowReaction", s.meowReaction === "on"))}
+        ${row("Как подписывать собеседника", "в личных переписках",
+          select("dmNaming", DM_NAMING, s.dmNaming))}
+        ${s.dmNaming === "custom" ? row("Своё слово", "чем заменить имя собеседника",
+          `<input class="settingSelect" id="dmCustomInput" maxlength="30"
+                  value="${(s.dmCustomName || "").replace(/"/g, "&quot;")}" style="width:150px;">`) : ""}
         ${row("Уведомления браузера", "о новых сообщениях, пока сайт открыт в другой вкладке",
           `<button class="secondaryBtn" id="notifyBtn" style="width:auto; margin:0;"></button>`)}
       `)}
@@ -183,6 +188,7 @@ export function initSettingsPage() {
           const prev = host.querySelector("#particlePreview");
           if (prev) prev.innerHTML = particleGlyph(sel.value);
         }
+        if (sel.dataset.select === "dmNaming") render();
         if (sel.dataset.select === "quoteDecor") {
           const prev = host.querySelector("#decorPreview");
           if (prev) prev.innerHTML = decorGlyphPreview(sel.value);
@@ -267,6 +273,12 @@ export function initSettingsPage() {
         paintNotify();
       });
     }
+
+    const dmCustom = host.querySelector("#dmCustomInput");
+    dmCustom?.addEventListener("change", () => {
+      setSetting("dmCustomName", dmCustom.value.trim());
+      showToast("Сохранено ♡");
+    });
 
     const logoInput = host.querySelector("#logoMessageInput");
     if (logoInput) {

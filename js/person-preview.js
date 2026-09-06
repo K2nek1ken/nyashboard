@@ -6,6 +6,7 @@ import { avatarHtml } from "./avatar.js";
 import { relationBadge, badgeHtml, nameHtml, isAdmin } from "./person.js";
 import { escapeHtml, showToast } from "./ui.js";
 import { fetchOnline } from "./presence.js";
+import { getAlias, setAlias } from "./aliases.js";
 import { ICON } from "./icons.js";
 
 // Карточка человека или канала поверх страницы. Открывается по клику на
@@ -35,6 +36,7 @@ export async function openPersonPreview(uid) {
     ${user.bio ? `<div class="profile-bio">${escapeHtml(user.bio)}</div>` : ""}
     <div class="preview-actions">
       ${isSelf ? "" : `<button class="secondaryBtn" data-friend style="width:auto;margin:0;"></button>`}
+      ${isSelf ? "" : `<button class="secondaryBtn" data-rename style="width:auto;margin:0;" title="как называть этого человека"><span class="nf">${ICON.pencil}</span></button>`}
       <a class="primaryBtn" style="width:auto;margin:0;text-decoration:none;"
          href="${isSelf ? "profile.html" : `user.html?uid=${uid}`}">Открыть профиль</a>
     </div>
@@ -55,6 +57,20 @@ export async function openPersonPreview(uid) {
   } catch (e) {
     console.warn("Записи в карточке не загрузились:", e.message);
   }
+
+  body.querySelector("[data-rename]")?.addEventListener("click", async () => {
+    const { askText } = await import("./dialog.js");
+    const next = await askText("Как называть этого человека", {
+      value: getAlias(uid) || "",
+      placeholder: user.nickname || "",
+      hint: "Имя видно только тебе. Пустое поле вернёт настоящее.",
+      maxlength: 40
+    });
+    if (next === null) return;
+    setAlias(uid, next);
+    showToast(next ? "Переименован ♡" : "Имя возвращено");
+    openPersonPreview(uid);      // перерисовываем карточку с новым именем
+  });
 
   const friendBtn = body.querySelector("[data-friend]");
   if (friendBtn) {

@@ -75,10 +75,23 @@ export function initInlineComposer(onPublished) {
   publishBtn.addEventListener("click", async () => {
     const text = textarea.value.trim();
     if (!text && !images.length) { showToast("Пустую запись не отправить"); return; }
+    if (publishBtn.disabled) return;
+
+    // Поле очищается сразу: с фотографиями публикация занимает секунды,
+    // и без отклика легко нажать ещё раз, получив две одинаковые записи.
+    const pending = images.slice();
+    const savedText = text;
+    textarea.value = "";
+    images = [];
+    renderStrip();
+    autoGrow();
+
     publishBtn.disabled = true;
     publishBtn.textContent = "Публикую...";
+    if (pending.length) showToast("Отправляю…");
+
     try {
-      const imageUrls = images.length ? await uploadImages(images) : [];
+      const imageUrls = pending.length ? await uploadImages(pending) : [];
       if (imageUrls.some(u => !u)) throw new Error("Одна из картинок не загрузилась");
 
       const isAnon = !currentUser || anonToggle.checked;
@@ -93,8 +106,8 @@ export function initInlineComposer(onPublished) {
         authorNickColor: (!isAnon && currentUserDoc) ? (currentUserDoc.nickColor || "") : null,
         channelId: null,
         isAnonymous: isAnon,
-        text,
-        hashtags: extractHashtags(text),
+        text: savedText,
+        hashtags: extractHashtags(savedText),
         imageUrls,
         likesCount: 0, likedBy: [],
         dislikesCount: 0, dislikedBy: [],
@@ -112,14 +125,15 @@ export function initInlineComposer(onPublished) {
       }
       markOwned("post", ref.id);
 
-      textarea.value = "";
-      images = [];
-      renderStrip();
-      autoGrow();
       showToast("Опубликовано ♡");
       onPublished?.();
     } catch (e) {
       console.error(e);
+      // возвращаем написанное, чтобы не пришлось набирать заново
+      textarea.value = savedText;
+      images = pending;
+      renderStrip();
+      autoGrow();
       showToast("Ошибка: " + e.message);
     } finally {
       publishBtn.disabled = false;

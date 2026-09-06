@@ -235,6 +235,8 @@ function reactToMeow(msgs) {
 
 // Метки собираем один раз на список: у каждой свой запрос про взаимность,
 // и делать их во время отрисовки означало бы мигающие подписи.
+const authorProfiles = new Map();
+
 async function refreshBadges(msgs) {
   const uids = [...new Set(msgs.filter(m => m.authorUid).map(m => m.authorUid))];
   if (!uids.length) return;
@@ -242,8 +244,23 @@ async function refreshBadges(msgs) {
   await Promise.all(uids.map(async uid => {
     if (badges.has(uid)) return;
     const user = await getUserDoc(uid).catch(() => null);
+    authorProfiles.set(uid, user);
     badges.set(uid, await relationBadge(uid, user).catch(() => null));
   }));
+
+  // Оформление берём из профиля, а не из того, что записалось при отправке:
+  // человек мог сменить цвет ника или аватарку уже после сообщения, и в чате
+  // осталось бы старое.
+  msgs.forEach(m => {
+    const u = m.authorUid && authorProfiles.get(m.authorUid);
+    if (!u) return;
+    m.nickColor = u.nickColor || "";
+    m.authorAvatar = u.avatarUrl || m.authorAvatar;
+    m.authorShape = u.avatarShape || m.authorShape;
+    m.authorAccessory = u.accessory || "none";
+    m.authorBorder = u.avatarBorder || "pink";
+    if (!m.isBot) m.nickname = u.nickname || m.nickname;
+  });
 }
 
 function renderChat(msgs, { keepScroll = false } = {}) {
@@ -512,10 +529,27 @@ export function initChatForm() {
     }
   });
 
+  let sending = false;
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
     if (!text && !pendingChatImages.length) return;
+    if (sending) return;                      // защита от повторного нажатия
+
+    // Поле очищается сразу, а отправка идёт следом. Раньше при фотографиях
+    // между нажатием и появлением сообщения проходили секунды, за которые
+    // легко нажать ещё несколько раз — и в чат уходило пять одинаковых реплик.
+    const images = pendingChatImages.slice();
+    input.value = "";
+    pendingChatImages = [];
+    renderChatPreview();
+    const replySnapshot = replyingTo;
+    replyingTo = null;
+    renderReplyBar();
+
+    sending = true;
+    if (images.length) showToast("Отправляю…");
 
     try {
       const identity = getGuestIdentity();
@@ -525,10 +559,10 @@ export function initChatForm() {
       const speakerName = (asAccount?.checked && currentUserDoc)
         ? currentUserDoc.nickname
         : identity.nickname;
-      const parsed = parseCommand(text, speakerName, replyingTo?.nickname || null);
+      const parsed = parseCommand(text, speakerName, replySnapshot?.nickname || null);
       if (parsed?.error) { showToast(parsed.error); return; }
 
-      const imageUrls = pendingChatImages.length ? await uploadImages(pendingChatImages) : [];
+      const imageUrls = images.length ? await uploadImages(images) : [];
       if (imageUrls.some(u => !u)) throw new Error("Одна из картинок не загрузилась");
       // Личность сообщения: аккаунт или анонимный ник. Данные автора копируются
       // в само сообщение, чтобы список не требовал запроса профиля на каждую
@@ -551,10 +585,10 @@ export function initChatForm() {
       };
       // цитату сохраняем прямо в сообщении: так она переживёт удаление оригинала
       // и не требует лишнего чтения при рендере
-      if (replyingTo) {
-        payload.replyToId = replyingTo.id;
-        payload.replyToNickname = replyingTo.nickname;
-        payload.replyToText = replyingTo.text.slice(0, 120);
+      if (replySnapshot) {
+        payload.replyToId = replySnapshot.id;
+        payload.replyToNickname = replySnapshot.nickname;
+        payload.replyToText = replySnapshot.text.slice(0, 120);
       }
       const ref = await addDoc(collection(db, "chatMessages"), payload);
       await setDoc(doc(db, "chatMessageSecrets", ref.id), { ownerUid: auth.currentUser.uid });
@@ -565,12 +599,6 @@ export function initChatForm() {
       // id уже созданного документа.
       // Поле и режим ответа сбрасываем сразу после отправки — раньше при команде
       // бота текст оставался в поле, и его легко было отправить повторно.
-      input.value = "";
-      pendingChatImages = [];
-      renderChatPreview();
-      replyingTo = null;
-      renderReplyBar();
-
       registerMessageNuid(ref.id)
         .then(nuid => updateDoc(doc(db, "chatMessages", ref.id), { publicUid: nuid }))
         .catch(e => console.warn("Идентификатор сообщения не записался:", e.message));
@@ -581,7 +609,14 @@ export function initChatForm() {
       renderReplyBar();
     } catch (err) {
       console.error(err);
+      // Возвращаем написанное обратно в поле: иначе при сбое текст просто
+      // исчезал бы, и набирать пришлось бы заново.
+      input.value = text;
+      pendingChatImages = images;
+      renderChatPreview();
       showToast("Не отправилось: " + err.message);
+    } finally {
+      sending = false;
     }
   });
 }

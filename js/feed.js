@@ -50,6 +50,22 @@ export function subscribeFeed() {
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
   feedUnsub = onSnapshot(q, (snap) => {
     const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Лайк меняет одну запись, а не состав ленты. Перерисовывать весь список
+    // из-за него — значит сбрасывать раскрытые тексты, положение каруселей
+    // и прокрутку. Поэтому если поменялись только уже показанные записи,
+    // обновляем именно их.
+    const changes = snap.docChanges();
+    const onlyUpdates = lastRenderedPosts
+      && changes.length > 0
+      && changes.every(c => c.type === "modified");
+
+    if (onlyUpdates) {
+      lastRenderedPosts = posts;
+      changes.forEach(c => updatePostCard({ id: c.doc.id, ...c.doc.data() }));
+      return;
+    }
+
     lastRenderedPosts = posts;
     enrichAuthors(posts).then(() => renderFeed(rankPosts(posts)));
   }, (err) => {
@@ -109,6 +125,43 @@ async function enrichAuthors(posts) {
     if (p.authorNickColor === undefined) p.authorNickColor = u.nickColor || "";
     if (!p.authorShape) p.authorShape = u.avatarShape || "circle";
   });
+}
+
+// Обновляет одну карточку на месте: счётчики, отметки и подпись «изменено».
+// Порядок в ленте при этом не трогаем — он пересчитывается только при загрузке
+// страницы, иначе записи прыгали бы под пальцами во время чтения.
+function updatePostCard(post) {
+  const card = feedListEl?.querySelector(`.post-card[data-id="${post.id}"]`);
+  if (!card) return;
+
+  const liked = currentUser && (post.likedBy || []).includes(currentUser.uid);
+  const disliked = currentUser && (post.dislikedBy || []).includes(currentUser.uid);
+
+  const likeBtn = card.querySelector('[data-action="like"]');
+  if (likeBtn) {
+    likeBtn.classList.toggle("liked", !!liked);
+    likeBtn.querySelector(".likeCount").textContent = post.likesCount || 0;
+    likeBtn.querySelector(".nf").textContent = liked ? ICON.heartFilled : ICON.heart;
+  }
+
+  const dislikeBtn = card.querySelector('[data-action="dislike"]');
+  if (dislikeBtn) {
+    dislikeBtn.classList.toggle("disliked", !!disliked);
+    dislikeBtn.querySelector(".dislikeCount").textContent = post.dislikesCount || 0;
+    const svg = dislikeBtn.querySelector(".svg-ic");
+    if (svg) svg.outerHTML = disliked ? SVG_ICON.heartBroken : SVG_ICON.heartBrokenOutline;
+  }
+
+  // текст мог измениться при правке
+  const textEl = card.querySelector(".post-text");
+  if (textEl && post.text !== undefined) {
+    const current = textEl.dataset.raw;
+    if (current !== post.text) {
+      textEl.dataset.raw = post.text;
+      textEl.innerHTML = linkifyMentions(escapeHtml(post.text || ""));
+      wireMentions(textEl);
+    }
+  }
 }
 
 function renderFeed(posts) {
@@ -189,7 +242,7 @@ export function postToHtml(p, maskAuthor = false) {
           ${kebabHtml(kebabItems, p.id)}
         </div>
       </div>
-      <div class="post-text ${isLong ? "collapsible" : ""}">${linkifyMentions(escapeHtml(rawText))}</div>
+      <div class="post-text ${isLong ? "collapsible" : ""}" data-raw="${escapeHtml(rawText)}">${linkifyMentions(escapeHtml(rawText))}</div>
       ${isLong ? `<button class="expandBtn" data-action="toggleExpand"><span class="nf">${ICON.down}</span> показать полностью</button>` : ""}
       ${imagesToHtml(getPostImages(p))}
       <div class="post-tracks" data-post-tracks="${p.id}"></div>

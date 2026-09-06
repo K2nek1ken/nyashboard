@@ -12,11 +12,13 @@ export const DEFAULTS = {
   gender: "x",           // m | f | x — для родовых окончаний в интерфейсе
   timezone: "auto",      // auto = как на устройстве, иначе смещение вида "+03:00"
   logoMessage: "мяу!",   // что говорит логотип, если по нему нажать
+  dmCustomName: "",      // своё слово для собеседника, если выбран этот способ
   logoSound: "",         // имя выбранного звука; сам файл лежит отдельно
   quoteDecor: "flowers", // узор на фоне цитаты в чате
   chatIdentity: "both",  // both | anon | account — что доступно в чате
   meowReaction: "on",    // отзываться на команду «мяукнуть» звуком
   webNotify: "off",      // уведомления браузера, пока вкладка открыта
+  dmNaming: "nickname",  // как подписывать собеседника в личке
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»
   // порядок вкладок: на телефоне слева направо, на ПК сверху вниз
@@ -100,6 +102,12 @@ export const CHAT_IDENTITY = {
   both:    "Аноним и аккаунт",
   anon:    "Только анонимный ник",
   account: "Только от аккаунта"
+};
+
+export const DM_NAMING = {
+  nickname: "Ником",
+  neutral:  "«Собеседник»",
+  custom:   "Своим словом"
 };
 
 export const EMOJI_SOURCES = {

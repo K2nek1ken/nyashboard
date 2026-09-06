@@ -74,11 +74,9 @@ export function wireTrackCards(container, tracks, onChanged) {
 
 // Подвкладка «Музыка» во вкладке «Контент».
 export async function initMusicPanel(host) {
-  // Ждём восстановления входа: панель открывается по нажатию, и без этого
-  // кнопка загрузки могла не появиться просто потому, что состояние входа
-  // ещё не подтвердилось.
-  await authReady;
-
+  // Разметку рисуем сразу, не дожидаясь ничего: кнопка нужна на экране
+  // с первой секунды. Состояние входа проверяется уже при нажатии — раньше
+  // ожидание здесь задерживало появление кнопки на всё время проверки.
   host.innerHTML = `
     <button class="primaryBtn upload-track-btn" id="uploadTrackBtn">
       <span class="nf">${ICON.plus}</span><span class="upload-track-label">Загрузить трек</span>
@@ -111,9 +109,11 @@ export async function initMusicPanel(host) {
   // Пошаговые вопросы были неудобны, а отмена на любом шаге просто пропускала
   // его вместо того, чтобы прервать загрузку.
   const fileInput = host.querySelector("#trackFileInput");
-  host.querySelector("#uploadTrackBtn")?.addEventListener("click", () => {
+  host.querySelector("#uploadTrackBtn")?.addEventListener("click", async () => {
     // Кнопка видна всем: если её прятать, невошедшему непонятно, можно ли
-    // тут вообще что-то выложить.
+    // тут вообще что-то выложить. Вход проверяем здесь — к моменту нажатия
+    // он уже наверняка восстановлен.
+    await authReady;
     if (!currentUser) { showToast("Войди, чтобы выкладывать музыку"); return; }
     fileInput.click();
   });

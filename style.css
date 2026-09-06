@@ -1236,7 +1236,11 @@ html[data-theme="quiet"] .searchBox {
 .person-name.clickable:hover { text-decoration: underline; }
 
 /* ---------- карточка предпросмотра ---------- */
-.preview-content { max-width: 340px; }
+/* Записи внутри карточки прокручиваются, а сама она остаётся одного размера:
+   без этого окно вытягивалось на всю высоту и выглядело странно. */
+.preview-content { max-width: 340px; max-height: 80vh; display: flex; flex-direction: column; }
+.preview-content > [data-body] { overflow-y: auto; min-height: 0; }
+#previewPosts { max-height: 46vh; overflow-y: auto; }
 .preview-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .preview-name { font-size: 16px; font-weight: 700; }
 .preview-actions { display: flex; gap: 8px; margin-top: 16px; }

@@ -1,4 +1,4 @@
-import { IMAGE_HOSTS, IMGBB_API_KEY } from "./config.js";
+import { IMAGE_HOSTS, IMGBB_API_KEY, CLOUDINARY_CLOUD, CLOUDINARY_PRESET } from "./config.js";
 
 // Сжимаем перед отправкой — телефонные фото часто 3000-4000px в ширину и по
 // несколько мегабайт каждое; для ленты за глаза хватает 1600px по длинной
@@ -196,32 +196,26 @@ export async function uploadAudio(file, onProgress = null) {
   const mb = file.size / (1024 * 1024);
   if (mb > MAX_AUDIO_MB) throw new Error(`файл больше ${MAX_AUDIO_MB} МБ`);
 
-  const errors = [];
-
-  // catbox
-  try {
-    const form = new FormData();
-    form.append("reqtype", "fileupload");
-    form.append("fileToUpload", file, file.name);
-    const text = await uploadWithProgress("https://catbox.moe/user/api.php", form, { onProgress });
-    if (text.startsWith("https://")) return text;
-    errors.push(`catbox: ${text.slice(0, 80)}`);
-  } catch (e) {
-    console.warn("catbox не принял аудио:", e.message);
-    errors.push(`catbox: ${e.message}`);
+  if (!CLOUDINARY_CLOUD || !CLOUDINARY_PRESET) {
+    throw new Error("хранилище для музыки не настроено — см. js/config.js");
   }
 
-  // uguu — запасной вариант
-  try {
-    const form = new FormData();
-    form.append("files[]", file, file.name);
-    const text = await uploadWithProgress("https://uguu.se/upload?output=text", form, { onProgress });
-    if (text.startsWith("https://")) return text;
-    errors.push(`uguu: ${text.slice(0, 80)}`);
-  } catch (e) {
-    console.warn("uguu не принял аудио:", e.message);
-    errors.push(`uguu: ${e.message}`);
-  }
+  // Аудио отправляется как «video»: у Cloudinary это общий раздел для всего,
+  // что не картинка, и звук туда входит.
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", CLOUDINARY_PRESET);
 
-  throw new Error(`не удалось загрузить «${file.name}» — ${errors.join("; ")}`);
+  const text = await uploadWithProgress(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/video/upload`,
+    form, { onProgress }
+  );
+
+  let json;
+  try { json = JSON.parse(text); }
+  catch { throw new Error("хранилище ответило непонятным образом"); }
+
+  if (json.error) throw new Error(json.error.message || "хранилище отказало");
+  if (!json.secure_url) throw new Error("хранилище не вернуло ссылку");
+  return json.secure_url;
 }

@@ -4,6 +4,7 @@ import { paletteColor } from "./palette.js";
 import { shapeClass } from "./avatar.js";
 import { defaultAvatar } from "./default-avatar.js";
 import { escapeHtml } from "./ui.js";
+import { getAlias } from "./aliases.js";
 
 // ============================================================
 //  Единое представление человека
@@ -49,7 +50,12 @@ export function badgeHtml(badge) {
 export function nameHtml(user, { clickable = true } = {}) {
   const color = user?.nickColor ? `style="color:${paletteColor(user.nickColor)}"` : "";
   const cls = clickable ? "person-name clickable" : "person-name";
-  return `<span class="${cls}" ${color}>${escapeHtml(user?.nickname || "???")}</span>`;
+  // Если человек переименован для себя, показываем своё имя — как в записанных
+  // контактах. Цвет при этом остаётся тот, что выбрал сам человек.
+  const alias = getAlias(user?.uid);
+  const shown = alias || user?.nickname || "???";
+  const mark = alias ? ' title="переименован тобой"' : "";
+  return `<span class="${cls}" ${color}${mark}>${escapeHtml(shown)}</span>`;
 }
 
 // Миниатюра рядом с именем: примерно в три буквы высотой, как и просил Неко.
