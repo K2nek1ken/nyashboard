@@ -83,6 +83,17 @@ export function subscribeFeed() {
   Promise.all([loadSubscriptions(), loadFriends(), loadSeen(), loadInterests()]).then(() => {
     if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
   });
+
+  // Поворот экрана или изменение окна меняет число колонок — перекладываем.
+  // Порог по числу колонок, а не по каждому пикселю ширины: иначе лента
+  // пересобиралась бы при любом движении рамки окна.
+  let lastColumns = columnCount();
+  window.addEventListener("resize", () => {
+    const now = columnCount();
+    if (now === lastColumns) return;
+    lastColumns = now;
+    if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+  });
 }
 
 // Записи появляются по очереди сверху вниз, а не все разом: так список
@@ -164,12 +175,37 @@ function updatePostCard(post) {
   }
 }
 
+// Сколько колонок показывать. Ширина берётся у окна, а не у контейнера:
+// на момент раскладки контейнер может быть ещё пустым и нулевой ширины.
+function columnCount() {
+  if (window.innerWidth >= 1400) return 3;
+  if (window.innerWidth >= 900) return 2;
+  return 1;
+}
+
+// Раскладка змейкой: запись с номером i попадает в колонку i % n.
+// Так порядок чтения совпадает с порядком в ленте — первая запись слева
+// вверху, вторая справа, третья снова слева. Если просто разделить список
+// пополам, вторая по важности запись окажется в самом низу левой колонки.
+function layoutPosts(container, posts, buildHtml) {
+  const cols = columnCount();
+  if (cols === 1) {
+    container.innerHTML = posts.map(buildHtml).join("");
+    return;
+  }
+  const buckets = Array.from({ length: cols }, () => []);
+  posts.forEach((p, i) => buckets[i % cols].push(buildHtml(p)));
+  container.innerHTML = buckets
+    .map(items => `<div class="feed-column">${items.join("")}</div>`)
+    .join("");
+}
+
 function renderFeed(posts) {
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
     return;
   }
-  feedListEl.innerHTML = posts.map(p => postToHtml(p)).join("");
+  layoutPosts(feedListEl, posts, p => postToHtml(p));
   posts.forEach(p => wirePostCard(p, feedListEl));
   revealSequentially(feedListEl);
 }
@@ -701,12 +737,12 @@ export function renderPostsInto(container, posts, ownerNickname) {
 
 function paintPostsInto(container, posts, ownerNickname) {
   if (!posts.length) { container.innerHTML = `<div class="stub-note">Тут пока пусто</div>`; return; }
-  container.innerHTML = posts.map(p => {
+  layoutPosts(container, posts, p => {
     // В репосте автор может быть скрыт — решает сервер, см. revealRepostAuthor
     const html = postToHtml(p, p._isRepost);
     if (!p._isRepost) return html;
     return `<div class="repost-badge"><span class="nf">${ICON.repost}</span> ${escapeHtml(ownerNickname)} репостнул${gendered("", "а", "(а)")}</div>` + html;
-  }).join("");
+  });
   posts.forEach(p => {
     wirePostCard(p, container);
     if (p._isRepost) revealRepostAuthor(p, container);

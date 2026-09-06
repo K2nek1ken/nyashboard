@@ -485,17 +485,14 @@ button, input, textarea { font-family: inherit; color: inherit; }
   #app > section, #app > .tab { max-width: 1080px; margin: 0 auto; }
   /* лента и стена канала — двухколоночная сетка, чтобы не было полосы
      контента посреди пустого экрана */
-  /* Плотная выкладка: записи разной высоты заполняют пространство встык,
-     а не оставляют дыры под короткими. Колонки вместо сетки — так карточки
-     не растягиваются под самую высокую в ряду. */
-  .feed-list {
-    display: block; column-count: 2; column-gap: 16px;
-  }
-  .feed-list > * {
-    break-inside: avoid; -webkit-column-break-inside: avoid;
-    margin-bottom: 16px; display: inline-block; width: 100%;
-  }
-  #vpPosts.feed-list { column-count: 1; }   /* в карточке профиля колонка одна */
+  /* Колонки собираются в разметке, а не средствами стилей.
+     Колоночная раскладка заполняла сначала всю левую колонку сверху донизу,
+     и запись, которая должна быть второй, оказывалась в самом низу слева.
+     Теперь порядок идёт змейкой: первая запись слева, вторая справа, третья
+     снова слева — как и читается. */
+  .feed-list { display: flex; gap: 16px; align-items: flex-start; }
+  .feed-column { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+  #vpPosts.feed-list, #previewPosts.feed-list { display: block; }   /* в карточке профиля колонка одна */
 
   /* чат на ПК: используем всю ширину, панель ввода прижата к правой части */
   .chat-page-body #app { max-width: 900px; padding-bottom: 130px; }
@@ -516,7 +513,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 
 @media (min-width: 1400px) {
-  .feed-list { column-count: 3; }
+  /* на широких экранах — три колонки, число задаётся при отрисовке */
 }
 
 /* ---------- стрелки карусели (ПК: мышью не свайпнёшь) ---------- */
