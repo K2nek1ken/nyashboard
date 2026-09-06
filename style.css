@@ -490,11 +490,8 @@ button, input, textarea { font-family: inherit; color: inherit; }
      и запись, которая должна быть второй, оказывалась в самом низу слева.
      Теперь порядок идёт змейкой: первая запись слева, вторая справа, третья
      снова слева — как и читается. */
-  /* flex-direction обязателен: в основном правиле список идёт колонкой,
-     и без сброса колонки вставали одна под другой — визуально это выглядело
-     как один широкий столбец. */
-  .feed-list { display: flex; flex-direction: row; gap: 16px; align-items: flex-start; }
-  .feed-column { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+  /* сама раскладка вынесена из медиазапроса: число колонок решает разметка,
+     см. правило .feed-list:has(.feed-column) ниже */
   #vpPosts.feed-list, #previewPosts.feed-list { display: block; }   /* в карточке профиля колонка одна */
 
   /* чат на ПК: используем всю ширину, панель ввода прижата к правой части */
@@ -1489,3 +1486,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 #vpStatus   { width: 22px; height: 22px; font-size: 13px; }
 #dmStatus   { width: 15px; height: 15px; font-size: 9px; }
 #uStatus    { width: 24px; height: 24px; font-size: 14px; }
+
+
+/* Список перестраивается в ряд только когда в нём действительно есть колонки.
+   Это решает разметка по фактической ширине, а не пороги ширины окна: у окна
+   её съедают боковые панели браузера, а масштаб страницы сдвигает пороги —
+   из-за этого одна и та же страница выглядела по-разному в разных браузерах. */
+.feed-list.has-columns {
+  display: flex; flex-direction: row; gap: 16px; align-items: flex-start;
+}
+.feed-column {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; gap: 16px;
+}

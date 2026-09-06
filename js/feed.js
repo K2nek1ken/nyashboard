@@ -87,13 +87,18 @@ export function subscribeFeed() {
   // Поворот экрана или изменение окна меняет число колонок — перекладываем.
   // Порог по числу колонок, а не по каждому пикселю ширины: иначе лента
   // пересобиралась бы при любом движении рамки окна.
-  let lastColumns = columnCount();
-  window.addEventListener("resize", () => {
-    const now = columnCount();
-    if (now === lastColumns) return;
-    lastColumns = now;
-    if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
-  });
+  // Следим за самим списком, а не за окном: боковые панели браузера и
+  // изменение масштаба меняют его ширину, не трогая размер окна.
+  let lastColumns = columnCount(feedListEl);
+  if (feedListEl && "ResizeObserver" in window) {
+    const observer = new ResizeObserver(() => {
+      const now = columnCount(feedListEl);
+      if (now === lastColumns) return;
+      lastColumns = now;
+      if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+    });
+    observer.observe(feedListEl);
+  }
 }
 
 // Записи появляются по очереди сверху вниз, а не все разом: так список
@@ -175,12 +180,17 @@ function updatePostCard(post) {
   }
 }
 
-// Сколько колонок показывать. Ширина берётся у окна, а не у контейнера:
-// на момент раскладки контейнер может быть ещё пустым и нулевой ширины.
-function columnCount() {
-  if (window.innerWidth >= 1400) return 3;
-  if (window.innerWidth >= 900) return 2;
-  return 1;
+// Сколько колонок помещается. Считаем по фактической ширине списка, а не по
+// ширине окна: у окна её могут съедать боковые панели браузера, а масштаб
+// страницы сдвигает пороги — из-за этого в одном браузере выходило три
+// колонки, а в другом ни одной. Ширина контейнера свободна от этого:
+// сколько места реально есть, столько колонок и будет.
+const MIN_COLUMN = 330;   // уже этого запись читается плохо
+
+function columnCount(container) {
+  const width = container?.clientWidth || 0;
+  if (!width) return 1;                       // ещё не отрисован
+  return Math.max(1, Math.min(3, Math.floor(width / MIN_COLUMN)));
 }
 
 // Раскладка змейкой: запись с номером i попадает в колонку i % n.
@@ -188,9 +198,10 @@ function columnCount() {
 // вверху, вторая справа, третья снова слева. Если просто разделить список
 // пополам, вторая по важности запись окажется в самом низу левой колонки.
 function layoutPosts(container, posts, buildHtml) {
-  const cols = columnCount();
+  const cols = columnCount(container);
   if (cols === 1) {
     container.innerHTML = posts.map(buildHtml).join("");
+    container.classList.remove("has-columns");
     return;
   }
   const buckets = Array.from({ length: cols }, () => []);
@@ -198,6 +209,9 @@ function layoutPosts(container, posts, buildHtml) {
   container.innerHTML = buckets
     .map(items => `<div class="feed-column">${items.join("")}</div>`)
     .join("");
+  // Помечаем классом, а не полагаемся на проверку вложенности в стилях:
+  // так поведение одинаково во всех браузерах.
+  container.classList.add("has-columns");
 }
 
 function renderFeed(posts) {
