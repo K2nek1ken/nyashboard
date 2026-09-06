@@ -42,5 +42,5 @@ export const IMAGE_HOSTS = ["imgbb", "catbox", "uguu"];
 //
 // Пока поля пустые, музыка загружаться не будет — вместо непонятной ошибки
 // появится подсказка со ссылкой на эту настройку.
-export const CLOUDINARY_CLOUD = "";    // например: "dxxxxxxxx"
-export const CLOUDINARY_PRESET = "";   // например: "nyashboard"
+export const CLOUDINARY_CLOUD = "ozgcghm9";    // например: "dxxxxxxxx"
+export const CLOUDINARY_PRESET = "wvol7y6q";   // например: "nyashboard"
