@@ -51,7 +51,7 @@ export function subscribeFeed() {
   feedUnsub = onSnapshot(q, (snap) => {
     const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     lastRenderedPosts = posts;
-    renderFeed(rankPosts(posts));
+    enrichAuthors(posts).then(() => renderFeed(rankPosts(posts)));
   }, (err) => {
     console.error(err);
     feedListEl.innerHTML = `<div class="stub-note">Не смогла загрузить ленту: ${escapeHtml(err.message)}</div>`;
@@ -78,6 +78,36 @@ function revealSequentially(container) {
   cards.forEach((card, i) => {
     card.classList.add("appearing");
     setTimeout(() => card.classList.remove("appearing"), Math.min(i * 45, 600));
+  });
+}
+
+// Оформление автора (украшение, цвет ника, форма аватарки) копируется в запись
+// при публикации — чтобы не запрашивать профиль на каждую строку ленты.
+// Но у записей, сделанных до появления этих полей, их просто нет, а ещё
+// человек мог сменить украшение уже после публикации. Поэтому недостающее
+// дозагружаем: по одному запросу на автора, а не на запись.
+const authorCache = new Map();
+
+async function enrichAuthors(posts) {
+  const uids = [...new Set(
+    posts.filter(p => p.authorUid && !p.isAnonymous && p.authorAccessory === undefined)
+         .map(p => p.authorUid)
+  )];
+  if (!uids.length) return;
+
+  const { getUserDoc } = await import("./data.js");
+  await Promise.all(uids.map(async uid => {
+    if (authorCache.has(uid)) return;
+    authorCache.set(uid, await getUserDoc(uid).catch(() => null));
+  }));
+
+  posts.forEach(p => {
+    const u = p.authorUid && authorCache.get(p.authorUid);
+    if (!u) return;
+    if (p.authorAccessory === undefined) p.authorAccessory = u.accessory || "none";
+    if (p.authorBorder === undefined) p.authorBorder = u.avatarBorder || "pink";
+    if (p.authorNickColor === undefined) p.authorNickColor = u.nickColor || "";
+    if (!p.authorShape) p.authorShape = u.avatarShape || "circle";
   });
 }
 
@@ -611,6 +641,10 @@ export async function loadChannelWall(channelId) {
 
 export function renderPostsInto(container, posts, ownerNickname) {
   // тот же приём для чужих страниц и карточек профиля
+  enrichAuthors(posts).then(() => paintPostsInto(container, posts, ownerNickname));
+}
+
+function paintPostsInto(container, posts, ownerNickname) {
   if (!posts.length) { container.innerHTML = `<div class="stub-note">Тут пока пусто</div>`; return; }
   container.innerHTML = posts.map(p => {
     // В репосте автор может быть скрыт — решает сервер, см. revealRepostAuthor

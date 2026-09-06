@@ -7,7 +7,7 @@
 
 export async function readAudioMeta(file) {
   try {
-    const head = new Uint8Array(await file.slice(0, 2 * 1024 * 1024).arrayBuffer());
+    const head = new Uint8Array(await file.slice(0, 4 * 1024 * 1024).arrayBuffer());
     if (String.fromCharCode(head[0], head[1], head[2]) === "ID3") return readId3(head);
     if (String.fromCharCode(head[0], head[1], head[2], head[3]) === "fLaC") return readFlac(head);
   } catch (e) {
@@ -19,6 +19,7 @@ export async function readAudioMeta(file) {
 // ---------- ID3v2 (MP3) ----------
 function readId3(bytes) {
   const out = { title: "", artist: "", cover: null };
+  const major = bytes[3];                 // версия важна: см. ниже
   // размер тега записан «синхробезопасно»: по 7 бит в каждом байте
   const size = (bytes[6] << 21) | (bytes[7] << 14) | (bytes[8] << 7) | bytes[9];
   let pos = 10;
@@ -26,7 +27,14 @@ function readId3(bytes) {
 
   while (pos + 10 < end) {
     const id = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]);
-    const frameSize = (bytes[pos + 4] << 24) | (bytes[pos + 5] << 16) | (bytes[pos + 6] << 8) | bytes[pos + 7];
+    if (!/^[A-Z0-9]{4}$/.test(id)) break;   // дошли до заполнителя в конце тега
+
+    // В версии 2.4 размер кадра тоже синхробезопасный, а в 2.3 — обычный.
+    // Раньше читалось одним способом, и на файлах 2.4 разбор уезжал: кадры
+    // получались неправдоподобно большими, а обложка терялась.
+    const frameSize = major >= 4
+      ? (bytes[pos + 4] << 21) | (bytes[pos + 5] << 14) | (bytes[pos + 6] << 7) | bytes[pos + 7]
+      : (bytes[pos + 4] << 24) | (bytes[pos + 5] << 16) | (bytes[pos + 6] << 8) | bytes[pos + 7];
     pos += 10;
     if (frameSize <= 0 || pos + frameSize > end) break;
 

@@ -25,7 +25,7 @@ export async function uploadTrack({ file, title, artist, coverFile }) {
 
   // Длительность читаем в браузере: сервер её не сообщит, а показывать
   // продолжительность на карточке нужно.
-  const duration = await readDuration(url).catch(() => 0);
+  const duration = await readDuration(url);
 
   const ref = await addDoc(collection(db, "tracks"), {
     title: title.trim(),
@@ -49,12 +49,20 @@ export async function uploadTrack({ file, title, artist, coverFile }) {
   return { id: ref.id, publicUid: nuid };
 }
 
-function readDuration(url) {
-  return new Promise((resolve, reject) => {
+// Длительность читается браузером, а он может и не ответить: файл ещё не
+// раздаётся хранилищем, отвечает медленно, мешает политика доступа. Без
+// ограничения по времени обещание висело бы вечно — и публикация вместе с ним,
+// без единой ошибки. Длительность не критична: не узнали — покажем прочерк.
+function readDuration(url, timeoutMs = 8000) {
+  return new Promise((resolve) => {
     const audio = new Audio();
+    let done = false;
+    const finish = (value) => { if (!done) { done = true; resolve(value); } };
+
     audio.preload = "metadata";
-    audio.onloadedmetadata = () => resolve(Math.round(audio.duration) || 0);
-    audio.onerror = () => reject(new Error("не смогла прочитать длительность"));
+    audio.onloadedmetadata = () => finish(Math.round(audio.duration) || 0);
+    audio.onerror = () => finish(0);
+    setTimeout(() => finish(0), timeoutMs);
     audio.src = url;
   });
 }

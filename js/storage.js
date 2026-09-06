@@ -31,6 +31,21 @@ async function compressImage(file, maxDim = 1600, quality = 0.85) {
 // намеренно: с конца 2024 Google требует привязанный биллинг (тариф Blaze)
 // даже для создания бакета, так что как "бесплатная подушка" он не годится.
 
+// Обычный запрос не отменяется сам по себе: если сервер молчит, обещание
+// висит бесконечно. Отсюда и «вечная публикация» без единой ошибки.
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("хранилище не ответило вовремя");
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const UPLOADERS = {
   // Быстрый, но требует ключ и имеет суточные лимиты на бесплатном тарифе.
   async imgbb(file) {
@@ -57,7 +72,10 @@ const UPLOADERS = {
     const form = new FormData();
     form.append("reqtype", "fileupload");
     form.append("fileToUpload", file, file.name);
-    const res = await fetch("https://catbox.moe/user/api.php", { method: "POST", body: form });
+    // Ограничение по времени обязательно: если хранилище не отвечает, запрос
+    // висит без ошибки, и человек смотрит на бесконечную «загрузку».
+    const res = await fetchWithTimeout("https://catbox.moe/user/api.php",
+      { method: "POST", body: form }, 90000);
     const text = (await res.text()).trim();
     if (!res.ok || !text.startsWith("https://")) {
       throw new Error(text.slice(0, 120) || `HTTP ${res.status}`);
@@ -70,7 +88,8 @@ const UPLOADERS = {
   async uguu(file) {
     const form = new FormData();
     form.append("files[]", file, file.name);
-    const res = await fetch("https://uguu.se/upload?output=text", { method: "POST", body: form });
+    const res = await fetchWithTimeout("https://uguu.se/upload?output=text",
+      { method: "POST", body: form }, 90000);
     const text = (await res.text()).trim();
     if (!res.ok || !text.startsWith("https://")) {
       throw new Error(text.slice(0, 120) || `HTTP ${res.status}`);
