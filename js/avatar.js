@@ -26,6 +26,11 @@ export function avatarHtml(user, size = 34, extraAttrs = "", variant = "neko") {
   // на месте при смене темы
   const mark = custom ? "" : `data-default-avatar="${variant}"`;
   const status = user?.statusEmoji || "";
+  // Размер статуса пропорционален аватарке: жёсткие 30 пикселей смотрелись
+  // нормально в профиле, но на аватарке 38 пикселей в списках закрывали
+  // половину картинки.
+  const statusSize = Math.max(12, Math.min(30, Math.round(size * 0.34)));
+  const statusStyle = `width:${statusSize}px;height:${statusSize}px;font-size:${Math.round(statusSize * 0.6)}px;`;
   const border = user?.avatarBorder
     ? `border-color:${paletteColor(user.avatarBorder)};`
     : "";
@@ -35,7 +40,7 @@ export function avatarHtml(user, size = 34, extraAttrs = "", variant = "neko") {
     <span class="avatar-wrap" style="width:${size}px;height:${size}px;">
       <img class="avatar-shaped ${shape}" src="${src}" style="width:${size}px;height:${size}px;${border}" ${mark} ${extraAttrs}>
       ${accessoryHtml(user?.accessory, user?.avatarBorder)}
-      ${status ? `<span class="avatar-status">${status}</span>` : ""}
+      ${status ? `<span class="avatar-status" style="${statusStyle}">${status}</span>` : ""}
     </span>`;
 }
 
