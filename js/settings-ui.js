@@ -6,6 +6,7 @@ import { applyFavicon } from "./favicon.js";
 import { clearInterests, interestsSummary } from "./interests.js";
 import { clearSeen } from "./seen.js";
 import { paletteEntries } from "./palette.js";
+import { customSelect, wireSelects } from "./select.js";
 import { notificationsSupported, notificationsAllowed, requestNotifications } from "./web-notify.js";
 import { BUILD } from "./version.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
@@ -58,10 +59,7 @@ function row(label, hint, controlHtml) {
 }
 
 function select(key, options, current) {
-  return `<select class="settingSelect" data-select="${key}">
-    ${Object.entries(options).map(([k, v]) =>
-      `<option value="${k}" ${current === k ? "selected" : ""}>${v}</option>`).join("")}
-  </select>`;
+  return customSelect(key, options, current);
 }
 
 function toggle(key, on) {
@@ -141,8 +139,8 @@ export function initSettingsPage() {
           `<input class="settingSelect" id="logoMessageInput" maxlength="40" value="${(s.logoMessage || "").replace(/"/g, "&quot;")}" style="width:150px;">`)}
         ${row("Звук логотипа", "mp3 или wav до мегабайта, хранится только на этом устройстве",
           `<div style="display:flex; gap:6px; align-items:center;">
-             <label class="secondaryBtn" for="logoSoundInput" style="width:auto; margin:0; padding:7px 12px; cursor:pointer;">Выбрать</label>
-             <input type="file" id="logoSoundInput" accept="audio/*" hidden>
+             <button id="logoSoundPick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
+             <input type="file" id="logoSoundInput" accept="audio/*" style="display:none;">
              <button class="linkBtn" id="logoSoundClear" style="width:auto;">убрать</button>
            </div>`)}
         <p class="muted" style="font-size:12px; margin-top:0;" id="logoSoundInfo"></p>
@@ -171,8 +169,8 @@ export function initSettingsPage() {
         </p>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button id="exportSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Сохранить в файл</button>
-          <label class="secondaryBtn" for="importSettingsInput" style="width:auto; margin:0; cursor:pointer;">Восстановить из файла</label>
-          <input type="file" id="importSettingsInput" accept="application/json,.json" hidden>
+          <button id="importSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Восстановить из файла</button>
+          <input type="file" id="importSettingsInput" style="display:none;">
         </div>
       </div>
 
@@ -181,25 +179,25 @@ export function initSettingsPage() {
       </p>
     `;
 
-    host.querySelectorAll("[data-select]").forEach(sel => {
-      sel.addEventListener("change", () => {
-        setSetting(sel.dataset.select, sel.value);
-        if (sel.dataset.select === "particles") {
-          const prev = host.querySelector("#particlePreview");
-          if (prev) prev.innerHTML = particleGlyph(sel.value);
-        }
-        if (sel.dataset.select === "dmNaming") render();
-        if (sel.dataset.select === "quoteDecor") {
-          const prev = host.querySelector("#decorPreview");
-          if (prev) prev.innerHTML = decorGlyphPreview(sel.value);
-        }
-        // Перекрашиваем ТОЛЬКО сгенерированные аватарки. Раньше сюда попадали и
-        // загруженные пользователем: у них подменялся src, и вместо своей
-        // картинки появлялся стандартный аноним.
-        refreshDefaultAvatars();
-        applyFavicon();
-        if (sel.dataset.select === "particles") showToast("Обновится после перезагрузки страницы");
-      });
+    wireSelects(host, (key, value) => {
+      setSetting(key, value);
+
+      if (key === "particles") {
+        const prev = host.querySelector("#particlePreview");
+        if (prev) prev.innerHTML = particleGlyph(value);
+        showToast("Обновится после перезагрузки страницы");
+      }
+      if (key === "quoteDecor") {
+        const prev = host.querySelector("#decorPreview");
+        if (prev) prev.innerHTML = decorGlyphPreview(value);
+      }
+      // при смене способа обращения появляется или исчезает поле своего слова
+      if (key === "dmNaming") render();
+
+      // Перекрашиваем ТОЛЬКО сгенерированные аватарки: у загруженных
+      // пометки нет, иначе своя картинка подменялась бы анонимной.
+      refreshDefaultAvatars();
+      applyFavicon();
     });
 
     host.querySelectorAll("[data-accent]").forEach(btn => {
@@ -228,6 +226,7 @@ export function initSettingsPage() {
 
     // звук логотипа
     const soundInput = host.querySelector("#logoSoundInput");
+    host.querySelector("#logoSoundPick")?.addEventListener("click", () => soundInput.click());
     const soundInfo = host.querySelector("#logoSoundInfo");
     getLogoSound().then(rec => {
       soundInfo.textContent = rec ? `Выбран файл: ${rec.name}` : "Звук не выбран — логотип просто пишет сообщение.";
@@ -293,21 +292,41 @@ export function initSettingsPage() {
       showToast("Файл настроек сохранён ♡");
     });
 
-    const importInput = host.querySelector("#importSettingsInput");
-    importInput?.addEventListener("change", async () => {
-      const file = importInput.files[0];
-      importInput.value = "";
-      if (!file) return;
-      try {
-        const count = await importSettings(file);
-        showToast(`Восстановлено настроек: ${count}`);
-        render();
-        refreshDefaultAvatars();
-        applyFavicon();
-      } catch (e) {
-        showToast("Не вышло: " + e.message);
-      }
-    });
+    // Фильтр по типу файла намеренно снят: на разных системах json
+    // определяется по-разному, и файл просто не давало выбрать. Проверяем
+    // содержимое сами — это надёжнее и не зависит от того, что решила система.
+    // Восстановление настроек вынесено из перерисовки: обработчик вешается
+    // на сам контейнер один раз и переживает любые обновления разметки.
+    // Раньше он навешивался на поле внутри render, и после первой же
+    // перерисовки терялся вместе со старой разметкой.
+    if (!host.dataset.importWired) {
+      host.dataset.importWired = "1";
+
+      host.addEventListener("click", (e) => {
+        if (!e.target.closest("#importSettingsBtn")) return;
+        host.querySelector("#importSettingsInput")?.click();
+      });
+
+      host.addEventListener("change", async (e) => {
+        const input = e.target.closest("#importSettingsInput");
+        if (!input) return;
+
+        const file = input.files[0];
+        input.value = "";
+        if (!file) { showToast("Файл не выбран"); return; }
+
+        try {
+          const count = await importSettings(file);
+          showToast(`Восстановлено настроек: ${count}`);
+          render();
+          refreshDefaultAvatars();
+          applyFavicon();
+        } catch (err) {
+          console.error("Настройки не восстановились:", err);
+          showToast(`Не вышло: ${err.message} (файл «${file.name}»)`);
+        }
+      });
+    }
 
     const sum = interestsSummary();
     const info = host.querySelector("#interestsInfo");

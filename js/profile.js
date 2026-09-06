@@ -4,6 +4,7 @@ import { uploadImage } from "./storage.js";
 import { showToast } from "./ui.js";
 import { shapeClass, shapePickerHtml, openCropper, applyAvatar } from "./avatar.js";
 import { openEmojiPicker } from "./emoji.js";
+import { customSelect, wireSelects } from "./select.js";
 import { ACCESSORIES, accessoryHtml } from "./accessories.js";
 import { paletteEntries, paletteColor } from "./palette.js";
 import { ICON } from "./icons.js";
@@ -24,11 +25,27 @@ export function initProfilePageForm() {
   const shapeHost = document.getElementById("shapePickerHost");
   const statusBtn = document.getElementById("statusEmojiBtn");
   const statusPreview = document.getElementById("statusEmojiPreview");
-  const nuidVisibility = document.getElementById("nuidVisibility");
-  const repostVisibility = document.getElementById("repostVisibility");
-  const genderSelect = document.getElementById("genderSelect");
-  const listVisibility = document.getElementById("listVisibility");
-  const musicVisibility = document.getElementById("musicVisibility");
+  // Списки рисуем сами: системные не поддаются оформлению и выглядели
+  // белыми прямоугольниками из другого мира на тёмной теме.
+  const SELECTS = {
+    genderSelect:     { options: { m: "в мужском роде", f: "в женском роде", x: "нейтрально" }, def: "x" },
+    listVisibility:   { options: { show: "Да", hide: "Нет" }, def: "show" },
+    musicVisibility:  { options: { everyone: "Все", friends: "Только друзья", nobody: "Никто" }, def: "everyone" },
+    repostVisibility: { options: { everyone: "Все", reposters: "Только репостнувшие", nobody: "Никто" }, def: "everyone" },
+    nuidVisibility:   { options: { everyone: "Все", friends: "Только друзья", nobody: "Никто" }, def: "friends" }
+  };
+  const selectValues = {};
+
+  function renderSelects(values) {
+    for (const [id, cfg] of Object.entries(SELECTS)) {
+      const host = document.getElementById(id + "Host");
+      if (!host) continue;
+      const current = values[id] ?? cfg.def;
+      selectValues[id] = current;
+      host.innerHTML = customSelect(id, cfg.options, current);
+    }
+    wireSelects(document, (name, value) => { selectValues[name] = value; });
+  }
 
   let pendingAvatarFile = null;
   let pendingShape = "circle";
@@ -152,11 +169,13 @@ export function initProfilePageForm() {
       requestNuid(currentUser.uid)
         .then(n => n || ensureNuidExists(currentUser.uid))
         .then(n => { uidDisplay.textContent = n || "не записан — проверь правила базы"; });
-      nuidVisibility.value = currentUserDoc.nuidVisibility || "friends";
-      repostVisibility.value = currentUserDoc.repostVisibility || "everyone";
-      genderSelect.value = currentUserDoc.gender || "x";
-      listVisibility.value = currentUserDoc.hiddenFromList ? "hide" : "show";
-      musicVisibility.value = currentUserDoc.musicVisibility || "everyone";
+      renderSelects({
+        genderSelect: currentUserDoc.gender || "x",
+        listVisibility: currentUserDoc.hiddenFromList ? "hide" : "show",
+        musicVisibility: currentUserDoc.musicVisibility || "everyone",
+        repostVisibility: currentUserDoc.repostVisibility || "everyone",
+        nuidVisibility: currentUserDoc.nuidVisibility || "friends"
+      });
       pendingShape = currentUserDoc.avatarShape || "circle";
       pendingStatus = currentUserDoc.statusEmoji || "";
       pageStatus.textContent = pendingStatus;
@@ -260,11 +279,11 @@ export function initProfilePageForm() {
         accessory: pendingAccessory,
         avatarBorder: pendingBorder,
         nickColor: pendingNickColor,
-        nuidVisibility: nuidVisibility.value,
-        repostVisibility: repostVisibility.value,
-        gender: genderSelect.value,
-        hiddenFromList: listVisibility.value === "hide",
-        musicVisibility: musicVisibility.value
+        nuidVisibility: selectValues.nuidVisibility,
+        repostVisibility: selectValues.repostVisibility,
+        gender: selectValues.genderSelect,
+        hiddenFromList: selectValues.listVisibility === "hide",
+        musicVisibility: selectValues.musicVisibility
       };
       if (pendingAvatarFile) {
         showToast("Загружаю аватарку...");

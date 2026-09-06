@@ -185,10 +185,21 @@ export function exportSettings() {
 // Принимаем только известные ключи: чужой или битый файл не должен занести
 // в настройки мусор, из-за которого потом ничего не открывается.
 export async function importSettings(file) {
-  const text = await file.text();
+  let text;
+  try {
+    text = await file.text();
+  } catch (e) {
+    throw new Error("не удалось прочитать файл");
+  }
+
   let parsed;
-  try { parsed = JSON.parse(text); }
-  catch { throw new Error("это не файл настроек"); }
+  try {
+    // Убираем метку кодировки в начале файла: некоторые редакторы её
+    // дописывают, и разбор из-за одного невидимого символа падал.
+    parsed = JSON.parse(text.replace(/^\uFEFF/, "").trim());
+  } catch {
+    throw new Error("это не файл настроек");
+  }
 
   const incoming = parsed?.settings || parsed;
   if (!incoming || typeof incoming !== "object") throw new Error("в файле нет настроек");
