@@ -3,6 +3,7 @@ import {
   unsubscribeFromChannel, suggestChannels, fetchManagedChannelIds
 } from "./channels.js";
 import { loadSubscriptions, getSubscriptionsSync } from "./subscriptions.js";
+import { loadFriends, getFriendsSync } from "./friends.js";
 import { currentUser, authReady } from "./auth.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
@@ -10,6 +11,53 @@ import { shapeClass } from "./avatar.js";
 
 let allChannels = [];
 let managedIds = new Set(); // каналы, где я создатель/админ — там кнопки "подписаться" нет
+
+// Переключение подвкладок. Записи друзей и музыка подгружаются лениво — при
+// первом открытии, а не вместе со страницей: иначе за каналы платили бы
+// лишними запросами те, кто пришёл только за ними.
+const loaded = { friends: false, music: false };
+
+export function initSubtabs() {
+  const tabs = document.getElementById("contentSubtabs");
+  if (!tabs) return;
+  tabs.querySelectorAll("[data-sub]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.sub;
+      tabs.querySelectorAll("[data-sub]").forEach(b => b.classList.toggle("active", b === btn));
+      document.querySelectorAll("[data-panel]").forEach(p =>
+        p.classList.toggle("hidden", p.dataset.panel !== key));
+
+      if (key === "friends" && !loaded.friends) { loaded.friends = true; loadFriendsFeed(); }
+      if (key === "music" && !loaded.music) { loaded.music = true; loadMusicPanel(); }
+    });
+  });
+}
+
+// Записи друзей и отслеживаемых — то же, что в ленте, но без чужих.
+async function loadFriendsFeed() {
+  const el = document.getElementById("friendsFeed");
+  await loadFriends().catch(() => {});
+  const friends = getFriendsSync();
+  if (!friends.length) {
+    el.innerHTML = `<div class="stub-note">Добавь кого-нибудь в друзья — их записи появятся здесь</div>`;
+    return;
+  }
+  try {
+    const { loadRecentPosts, renderPostsInto } = await import("./feed.js");
+    const posts = (await loadRecentPosts(60))
+      .filter(p => p.authorUid && friends.includes(p.authorUid));
+    if (!posts.length) { el.innerHTML = `<div class="stub-note">Друзья пока ничего не публиковали</div>`; return; }
+    renderPostsInto(el, posts, "");
+  } catch (e) {
+    el.innerHTML = `<div class="stub-note">Ошибка: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadMusicPanel() {
+  const el = document.getElementById("musicPanel");
+  const { initMusicPanel } = await import("./music-ui.js");
+  initMusicPanel(el);
+}
 
 export async function initContentTab() {
   await authReady;

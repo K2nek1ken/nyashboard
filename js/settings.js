@@ -14,6 +14,9 @@ export const DEFAULTS = {
   logoMessage: "мяу!",   // что говорит логотип, если по нему нажать
   logoSound: "",         // имя выбранного звука; сам файл лежит отдельно
   quoteDecor: "flowers", // узор на фоне цитаты в чате
+  chatIdentity: "both",  // both | anon | account — что доступно в чате
+  meowReaction: "on",    // отзываться на команду «мяукнуть» звуком
+  webNotify: "off",      // уведомления браузера, пока вкладка открыта
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»
   // порядок вкладок: на телефоне слева направо, на ПК сверху вниз
@@ -91,6 +94,12 @@ export const TAB_LABELS = {
   content: "Контент",
   people:  "Люди",
   about:   "Возможности"
+};
+
+export const CHAT_IDENTITY = {
+  both:    "Аноним и аккаунт",
+  anon:    "Только анонимный ник",
+  account: "Только от аккаунта"
 };
 
 export const EMOJI_SOURCES = {

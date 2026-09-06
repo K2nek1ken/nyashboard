@@ -20,8 +20,8 @@ import { escapeHtml } from "./ui.js";
 
 // Кого показывать как администратора. Список, а не поле в базе: так его нельзя
 // себе присвоить, отредактировав свой же профиль.
-const ADMIN_NUIDS = ["U4019695"];      // канал проекта
-const ADMIN_USERNAMES = ["k2nek1ken"]; // владелец
+const ADMIN_NUIDS = ["U1510847", "U4019695"];       // владелец и канал проекта
+const ADMIN_USERNAMES = ["i_kuroneko", "k2nek1ken"]; // юзернеймы владельца
 
 export function isAdmin(user) {
   if (!user) return false;

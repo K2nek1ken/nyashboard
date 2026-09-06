@@ -1,4 +1,4 @@
-import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, DEFAULTS,
+import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, CHAT_IDENTITY, DEFAULTS,
   exportSettings, importSettings } from "./settings.js";
 import { showToast } from "./ui.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
@@ -6,6 +6,7 @@ import { applyFavicon } from "./favicon.js";
 import { clearInterests, interestsSummary } from "./interests.js";
 import { clearSeen } from "./seen.js";
 import { paletteEntries } from "./palette.js";
+import { notificationsSupported, notificationsAllowed, requestNotifications } from "./web-notify.js";
 import { BUILD } from "./version.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
 import { currentUser } from "./auth.js";
@@ -29,6 +30,20 @@ function decorGlyphPreview(kind) {
   if (kind === "stars")  return STAR_SVG;
   if (kind === "petals") return `<span class="petal-preview"></span>`;
   return { flowers: "\u2740", leaves: "\uD83C\uDF41", none: "\u2014" }[kind] || "\u2740";
+}
+
+// Настроек стало много, и сплошным списком в них уже не найти нужное.
+// Группы свёрнуты по умолчанию, кроме первой: так видно всё разом, а раскрыть
+// можно только то, что понадобилось.
+function group(id, title, hint, contentHtml, open = false) {
+  return `
+    <details class="settings-group" ${open ? "open" : ""} data-group="${id}">
+      <summary>
+        <span class="settings-group-title">${title}</span>
+        ${hint ? `<span class="muted settings-group-hint">${hint}</span>` : ""}
+      </summary>
+      <div class="settings-group-body">${contentHtml}</div>
+    </details>`;
 }
 
 function row(label, hint, controlHtml) {
@@ -60,90 +75,97 @@ export function initSettingsPage() {
   function render() {
     const s = getSettings();
     host.innerHTML = `
-      <div class="section-title" style="margin-top:0;">Оформление</div>
-      ${row("Тема", "основная палитра фона", select("theme", THEMES, s.theme))}
-      ${row("Акцентный цвет", "кнопки, ссылки, частицы",
-        `<div class="accent-picker">
-          ${paletteEntries().map(p =>
-            `<button class="accentOption ${s.accent === p.key ? "selected" : ""}" data-accent="${p.key}"
-                     title="${p.label}" style="background:linear-gradient(135deg, ${p.color}, ${p.soft});"></button>`).join("")}
-        </div>`)}
-      ${row("Падающие частицы", "лёгкая анимация на фоне",
-        `<div style="display:flex; align-items:center;">
-           ${select("particles", PARTICLES, s.particles)}
-           <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
-         </div>`)}
-      ${row("Узор на цитатах", "фон у ответа на сообщение в чате",
-        `<div style="display:flex; align-items:center;">
-           ${select("quoteDecor", QUOTE_DECOR, s.quoteDecor)}
-           <span class="particle-preview" id="decorPreview">${decorGlyphPreview(s.quoteDecor)}</span>
-         </div>`)}
-      ${row("Эмодзи", "Noto тянется с Google Fonts и почти ничего не весит; Apple красивее, но это локальный файл на 8 МБ",
-        select("emoji", EMOJI_SOURCES, s.emoji))}
+      ${group("look", "Оформление", "темы, цвета, частицы", `
+        ${row("Тема", "основная палитра фона", select("theme", THEMES, s.theme))}
+        ${row("Акцентный цвет", "кнопки, ссылки, частицы",
+          `<div class="accent-picker">
+            ${paletteEntries().map(p =>
+              `<button class="accentOption ${s.accent === p.key ? "selected" : ""}" data-accent="${p.key}"
+                       title="${p.label}" style="background:linear-gradient(135deg, ${p.color}, ${p.soft});"></button>`).join("")}
+          </div>`)}
+        ${row("Падающие частицы", "лёгкая анимация на фоне",
+          `<div style="display:flex; align-items:center;">
+             ${select("particles", PARTICLES, s.particles)}
+             <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
+           </div>`)}
+        ${row("Узор на цитатах", "фон у ответа на сообщение в чате",
+          `<div style="display:flex; align-items:center;">
+             ${select("quoteDecor", QUOTE_DECOR, s.quoteDecor)}
+             <span class="particle-preview" id="decorPreview">${decorGlyphPreview(s.quoteDecor)}</span>
+           </div>`)}
+        ${row("Эмодзи", "Noto тянется с CDN и почти ничего не весит; Apple красивее, но это файл на 8 МБ",
+          select("emoji", EMOJI_SOURCES, s.emoji))}
+      `, true)}
 
-      ${row("Формат времени", "как показывать время у постов и сообщений",
-        select("timeFormat", TIME_FORMATS, s.timeFormat))}
-      ${row("Часовой пояс", "для точного времени; «как на устройстве» берёт системный",
-        select("timezone", TIMEZONES, s.timezone))}
-      ${row("Обращение", "род окончаний в подписях интерфейса; в аккаунте настраивается в профиле",
-        select("gender", GENDERS, s.gender))}
-      ${row("Что говорит логотип", "показывается при нажатии на название сайта",
-        `<input class="settingSelect" id="logoMessageInput" maxlength="40" value="${(s.logoMessage || "").replace(/"/g, "&quot;")}" style="width:150px;">`)}
-      ${row("Звук логотипа", "mp3 или wav до мегабайта, хранится только на этом устройстве",
-        `<div style="display:flex; gap:6px; align-items:center;">
-           <label class="secondaryBtn" for="logoSoundInput" style="width:auto; margin:0; padding:7px 12px; cursor:pointer;">Выбрать</label>
-           <input type="file" id="logoSoundInput" accept="audio/mpeg,audio/wav,audio/*" hidden>
-           <button class="linkBtn" id="logoSoundClear" style="width:auto;">убрать</button>
-         </div>`)}
-      <p class="muted" style="font-size:12px; margin-top:0;" id="logoSoundInfo"></p>
+      ${group("text", "Текст и время", "как показываются подписи", `
+        ${row("Формат времени", "как показывать время у записей и сообщений",
+          select("timeFormat", TIME_FORMATS, s.timeFormat))}
+        ${row("Часовой пояс", "для точного времени; «как на устройстве» берёт системный",
+          select("timezone", TIMEZONES, s.timezone))}
+        ${row("Обращение", "род окончаний в подписях; в аккаунте настраивается в профиле",
+          select("gender", GENDERS, s.gender))}
+      `)}
 
-      <div class="section-title">Вкладки</div>
-      ${row("Вкладка «Друзья»", "личные чаты и список друзей", toggle("showFriends", s.showFriends === "on"))}
-      ${row("Вкладка «Возможности»", "описание функций сайта", toggle("showAbout", s.showAbout === "on"))}
-      <div class="muted" style="font-size:12px; margin-bottom:8px;">
-        Порядок вкладок: на телефоне слева направо, на компьютере сверху вниз
-      </div>
-      <div id="tabOrderList" class="tab-order"></div>
+      ${group("tabs", "Вкладки", "какие показывать и в каком порядке", `
+        ${row("Вкладка «Друзья»", "личные чаты и список друзей", toggle("showFriends", s.showFriends === "on"))}
+        ${row("Вкладка «Возможности»", "описание функций сайта", toggle("showAbout", s.showAbout === "on"))}
+        <div class="muted" style="font-size:12px; margin-bottom:8px;">
+          Порядок: на телефоне слева направо, на компьютере сверху вниз
+        </div>
+        <div id="tabOrderList" class="tab-order"></div>
+      `)}
 
-      <div class="section-title">Лента</div>
-      ${row("Умная лента", "подписки и непросмотренное поднимаются вверх; выключено — просто по времени",
-        toggle("feedMode", s.feedMode === "smart"))}
-      ${row("Рекомендации", "поднимать записи, похожие на то, что ты лайкала",
-        toggle("recommendations", s.recommendations === "on"))}
-      <div class="section-title">Перенос настроек</div>
-      <p class="muted" style="font-size:12px; margin-top:0;">
-        Сохрани оформление в файл, чтобы вернуть его после чистки браузера или
-        перенести на другое устройство. Данные аккаунта в файл не попадают —
-        они и так хранятся в аккаунте.
-      </p>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="exportSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Сохранить в файл</button>
-        <label class="secondaryBtn" for="importSettingsInput" style="width:auto; margin:0; cursor:pointer;">Восстановить из файла</label>
-        <input type="file" id="importSettingsInput" accept="application/json,.json" hidden>
-      </div>
+      ${group("chat", "Чат", "личность и звуки", `
+        ${row("Как писать в чат", "анонимный ник, аккаунт или и то, и другое",
+          select("chatIdentity", CHAT_IDENTITY, s.chatIdentity))}
+        ${row("Отзываться на «мяукнуть»", "звук и подсказка, когда кто-то мяукает",
+          toggle("meowReaction", s.meowReaction === "on"))}
+        ${row("Уведомления браузера", "о новых сообщениях, пока сайт открыт в другой вкладке",
+          `<button class="secondaryBtn" id="notifyBtn" style="width:auto; margin:0;"></button>`)}
+      `)}
 
-      <div class="section-title">Мои данные</div>
-      <p class="muted" style="font-size:12px; margin-top:0;">
-        Интересы — это словарь слов, хештегов и авторов, который наполняется твоими
-        лайками и дизлайками. По нему лента поднимает похожие записи наверх.
-        Данные привязаны к аккаунту, поэтому одинаковы на всех твоих устройствах.
-      </p>
-      <p class="muted" style="font-size:12px;" id="interestsInfo"></p>
-      <button id="clearInterestsBtn" class="dangerBtn">Очистить интересы</button>
-      <button id="clearSeenBtn" class="secondaryBtn">Сбросить «просмотренное»</button>
+      ${group("feed", "Лента", "порядок записей и рекомендации", `
+        ${row("Умная лента", "подписки и непрочитанное выше; выключено — просто по времени",
+          toggle("feedMode", s.feedMode === "smart"))}
+        ${row("Рекомендации", "поднимать записи, похожие на понравившееся",
+          toggle("recommendations", s.recommendations === "on"))}
+      `)}
+
+      ${group("fun", "Мелочи", "логотип и звук", `
+        ${row("Что говорит логотип", "показывается при нажатии на название сайта",
+          `<input class="settingSelect" id="logoMessageInput" maxlength="40" value="${(s.logoMessage || "").replace(/"/g, "&quot;")}" style="width:150px;">`)}
+        ${row("Звук логотипа", "mp3 или wav до мегабайта, хранится только на этом устройстве",
+          `<div style="display:flex; gap:6px; align-items:center;">
+             <label class="secondaryBtn" for="logoSoundInput" style="width:auto; margin:0; padding:7px 12px; cursor:pointer;">Выбрать</label>
+             <input type="file" id="logoSoundInput" accept="audio/*" hidden>
+             <button class="linkBtn" id="logoSoundClear" style="width:auto;">убрать</button>
+           </div>`)}
+        <p class="muted" style="font-size:12px; margin-top:0;" id="logoSoundInfo"></p>
+      `)}
+
+      ${group("data", "Мои данные", "перенос настроек и очистка", `
+        <p class="muted" style="font-size:12px; margin-top:0;">
+          Сохрани оформление в файл, чтобы вернуть его после чистки браузера или
+          перенести на другое устройство. Данные аккаунта в файл не попадают.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="exportSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Сохранить в файл</button>
+          <label class="secondaryBtn" for="importSettingsInput" style="width:auto; margin:0; cursor:pointer;">Восстановить из файла</label>
+          <input type="file" id="importSettingsInput" accept="application/json,.json" hidden>
+        </div>
+        <p class="muted" style="font-size:12px;" id="interestsInfo"></p>
+        <button id="clearInterestsBtn" class="dangerBtn">Очистить интересы</button>
+        <button id="clearSeenBtn" class="secondaryBtn">Сбросить «просмотренное»</button>
+        ${currentUser ? `
+          <p class="muted" style="font-size:12px;">
+            Удаление аккаунта стирает профиль, юзернейм, идентификатор, подписки и друзей.
+            Записи останутся, но перестанут быть связаны с аккаунтом.
+          </p>
+          <button id="deleteAccountBtn" class="dangerBtn">Удалить аккаунт</button>` : ""}
+      `)}
+
       <p class="muted" style="font-size:11px; text-align:center; margin-top:22px;">
         Сборка от ${BUILD.date} — ${BUILD.name}
-      </p>
-      ${currentUser ? `
-        <div class="section-title">Аккаунт</div>
-        <p class="muted" style="font-size:12px; margin-top:0;">
-          Удаление стирает профиль, юзернейм, идентификатор, подписки, друзей и личные данные.
-          Записи и сообщения останутся, но перестанут быть связаны с аккаунтом.
-        </p>
-        <button id="deleteAccountBtn" class="dangerBtn">Удалить аккаунт</button>` : ""}
-      <p class="muted" style="font-size:12px;">
-        После сброса «просмотренного» все записи снова считаются непрочитанными
-        и поднимаются в ленте.
       </p>
     `;
 
@@ -181,7 +203,8 @@ export function initSettingsPage() {
         const key = btn.dataset.toggle;
         const isOn = btn.classList.contains("on");
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
-                         showAbout: ["on", "off"], recommendations: ["on", "off"] };
+                         showAbout: ["on", "off"], recommendations: ["on", "off"],
+                         meowReaction: ["on", "off"] };
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);
         render();
@@ -212,6 +235,31 @@ export function initSettingsPage() {
       soundInfo.textContent = "Звук не выбран — логотип просто пишет сообщение.";
       showToast("Звук убран");
     });
+
+    // уведомления: сначала спрашиваем разрешение, потом включаем
+    const notifyBtn = host.querySelector("#notifyBtn");
+    if (notifyBtn) {
+      const paintNotify = () => {
+        if (!notificationsSupported()) { notifyBtn.textContent = "не поддерживается"; notifyBtn.disabled = true; return; }
+        const on = notificationsAllowed() && getSettings().webNotify === "on";
+        notifyBtn.textContent = on ? "Включены" : "Включить";
+      };
+      paintNotify();
+      notifyBtn.addEventListener("click", async () => {
+        if (notificationsAllowed() && getSettings().webNotify === "on") {
+          setSetting("webNotify", "off");
+          paintNotify();
+          return;
+        }
+        try {
+          await requestNotifications();
+          showToast("Уведомления включены ♡");
+        } catch (e) {
+          showToast("Не вышло: " + e.message);
+        }
+        paintNotify();
+      });
+    }
 
     const logoInput = host.querySelector("#logoMessageInput");
     if (logoInput) {

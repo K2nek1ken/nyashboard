@@ -43,10 +43,16 @@
       <span id="changeChatNickBtn" class="nf" title="сменить ник">&#xf040;</span>
       <button id="botHelpBtn" type="button" class="chat-hint-btn">команды</button>
     </div>
+    <div id="accountToggleRow" class="chat-account-row hidden">
+      <label class="chat-account-label">
+        <input type="checkbox" id="asAccountToggle">
+        <span>от имени своего аккаунта</span>
+      </label>
+    </div>
     <div id="replyComposeHost"></div>
     <form id="chatForm" class="chat-input-row" style="position:relative;">
       <label class="attachBtn nf" for="chatImageInput" title="фото">&#xf0c6;</label>
-      <input type="file" id="chatImageInput" accept="image/*" hidden>
+      <input type="file" id="chatImageInput" accept="image/*" multiple hidden>
       <input type="text" id="chatInput" placeholder="Сообщение..." autocomplete="off">
       <button type="button" id="chatEmojiBtn" class="sendBtn nf" title="эмодзи">&#xf118;</button>
       <button type="submit" class="sendBtn nf" title="отправить">&#xf1d8;</button>

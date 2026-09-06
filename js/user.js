@@ -59,6 +59,7 @@ export async function initUserPage() {
   });
 
   await renderFriendActions(uid);
+  await renderMusicButton(uid, user);
 
   try {
     const posts = await loadUserFeed(uid);
@@ -114,4 +115,49 @@ async function renderFriendActions(uid) {
     });
   }
   await paint();
+}
+
+
+// Кнопка «Музыка» и фонотека человека. Видимость решается по его настройке:
+// правило базы всё равно не отдаст приватную подколлекцию чужому, поэтому
+// здесь мы лишь показываем понятный ответ вместо пустоты и ошибки в консоли.
+async function renderMusicButton(uid, user) {
+  const host = document.getElementById("musicBlock");
+  if (!host) return;
+
+  const visibility = user.musicVisibility || "everyone";
+  const isSelf = currentUser && currentUser.uid === uid;
+
+  host.innerHTML = `
+    <button class="secondaryBtn" id="showMusicBtn" style="width:auto; margin:0 0 14px;">
+      <span class="nf">${ICON.music}</span> Музыка
+    </button>
+    <div id="musicList"></div>`;
+
+  host.querySelector("#showMusicBtn").addEventListener("click", async () => {
+    const list = host.querySelector("#musicList");
+    list.innerHTML = `<div class="stub-note">Загружаю…</div>`;
+
+    if (!isSelf && visibility === "nobody") {
+      list.innerHTML = `<div class="stub-note">Пусто</div>`;
+      return;
+    }
+    if (!isSelf && visibility === "friends") {
+      await loadFriends().catch(() => {});
+      const mutual = await isMutualFriend(uid).catch(() => false);
+      if (!mutual) { list.innerHTML = `<div class="stub-note">Пусто</div>`; return; }
+    }
+
+    try {
+      const { loadFavorites } = await import("./music.js");
+      const { trackCardHtml, wireTrackCards } = await import("./music-ui.js");
+      const tracks = await loadFavorites(uid);
+      if (!tracks.length) { list.innerHTML = `<div class="stub-note">Пусто</div>`; return; }
+      list.innerHTML = tracks.map(t => trackCardHtml(t, { favorite: true })).join("");
+      wireTrackCards(list, tracks);
+    } catch {
+      // отказ базы означает, что доступ закрыт — показываем то же, что и при «никто»
+      list.innerHTML = `<div class="stub-note">Пусто</div>`;
+    }
+  });
 }

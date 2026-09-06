@@ -33,6 +33,7 @@ export async function createChannel(name, description, avatarUrl = null) {
     avatarUrl: avatarUrl || null,
     avatarShape: "circle",   // как у профилей: форма задаётся, а не жёстко квадрат
     adminUids: [],
+    adminSince: {},          // когда каждый управляющий получил доступ
     createdAt: serverTimestamp()
   });
   batch.set(doc(db, "channelSecrets", channelRef.id), { creatorUid: currentUser.uid });
@@ -184,17 +185,24 @@ export async function assignChannelAdmin(channelId, handle) {
   const user = await resolveUserHandle(handle);
   if (!user) throw new Error("Не нашла такого пользователя");
   const channel = await getChannel(channelId);
-  if ((channel.adminUids || []).includes(user.uid)) throw new Error("Уже админ");
+  if ((channel.adminUids || []).includes(user.uid)) throw new Error("Уже управляющий");
+
+  // Дата назначения нужна правилам: свежий управляющий первые три дня не может
+  // трогать записи, опубликованные до его прихода.
   await updateDoc(doc(db, "channels", channelId), {
-    adminUids: [...(channel.adminUids || []), user.uid]
+    adminUids: [...(channel.adminUids || []), user.uid],
+    adminSince: { ...(channel.adminSince || {}), [user.uid]: Date.now() }
   });
   return user;
 }
 
 export async function removeChannelAdmin(channelId, uid) {
   const channel = await getChannel(channelId);
+  const since = { ...(channel.adminSince || {}) };
+  delete since[uid];
   await updateDoc(doc(db, "channels", channelId), {
-    adminUids: (channel.adminUids || []).filter(u => u !== uid)
+    adminUids: (channel.adminUids || []).filter(u => u !== uid),
+    adminSince: since
   });
 }
 

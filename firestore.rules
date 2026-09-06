@@ -52,6 +52,14 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Отметка «был здесь». Пишет только сам человек, читают все — иначе
+    // не показать, кто сейчас в сети. Ничего, кроме времени, тут не хранится.
+    match /presence/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['lastSeen']);
+    }
+
     // ===================== ДРУЗЬЯ =====================
     // Список друзей полностью приватный: читать его может только сам владелец.
     // Поэтому скрываться, как в каналах, тут не от кого — никто и так не видит,
@@ -64,6 +72,16 @@ service cloud.firestore {
     // Дружба односторонняя, как подписка: ты добавляешь человека, его посты
     // появляются в твоей ленте, и он получает доступ к твоему NUID. Личный чат
     // открывается только при взаимности — см. dmChats ниже.
+    // Входящие заявки: запись создаёт тот, кто добавил человека в друзья.
+    // Читать их может только адресат — так он узнаёт, кто его отслеживает,
+    // но чужие списки друзей по-прежнему недоступны: здесь лежит только
+    // «этот человек добавил тебя», а не «кого добавил он».
+    match /users/{userId}/incoming/{fromUid} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, delete: if request.auth != null && request.auth.uid == fromUid;
+      allow update: if false;
+    }
+
     match /users/{userId}/friends/{friendUid} {
       // Владелец читает весь свой список.
       // Кто угодно другой может прочитать РОВНО ОДИН документ — свой собственный,
@@ -103,6 +121,8 @@ service cloud.firestore {
         allow create: if request.auth != null &&
           request.auth.uid in get(/databases/$(database)/documents/dmChats/$(chatId)).data.participants &&
           request.resource.data.senderUid == request.auth.uid;
+        // остальные поля (цитата, пометка бота) свободны: они не влияют
+        // на права и проверяются только на стороне отправителя
         allow update: if request.auth != null &&
           resource.data.senderUid == request.auth.uid &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']);
@@ -177,6 +197,55 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Канал — общая страница, поэтому его записями распоряжается не только тот,
+    // кто нажал «опубликовать», но и создатель с управляющими. Иначе получалось
+    // бы, что запись, сделанную от имени канала, никто, кроме одного человека,
+    // не может даже поправить.
+    //
+    // Оговорка про свежих управляющих: тот, кого добавили только что, первые
+    // три дня не трогает записи, опубликованные до его назначения. Это защита
+    // от случая, когда человека добавляют, а он сносит весь архив канала.
+    function canManageChannelPost(post) {
+      return post.channelId != null && (
+        request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(post.channelId)).data.creatorUid ||
+        (request.auth.uid in get(/databases/$(database)/documents/channels/$(post.channelId)).data.adminUids && (
+          // назначен раньше, чем была опубликована запись
+          post.createdAt > get(/databases/$(database)/documents/channels/$(post.channelId))
+                             .data.get('adminSince', {}).get(request.auth.uid, request.time) ||
+          // либо уже прижился: прошло больше трёх дней с назначения
+          request.time > get(/databases/$(database)/documents/channels/$(post.channelId))
+                           .data.get('adminSince', {}).get(request.auth.uid, request.time)
+                         + duration.value(3, 'd')
+        ))
+      );
+    }
+
+    // ===================== МУЗЫКА =====================
+    // Треки видны всем: это публичная библиотека сайта. Загрузивший может
+    // изменить описание и удалить свой трек — владение хранится в самом
+    // документе, потому что скрывать автора трека, в отличие от записей,
+    // смысла нет: он и так подписан на карточке.
+    match /tracks/{trackId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uploaderUid == request.auth.uid;
+      allow update: if request.auth != null && (
+        // лайки может ставить любой
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likedBy', 'likesCount']) ||
+        // всё остальное — только загрузивший
+        resource.data.uploaderUid == request.auth.uid
+      );
+      allow delete: if request.auth != null && resource.data.uploaderUid == request.auth.uid;
+    }
+
+    // Личная фонотека: что человек добавил в любимое. Приватная, как интересы
+    // и подписки — видимостью управляет настройка в профиле, а сам список
+    // читает только владелец.
+    match /users/{userId}/music/{trackId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // ===================== ПОСТЫ ЛЕНТЫ =====================
     // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
     // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null
@@ -199,10 +268,13 @@ service cloud.firestore {
         (request.resource.data.diff(resource.data).affectedKeys()
            .hasOnly(['likedBy', 'likesCount', 'dislikedBy', 'dislikesCount'])) ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'editedAt']) &&
-          request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid)
+          (request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid ||
+           canManageChannelPost(resource.data)))
       );
-      allow delete: if request.auth != null &&
-        request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid;
+      allow delete: if request.auth != null && (
+        request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid ||
+        canManageChannelPost(resource.data)
+      );
     }
 
     // ===================== ОТВЕТЫ =====================
@@ -257,9 +329,16 @@ service cloud.firestore {
     // ===================== ЧАТ =====================
     match /chatMessages/{msgId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      // Писать можно анонимно (authorUid отсутствует) либо от своего аккаунта.
+      // Указать чужой идентификатор нельзя: иначе можно было бы отправить
+      // сообщение от чужого имени.
+      allow create: if request.auth != null && (
+        !('authorUid' in request.resource.data) ||
+        request.resource.data.authorUid == null ||
+        request.resource.data.authorUid == request.auth.uid
+      );
       allow update: if request.auth != null &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'publicUid', 'imageUrls']) &&
         request.auth.uid == get(/databases/$(database)/documents/chatMessageSecrets/$(msgId)).data.ownerUid;
       allow delete: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/chatMessageSecrets/$(msgId)).data.ownerUid;
@@ -297,7 +376,7 @@ service cloud.firestore {
       // канала падала с permission-denied.)
       allow update: if request.auth != null &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'username', 'description', 'avatarUrl', 'adminUids']) &&
+          .hasOnly(['name', 'username', 'description', 'avatarUrl', 'adminUids', 'adminSince', 'avatarShape']) &&
         (!('username' in request.resource.data.diff(resource.data).affectedKeys()) ||
           request.resource.data.username.matches('ch_[a-zA-Z0-9_]{2,17}')) &&
         request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(channelId)).data.creatorUid;

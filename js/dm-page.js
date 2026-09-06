@@ -3,6 +3,8 @@ import { askText, askConfirm } from "./dialog.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
+import { paintTabDots, startTabPolling } from "./notifications.js";
+import { startPresence } from "./presence.js";
 import { initProfileDropdown, authReady, currentUser } from "./auth.js";
 import { subscribeMessages, sendMessage, editMessage, deleteMessage, otherParticipant } from "./dm.js";
 import { db, doc, getDoc } from "./firebase.js";
@@ -14,6 +16,9 @@ import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
 import { openEmojiPicker } from "./emoji.js";
 import { ICON } from "./icons.js";
+import { initChatNav } from "./chat-nav.js";
+import { parseCommand } from "./bot.js";
+import { currentUserDoc } from "./auth.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 applySettings();
@@ -21,9 +26,29 @@ applySettings();
 // пока страница ждёт DOMContentLoaded.
 initLayout();
 applyFavicon();
+paintTabDots();
+startTabPolling();
+startPresence();
 
 const chatId = new URLSearchParams(location.search).get("chat");
 let pendingImage = null;
+let replyingTo = null;
+
+function renderReplyBar() {
+  const host = document.getElementById("dmReplyHost");
+  if (!host) return;
+  if (!replyingTo) { host.innerHTML = ""; return; }
+  host.innerHTML = `
+    <div class="reply-compose-bar">
+      <span class="nf">${ICON.reply}</span>
+      <span>ответ: ${escapeHtml(replyingTo.text.slice(0, 40))}</span>
+      <button class="cancelReply nf" title="отменить">${ICON.close}</button>
+    </div>`;
+  host.querySelector(".cancelReply").addEventListener("click", () => {
+    replyingTo = null;
+    renderReplyBar();
+  });
+}
 
 function render(msgs) {
   const el = document.getElementById("dmMessages");
@@ -32,10 +57,13 @@ function render(msgs) {
 
   el.innerHTML = msgs.map(m => {
     const mine = m.senderUid === currentUser?.uid;
-    const items = mine ? [
-      { action: "editMsg", label: "Изменить", icon: ICON.pencil },
-      { action: "deleteMsg", label: "Удалить", icon: ICON.close, danger: true }
-    ] : [];
+    const items = [
+      { action: "replyMsg", label: "Ответить", icon: ICON.reply },
+      ...(mine ? [
+        { action: "editMsg", label: "Изменить", icon: ICON.pencil },
+        { action: "deleteMsg", label: "Удалить", icon: ICON.close, danger: true }
+      ] : [])
+    ];
     return `
       <div class="chat-msg ${mine ? "mine" : ""}" data-id="${m.id}">
         <div class="chat-msg-head">
@@ -43,6 +71,11 @@ function render(msgs) {
           <span class="muted">· ${timeAgo(m.createdAt)}${m.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
           ${kebabHtml(items, m.id)}
         </div>
+        ${m.replyToId ? `
+          <div class="chat-reply-quote" data-jump="${m.replyToId}">
+            <b>${escapeHtml(m.replyToNickname || "сообщение")}</b>
+            <span class="quote-text">${escapeHtml((m.replyToText || "").slice(0, 90))}</span>
+          </div>` : ""}
         ${m.text ? `<div class="txt">${linkifyMentions(escapeHtml(m.text))}</div>` : ""}
         ${m.imageUrl ? `<img src="${m.imageUrl}">` : ""}
       </div>`;
@@ -50,9 +83,30 @@ function render(msgs) {
 
   if (wasAtBottom) window.scrollTo({ top: document.body.scrollHeight });
   wireMentions(el);
+  el.querySelectorAll("[data-jump]").forEach(q => {
+    q.addEventListener("click", () => {
+      const target = el.querySelector(`.chat-msg[data-id="${q.dataset.jump}"]`);
+      if (!target) { showToast("Сообщение не найдено"); return; }
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.remove("is-reply-target");
+      void target.offsetWidth;
+      target.classList.add("is-reply-target");
+    });
+  });
+
   el.querySelectorAll(".chat-msg").forEach(row => {
     const id = row.dataset.id;
     wireKebab(row, {
+      replyMsg: () => {
+        const msg = msgs.find(x => x.id === id);
+        replyingTo = msg ? {
+          id: msg.id,
+          nickname: msg.senderUid === currentUser?.uid ? "себе" : "собеседнику",
+          text: msg.text || "(фото)"
+        } : null;
+        renderReplyBar();
+        document.getElementById("dmInput").focus();
+      },
       editMsg: async () => {
         const cur = row.querySelector(".txt")?.textContent || "";
         const next = await askText("Изменить сообщение", { value: cur, maxlength: 500 });
@@ -91,6 +145,13 @@ async function init() {
   });
   document.title = `NyashBoard ♡ — ${u.nickname || "чат"}`;
 
+  initChatNav(el);
+
+  // см. комментарий в chat.js: снимаем фокус, чтобы экранная клавиатура
+  // не оставалась открытой после возврата в браузер
+  const blurInput = () => { if (document.hidden) document.activeElement?.blur?.(); };
+  document.addEventListener("visibilitychange", blurInput);
+  window.addEventListener("pagehide", blurInput);
   subscribeMessages(chatId, render, (err) => {
     el.innerHTML = `<div class="stub-note">Ошибка: ${escapeHtml(err.message)}</div>`;
   });
@@ -122,8 +183,19 @@ async function init() {
     const text = input.value.trim();
     if (!text && !pendingImage) return;
     try {
+      // Команды бота работают и в личке — раньше они разбирались только
+      // в общем чате, хотя логика одна и та же.
+      const myName = currentUserDoc?.nickname || "ты";
+      const parsed = parseCommand(text, myName, replyingTo ? "собеседника" : null);
+      if (parsed?.error) { showToast(parsed.error); return; }
+
       const imageUrl = pendingImage ? await uploadImage(pendingImage) : null;
-      await sendMessage(chatId, text, imageUrl);
+      await sendMessage(chatId, parsed ? parsed.text : text, imageUrl, {
+        isBot: !!parsed,
+        replyTo: replyingTo
+      });
+      replyingTo = null;
+      renderReplyBar();
       input.value = ""; pendingImage = null; imageInput.value = "";
       preview.classList.add("hidden"); preview.innerHTML = "";
     } catch (err) {

@@ -38,7 +38,9 @@ const ITEMS = {
       const petals = [0, 60, 120, 180, 240, 300].map(a =>
         `<ellipse cx="0" cy="-9.5" rx="6" ry="9.5" fill="${c}" transform="rotate(${a})"/>`
       ).join("");
-      return `<g transform="translate(81,30)">${petals}<circle cx="0" cy="0" r="5.2" fill="${core}"/></g>`;
+      // Слева, а не справа: правый верхний угол занят эмодзи-статусом,
+      // и там они перекрывали друг друга.
+      return `<g transform="translate(19,30)">${petals}<circle cx="0" cy="0" r="5.2" fill="${core}"/></g>`;
     }
   },
 

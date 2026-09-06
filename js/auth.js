@@ -201,7 +201,7 @@ export function initProfileDropdown() {
   // «сгенерированная», иначе при смене темы своя картинка подменялась анонимом.
   function paintHeaderAvatar() {
     const doc = currentUserDoc || (authPending ? cachedUserDoc : null);
-    applyAvatar(profilePic, doc, "neko");
+    applyAvatar(profilePic, doc, "neko");   // украшение подставится вместе с аватаркой
     profilePic.style.width = profilePic.style.height = "";
   }
 

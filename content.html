@@ -31,25 +31,38 @@
 <header id="navHost"></header>
 
 <main id="app">
-  <section id="tab-content" class="tab active">
-    <input id="channelSearch" class="searchBox" placeholder="Поиск по названию, @юзернейму, NUID или описанию...">
-
-    <div id="mineBlock" class="hidden">
-      <div class="section-title">Твои каналы</div>
-      <div id="mineList" class="channel-list"></div>
+  <section class="tab active">
+    <div class="subtabs" id="contentSubtabs">
+      <button class="subtab active" data-sub="channels">Каналы</button>
+      <button class="subtab" data-sub="friends">Друзья</button>
+      <button class="subtab" data-sub="music">Музыка</button>
     </div>
 
-    <div id="suggestedBlock">
-      <div class="section-title">Рекомендуем ♡</div>
-      <div id="suggestedList" class="channel-list"></div>
-    </div>
+    <div class="subpanel" data-panel="channels">
+      <input id="channelSearch" class="searchBox" placeholder="Поиск по названию, @юзернейму, NUID или описанию...">
 
-    <div id="allBlock">
+      <div id="mineBlock" class="hidden">
+        <div class="section-title">Твои каналы</div>
+        <div id="mineList" class="channel-list"></div>
+      </div>
+
+      <div id="suggestedBlock" class="hidden">
+        <div class="section-title">Рекомендуем</div>
+        <div id="suggestedList" class="channel-list"></div>
+      </div>
+
       <div class="section-title">Все каналы</div>
       <div id="allChannelsList" class="channel-list"></div>
     </div>
 
-    <button id="newChannelFab" class="fab"><span class="nf">&#xf067;</span></button>
+    <div class="subpanel hidden" data-panel="friends">
+      <div class="section-title" style="margin-top:0;">Записи друзей и отслеживаемых</div>
+      <div id="friendsFeed" class="feed-list"><div class="stub-note">Загружаю…</div></div>
+    </div>
+
+    <div class="subpanel hidden" data-panel="music">
+      <div id="musicPanel"></div>
+    </div>
   </section>
 </main>
 

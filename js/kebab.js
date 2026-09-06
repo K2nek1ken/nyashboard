@@ -52,6 +52,19 @@ export function wireKebab(container, handlers) {
     });
   });
 
+  // Правая кнопка на карточке открывает то же меню — привычнее, чем целиться
+  // в маленькую кнопку. Только на устройствах с мышью: на телефоне долгое
+  // нажатие уже занято выделением текста.
+  if (window.matchMedia("(pointer: fine)").matches) {
+    container.addEventListener("contextmenu", (e) => {
+      if (e.target.closest(".kebabMenu")) return;
+      e.preventDefault();
+      document.querySelectorAll(".kebabMenu").forEach(m => { if (m !== menu) m.classList.add("hidden"); });
+      menu.classList.remove("hidden");
+      keepInViewport(menu);
+    });
+  }
+
   if (!globalCloseHandlerAttached) {
     globalCloseHandlerAttached = true;
     document.addEventListener("click", () => {

@@ -10,6 +10,7 @@ import {
 import { loadSubscriptions } from "./subscriptions.js";
 import { loadChannelWall, renderPostsInto } from "./feed.js";
 import { getUserDoc } from "./data.js";
+import { shapeClass, shapePickerHtml } from "./avatar.js";
 import { uploadImage, uploadImages } from "./storage.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
@@ -281,6 +282,25 @@ function wireSettingsModal(channelId) {
     pendingAvatarFile = file;
     avatarImg.src = URL.createObjectURL(file);
   });
+
+  // Форма аватарки канала — та же, что у профилей: канал такой же участник
+  // ленты, и квадрат по умолчанию выбивался из общего вида.
+  let pendingChannelShape = channel.avatarShape || "circle";
+  const shapeHost = document.getElementById("csShapeHost");
+
+  function renderChannelShapes() {
+    if (!shapeHost) return;
+    shapeHost.innerHTML = shapePickerHtml(pendingChannelShape);
+    shapeHost.querySelectorAll("[data-shape]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        pendingChannelShape = btn.dataset.shape;
+        csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+        renderChannelShapes();
+      });
+    });
+  }
+  renderChannelShapes();
+  csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
 
   saveBtn.addEventListener("click", async () => {
     const name = nameInput.value.trim();

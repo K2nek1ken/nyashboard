@@ -2,6 +2,8 @@ import { applySettings } from "./settings.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
+import { paintTabDots, startTabPolling } from "./notifications.js";
+import { startPresence } from "./presence.js";
 import { initProfileDropdown, authReady } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
 import { db, collection, query, where, getDocs } from "./firebase.js";
@@ -13,6 +15,9 @@ applySettings();
 // пока страница ждёт DOMContentLoaded.
 initLayout();
 applyFavicon();
+paintTabDots();
+startTabPolling();
+startPresence();
 
 async function initTagPage() {
   const tag = (new URLSearchParams(location.search).get("tag") || "").toLowerCase();

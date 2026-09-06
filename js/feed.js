@@ -15,12 +15,13 @@ import { markOwned, isOwned } from "./ownership.js";
 import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
 import { avatarHtml, applyAvatar } from "./avatar.js";
+import { paletteColor } from "./palette.js";
 import { openEmojiPicker } from "./emoji.js";
 import { extractHashtags } from "./hashtags.js";
 import { rankPosts } from "./ranking.js";
 import { loadSubscriptions } from "./subscriptions.js";
 import { loadFriends } from "./friends.js";
-import { learnFromPost, markNotInterested, loadInterests } from "./interests.js";
+import { learnFromPost, markNotInterested, undoNotInterested, isSuppressed, loadInterests } from "./interests.js";
 import { observeSeen, loadSeen } from "./seen.js";
 
 const feedListEl = document.getElementById("feedList");
@@ -34,6 +35,13 @@ let lastRenderedPosts = null;
 export async function refreshFeed() {
   await Promise.all([loadSubscriptions(), loadFriends(), loadSeen(), loadInterests()]);
   if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+}
+
+// Разовая загрузка последних записей — для подвкладок и подборок, где живая
+// подписка не нужна и только тратила бы обращения к базе.
+export async function loadRecentPosts(count = 50) {
+  const snap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(count)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export function subscribeFeed() {
@@ -61,6 +69,18 @@ export function subscribeFeed() {
   });
 }
 
+// Записи появляются по очереди сверху вниз, а не все разом: так список
+// выглядит живым и глазу проще зацепиться за первую карточку, пока
+// подтягиваются остальные. Задержка небольшая и с потолком — иначе на длинной
+// ленте нижние карточки ждали бы неприлично долго.
+function revealSequentially(container) {
+  const cards = container.querySelectorAll(".post-card");
+  cards.forEach((card, i) => {
+    card.classList.add("appearing");
+    setTimeout(() => card.classList.remove("appearing"), Math.min(i * 45, 600));
+  });
+}
+
 function renderFeed(posts) {
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
@@ -68,10 +88,18 @@ function renderFeed(posts) {
   }
   feedListEl.innerHTML = posts.map(p => postToHtml(p)).join("");
   posts.forEach(p => wirePostCard(p, feedListEl));
+  revealSequentially(feedListEl);
 }
+
+// Управляющие каналов знают свои каналы из общего списка — он загружается
+// один раз при старте ленты, поэтому проверка здесь синхронная.
+let managedChannels = new Set();
+export function setManagedChannels(ids) { managedChannels = new Set(ids); }
 
 function canManagePost(p) {
   if (currentUser && p.authorUid && p.authorUid === currentUser.uid) return true;
+  // записями канала распоряжается вся его команда, а не только автор публикации
+  if (p.channelId && managedChannels.has(p.channelId)) return true;
   return isOwned("post", p.id);
 }
 
@@ -85,6 +113,9 @@ export function postToHtml(p, maskAuthor = false) {
     : (p.isAnonymous ? "Аноним"
       : masked ? "•".repeat(Math.min(8, (p.authorNickname || "").length || 6))
       : escapeHtml(p.authorNickname || "???"));
+  // цвет ника выбирает автор, и он одинаков для всех, кто видит запись
+  const nameStyle = (!isChannelPost && !p.isAnonymous && !masked && p.authorNickColor)
+    ? ` style="color:${paletteColor(p.authorNickColor)}"` : "";
   const authorAttrs = isChannelPost
     ? `data-action="viewChannel" data-channel-id="${p.channelId}"`
     : `data-action="viewAuthor" data-uid="${p.authorUid || ""}"`;
@@ -93,9 +124,12 @@ export function postToHtml(p, maskAuthor = false) {
   const canManage = canManagePost(p);
   const hasEditor = !!document.getElementById("postEditor");
   const onPostPage = location.pathname.endsWith("post.html");
+  const suppressed = isSuppressed(p.id);
   const kebabItems = [
     ...(onPostPage ? [] : [{ action: "openPost", label: "Открыть пост", icon: ICON.open }]),
-    { action: "notInterested", label: "Не рекомендовать", icon: ICON.down },
+    suppressed
+      ? { action: "undoNotInterested", label: "Вернуть в рекомендации", icon: ICON.up }
+      : { action: "notInterested", label: "Не рекомендовать", icon: ICON.down },
     ...(canManage
       ? [
           ...(hasEditor ? [{ action: "editPost", label: "Изменить", icon: ICON.pencil }] : []),
@@ -109,13 +143,15 @@ export function postToHtml(p, maskAuthor = false) {
   const authorForAvatar = isChannelPost
     ? { avatarUrl: p.channelAvatar, avatarShape: "rounded" }
     : (p.isAnonymous || masked ? {}
-                     : { avatarUrl: p.authorAvatar, avatarShape: p.authorShape, statusEmoji: p.authorStatus });
+                     : { avatarUrl: p.authorAvatar, avatarShape: p.authorShape,
+                         statusEmoji: p.authorStatus, accessory: p.authorAccessory,
+                         avatarBorder: p.authorBorder });
   const avatarVariant = masked ? "hidden" : "neko";
   return `
     <article class="post-card" data-id="${p.id}">
       <div class="post-head">
         <span ${authorAttrs} style="cursor:pointer;">${avatarHtml(authorForAvatar, 34, "", avatarVariant)}</span>
-        <span class="post-author ${(!isChannelPost && p.isAnonymous) ? "anon" : ""} ${masked ? "author-masked" : ""}" ${authorAttrs}>${authorName}</span>
+        <span class="post-author ${(!isChannelPost && p.isAnonymous) ? "anon" : ""} ${masked ? "author-masked" : ""}" ${authorAttrs}${nameStyle}>${authorName}</span>
         <div class="post-meta-right">
           <span class="post-time">${timeAgo(p.createdAt)}${p.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
           ${kebabHtml(kebabItems, p.id)}
@@ -124,6 +160,7 @@ export function postToHtml(p, maskAuthor = false) {
       <div class="post-text ${isLong ? "collapsible" : ""}">${linkifyMentions(escapeHtml(rawText))}</div>
       ${isLong ? `<button class="expandBtn" data-action="toggleExpand"><span class="nf">${ICON.down}</span> показать полностью</button>` : ""}
       ${imagesToHtml(getPostImages(p))}
+      <div class="post-tracks" data-post-tracks="${p.id}"></div>
       <div class="post-actions">
         <button data-action="like" class="${liked ? "liked" : ""}"><span class="nf">${liked ? ICON.heartFilled : ICON.heart}</span> <span class="likeCount">${p.likesCount || 0}</span></button>
         <button data-action="dislike" class="${disliked ? "disliked" : ""}">${disliked ? SVG_ICON.heartBroken : SVG_ICON.heartBrokenOutline} <span class="dislikeCount">${p.dislikesCount || 0}</span></button>
@@ -151,6 +188,7 @@ export function wirePostCard(p, container = document) {
   wireCarousels(card);
   wireMentions(card);
   observeSeen(card);
+  renderPostTracks(p, card);
   wireImageZoom(card);
 
   card.querySelectorAll('[data-action="viewAuthor"]').forEach(el => {
@@ -180,6 +218,13 @@ export function wirePostCard(p, container = document) {
       markNotInterested(p);
       card.style.opacity = "0.45";
       showToast("Учла — такое будет ниже в ленте");
+    },
+    undoNotInterested: () => {
+      // Полный откат: снятое понижение возвращается обратно, чтобы случайное
+      // нажатие не портило рекомендации навсегда.
+      undoNotInterested(p);
+      card.style.opacity = "";
+      showToast("Вернула в рекомендации");
     },
     editPost: () => openPostEditor(p),
     deletePost: () => deletePost(p, card)
@@ -253,6 +298,35 @@ export function wirePostCard(p, container = document) {
   // 50 постов делала 50 запросов к Firestore сразу при открытии страницы —
   // это и медленно, и быстро жжёт бесплатный лимит чтений.
   lazyLoadReplies(p.id, card);
+}
+
+// Треки, упомянутые в тексте записи, показываем карточками под ней: ссылка
+// вида #U3XXXXXX превращается в проигрыватель, а не остаётся набором символов.
+async function renderPostTracks(p, card) {
+  const host = card.querySelector(`[data-post-tracks="${p.id}"]`);
+  if (!host) return;
+  const ids = [...new Set((p.text || "").match(/#U3\d{6}/gi) || [])]
+    .map(t => t.slice(1).toUpperCase());
+  if (!ids.length) return;
+
+  try {
+    const { resolveNuid } = await import("./nuid.js");
+    const { getTrack } = await import("./music.js");
+    const { trackCardHtml, wireTrackCards } = await import("./music-ui.js");
+
+    const tracks = [];
+    for (const nuid of ids.slice(0, 3)) {     // не больше трёх на запись
+      const hit = await resolveNuid(nuid);
+      if (hit?.type !== "track") continue;
+      const track = await getTrack(hit.uid);
+      if (track) tracks.push(track);
+    }
+    if (!tracks.length) return;
+    host.innerHTML = tracks.map(t => trackCardHtml(t)).join("");
+    wireTrackCards(host, tracks);
+  } catch (e) {
+    console.warn("Треки записи не загрузились:", e.message);
+  }
 }
 
 let replyObserver = null;
@@ -455,6 +529,11 @@ export function initPostEditor() {
           authorAvatar: (!isAnon && currentUserDoc) ? currentUserDoc.avatarUrl : null,
           authorShape: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarShape || "circle") : null,
           authorStatus: (!isAnon && currentUserDoc) ? (currentUserDoc.statusEmoji || "") : null,
+          // украшение, цвет рамки и цвет ника — часть образа автора, и они
+          // должны быть видны прямо в ленте, без запроса профиля на каждую запись
+          authorAccessory: (!isAnon && currentUserDoc) ? (currentUserDoc.accessory || "none") : null,
+          authorBorder: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarBorder || "pink") : null,
+          authorNickColor: (!isAnon && currentUserDoc) ? (currentUserDoc.nickColor || "") : null,
           channelId: null,
           isAnonymous: isAnon,
           text,
@@ -531,6 +610,7 @@ export async function loadChannelWall(channelId) {
 }
 
 export function renderPostsInto(container, posts, ownerNickname) {
+  // тот же приём для чужих страниц и карточек профиля
   if (!posts.length) { container.innerHTML = `<div class="stub-note">Тут пока пусто</div>`; return; }
   container.innerHTML = posts.map(p => {
     // В репосте автор может быть скрыт — решает сервер, см. revealRepostAuthor
@@ -542,6 +622,7 @@ export function renderPostsInto(container, posts, ownerNickname) {
     wirePostCard(p, container);
     if (p._isRepost) revealRepostAuthor(p, container);
   });
+  revealSequentially(container);
 }
 
 // Пока ответ сервера не пришёл, показываем ту же маску, что и при полном

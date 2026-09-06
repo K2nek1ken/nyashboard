@@ -70,6 +70,21 @@
         <textarea id="bioInput" class="bioInput" placeholder="Описание профиля — расскажи о себе" maxlength="300"></textarea>
         <div class="uid-row">NUID: <code id="uidDisplay"></code><br><span class="muted">(неизменно, не отправляй кому попало)</span></div>
         <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+          <span class="muted" style="font-size:13px;">Кто видит мою музыку:</span>
+          <select id="musicVisibility" class="settingSelect">
+            <option value="everyone">Все</option>
+            <option value="friends">Только друзья</option>
+            <option value="nobody">Никто</option>
+          </select>
+        </div>
+        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+          <span class="muted" style="font-size:13px;">Показывать меня во вкладке «Люди»:</span>
+          <select id="listVisibility" class="settingSelect">
+            <option value="show">Да</option>
+            <option value="hide">Нет</option>
+          </select>
+        </div>
+        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
           <span class="muted" style="font-size:13px;">Обращаться ко мне:</span>
           <select id="genderSelect" class="settingSelect">
             <option value="m">в мужском роде</option>

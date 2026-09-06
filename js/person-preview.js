@@ -5,6 +5,7 @@ import { loadFriends, isFriend, addFriend, removeFriend, isMutualFriend } from "
 import { avatarHtml } from "./avatar.js";
 import { relationBadge, badgeHtml, nameHtml, isAdmin } from "./person.js";
 import { escapeHtml, showToast } from "./ui.js";
+import { fetchOnline } from "./presence.js";
 import { ICON } from "./icons.js";
 
 // Карточка человека или канала поверх страницы. Открывается по клику на
@@ -22,9 +23,10 @@ export async function openPersonPreview(uid) {
   const badge = await relationBadge(uid, user);
   const isSelf = currentUser && currentUser.uid === uid;
 
+  const online = await fetchOnline([uid]);
   body.innerHTML = `
     <div class="preview-head">
-      ${avatarHtml(user, 64)}
+      <span class="${online.has(uid) ? "online-wrap" : ""}">${avatarHtml(user, 64)}</span>
       <div style="min-width:0;">
         <div class="preview-name">${nameHtml(user, { clickable: false })} ${badgeHtml(badge)}</div>
         <div class="muted">@${escapeHtml(user.username || "???")}</div>
@@ -35,7 +37,24 @@ export async function openPersonPreview(uid) {
       ${isSelf ? "" : `<button class="secondaryBtn" data-friend style="width:auto;margin:0;"></button>`}
       <a class="primaryBtn" style="width:auto;margin:0;text-decoration:none;"
          href="${isSelf ? "profile.html" : `user.html?uid=${uid}`}">Открыть профиль</a>
-    </div>`;
+    </div>
+    <div class="section-title" style="margin-bottom:6px;">Последние записи</div>
+    <div id="previewPosts" class="feed-list"><div class="stub-note">Загружаю…</div></div>`;
+
+  // Записи в карточке: без них не понять, чем человек живёт, а ради этого
+  // карточку чаще всего и открывают.
+  try {
+    // Загружается на месте, а не обычным импортом: иначе получается кольцо
+    // (лента → упоминания → карточка → снова лента), а такие связи ломаются
+    // непредсказуемо при малейшей правке.
+    const { loadUserFeed, renderPostsInto } = await import("./feed.js");
+    const posts = await loadUserFeed(uid);
+    const el = body.querySelector("#previewPosts");
+    if (!posts.length) el.innerHTML = `<div class="stub-note">Пока пусто</div>`;
+    else renderPostsInto(el, posts.slice(0, 3), user.nickname);
+  } catch (e) {
+    console.warn("Записи в карточке не загрузились:", e.message);
+  }
 
   const friendBtn = body.querySelector("[data-friend]");
   if (friendBtn) {
@@ -95,4 +114,34 @@ function createBox() {
     if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); }
   });
   return box;
+}
+
+// Превью сообщения чата по его идентификатору. Показываем текст (длинный можно
+// прокрутить) и даём перейти к нему в переписке.
+export async function openMessagePreview(msgId, nuid) {
+  const box = createBox();
+  const body = box.querySelector("[data-body]");
+
+  const snap = await getDoc(doc(db, "chatMessages", msgId)).catch(() => null);
+  if (!snap?.exists()) {
+    body.innerHTML = `<div class="stub-note">Сообщение не найдено — возможно, удалено</div>`;
+    return;
+  }
+  const m = snap.data();
+
+  body.innerHTML = `
+    <div class="preview-head">
+      <div style="min-width:0;">
+        <div class="preview-name">${escapeHtml(m.nickname || "сообщение")}</div>
+        <div class="muted">${nuid || ""}</div>
+      </div>
+    </div>
+    <div class="message-preview-body">
+      ${m.text ? escapeHtml(m.text) : "<span class='muted'>без текста</span>"}
+      ${m.imageUrl ? `<img src="${m.imageUrl}" style="max-width:100%;border-radius:10px;margin-top:8px;">` : ""}
+    </div>
+    <div class="preview-actions">
+      <a class="primaryBtn" style="width:auto;margin:0;text-decoration:none;"
+         href="chat.html?msg=${encodeURIComponent(nuid || "")}">Перейти к сообщению</a>
+    </div>`;
 }

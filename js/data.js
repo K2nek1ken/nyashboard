@@ -41,6 +41,12 @@ export async function ensureUserDoc(fbUser) {
     const data = snap.data();
     // аккаунты, созданные до отдельного хранилища NUID, переносим на лету
     if (data.publicUid) migrateLegacyNuid(fbUser.uid, data);
+    // Профили, созданные до появления настройки, поля не имеют — а запрос
+    // списка ищет строго по нему, и без этой дописи они бы исчезли из «Людей».
+    if (data.hiddenFromList === undefined) {
+      setDoc(ref, { hiddenFromList: false }, { merge: true }).catch(() => {});
+      data.hiddenFromList = false;
+    }
     else ensureNuidExists(fbUser.uid);   // NUID мог не записаться при регистрации
     return data;
   }
@@ -72,6 +78,8 @@ export async function ensureUserDoc(fbUser) {
     accessory: "none",             // украшение вокруг аватарки
     avatarBorder: "pink",          // цвет рамки и украшения
     nickColor: "",                 // цвет ника в чате; пусто — обычный
+    hiddenFromList: false,         // не показывать во вкладке «Люди»
+    musicVisibility: "everyone",   // everyone | friends | nobody — кто видит фонотеку
 
     createdAt: Date.now()
   };
@@ -98,6 +106,10 @@ export async function ensureUserDoc(fbUser) {
   await registerNuid(fbUser.uid, nuid, "user").catch(e => {
     console.warn("NUID не записался (проверь правила firestore):", e.message);
   });
+
+  // Подписка на канал проекта при регистрации: чтобы лента у нового человека
+  // не была пустой. Отписаться можно в любой момент, как от любого другого.
+  subscribeToHomeChannel(fbUser.uid).catch(() => {});
   return base;
 }
 
@@ -169,7 +181,27 @@ export async function resolveUserHandle(handle) {
 // Лимит обязателен: без него вкладка «Люди» вычитывала бы вообще всех
 // пользователей при каждом заходе — это прямой путь спалить бесплатный лимит
 // чтений Firestore, как только людей станет больше пары десятков.
+// Скрытые из списка отсекаются самим запросом, а не фильтром после загрузки:
+// иначе их данные всё равно приходили бы в браузер. По прямой ссылке профиль
+// при этом остаётся доступен — иначе сломались бы упоминания и переходы
+// из записей, а это уже не «скрыться», а «исчезнуть».
 export async function listAllUsers(max = 200) {
-  const snap = await getDocs(query(collection(db, "users"), limit(max)));
+  const snap = await getDocs(query(
+    collection(db, "users"),
+    where("hiddenFromList", "==", false),
+    limit(max)
+  ));
   return snap.docs.map(d => d.data());
+}
+
+
+// Канал проекта — единственный, на который подписываем сами.
+const HOME_CHANNEL_NUID = "U4019695";
+
+async function subscribeToHomeChannel(uid) {
+  const { resolveNuid } = await import("./nuid.js");
+  const hit = await resolveNuid(HOME_CHANNEL_NUID);
+  if (!hit || hit.type !== "channel") return;
+  await setDoc(doc(db, "users", uid, "subscriptions", hit.uid),
+               { subscribedAt: Date.now() });
 }

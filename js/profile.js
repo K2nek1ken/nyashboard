@@ -27,6 +27,8 @@ export function initProfilePageForm() {
   const nuidVisibility = document.getElementById("nuidVisibility");
   const repostVisibility = document.getElementById("repostVisibility");
   const genderSelect = document.getElementById("genderSelect");
+  const listVisibility = document.getElementById("listVisibility");
+  const musicVisibility = document.getElementById("musicVisibility");
 
   let pendingAvatarFile = null;
   let pendingShape = "circle";
@@ -153,6 +155,8 @@ export function initProfilePageForm() {
       nuidVisibility.value = currentUserDoc.nuidVisibility || "friends";
       repostVisibility.value = currentUserDoc.repostVisibility || "everyone";
       genderSelect.value = currentUserDoc.gender || "x";
+      listVisibility.value = currentUserDoc.hiddenFromList ? "hide" : "show";
+      musicVisibility.value = currentUserDoc.musicVisibility || "everyone";
       pendingShape = currentUserDoc.avatarShape || "circle";
       pendingStatus = currentUserDoc.statusEmoji || "";
       pageStatus.textContent = pendingStatus;
@@ -208,6 +212,22 @@ export function initProfilePageForm() {
     statusPreview.textContent = "выбрать";
   });
 
+  // Нажатие на идентификатор или юзернейм копирует их: чаще всего именно это
+  // с ними и делают — отправляют кому-то.
+  async function copyValue(text, label) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(label + " скопирован");
+    } catch {
+      showToast(label + ": " + text);
+    }
+  }
+  uidDisplay.style.cursor = "pointer";
+  uidDisplay.title = "нажми, чтобы скопировать";
+  uidDisplay.addEventListener("click", () => copyValue(uidDisplay.textContent, "NUID"));
+  usernameInput.addEventListener("dblclick", () => copyValue("@" + usernameInput.value, "Юзернейм"));
+
   saveBtn.addEventListener("click", async () => {
     if (!currentUser) return;
     // Если профиль не загрузился, в форме лежат придуманные значения —
@@ -242,7 +262,9 @@ export function initProfilePageForm() {
         nickColor: pendingNickColor,
         nuidVisibility: nuidVisibility.value,
         repostVisibility: repostVisibility.value,
-        gender: genderSelect.value
+        gender: genderSelect.value,
+        hiddenFromList: listVisibility.value === "hide",
+        musicVisibility: musicVisibility.value
       };
       if (pendingAvatarFile) {
         showToast("Загружаю аватарку...");

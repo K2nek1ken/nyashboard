@@ -90,7 +90,12 @@ function bump(dict, key, delta, limit) {
   }
 }
 
+// Ключ автора для весов. У анонимных записей его нет намеренно: иначе по
+// совпадению веса можно было бы понять, что несколько анонимных записей
+// принадлежат одному человеку — а это ровно то, от чего анонимность защищает.
+// Слова и теги при этом учитываются как обычно.
 function authorKey(post) {
+  if (post.isAnonymous) return null;
   return post.channelId || post.authorUid || null;
 }
 
@@ -109,16 +114,51 @@ export function learnFromPost(post, weight) {
 
 // «Не рекомендовать»: теги и слова просаживаем равномерно и мягко,
 // автора — заметнее, как и просил Неко.
+// Список записей, помеченных «не рекомендовать». Нужен, чтобы показать в меню
+// отмену и вернуть ровно те веса, которые были сняты.
+const SUPPRESSED_KEY = "nyash_suppressed_posts";
+
+function readSuppressed() {
+  try { return JSON.parse(localStorage.getItem(SUPPRESSED_KEY)) || {}; }
+  catch { return {}; }
+}
+
+export function isSuppressed(postId) {
+  return Object.prototype.hasOwnProperty.call(readSuppressed(), postId);
+}
+
 export function markNotInterested(post) {
   if (!post) return;
   const words = extractWords(post.text, 15);
   const tags = post.hashtags?.length ? post.hashtags : extractHashtags(post.text);
+  const key = authorKey(post);
+
   store.update(profile => {
     words.forEach(w => bump(profile.words, w, -1, LIMITS.words));
     tags.forEach(t => bump(profile.tags, t, -2, LIMITS.tags));
-    const key = authorKey(post);
     if (key) bump(profile.authors, key, -5, LIMITS.authors);
   });
+
+  // запоминаем, что именно сняли — чтобы вернуть ровно столько же
+  const all = readSuppressed();
+  all[post.id] = { words, tags, author: key };
+  localStorage.setItem(SUPPRESSED_KEY, JSON.stringify(all));
+}
+
+export function undoNotInterested(post) {
+  if (!post) return;
+  const all = readSuppressed();
+  const snapshot = all[post.id];
+  if (!snapshot) return;
+
+  store.update(profile => {
+    snapshot.words.forEach(w => bump(profile.words, w, 1, LIMITS.words));
+    snapshot.tags.forEach(t => bump(profile.tags, t, 2, LIMITS.tags));
+    if (snapshot.author) bump(profile.authors, snapshot.author, 5, LIMITS.authors);
+  });
+
+  delete all[post.id];
+  localStorage.setItem(SUPPRESSED_KEY, JSON.stringify(all));
 }
 
 // Насколько запись похожа на то, что тебе заходило.

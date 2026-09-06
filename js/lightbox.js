@@ -136,7 +136,11 @@ export function openLightbox(src, allSrcs = [], startIndex = 0) {
 // Вешает открытие на все изображения внутри контейнера. Внутри одной записи
 // картинки листаются между собой — как в галерее.
 export function wireImageZoom(container) {
-  const groups = container.querySelectorAll(".post-card, .chat-msg");
+  // Контейнер может быть и списком, и самой карточкой: в ленте функция
+  // вызывается для каждой записи отдельно, и поиск только по вложенным
+  // элементам ничего не находил — фотографии не открывались вовсе.
+  const inner = [...container.querySelectorAll(".post-card, .chat-msg")];
+  const groups = container.matches?.(".post-card, .chat-msg") ? [container, ...inner] : inner;
   groups.forEach(group => {
     const imgs = [...group.querySelectorAll(".post-img, .carousel-slide img, .reply-img, .chat-msg > img")];
     if (!imgs.length) return;

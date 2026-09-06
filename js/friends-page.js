@@ -3,11 +3,13 @@ import { askText, askConfirm } from "./dialog.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
+import { paintTabDots, markTabSeen, startTabPolling } from "./notifications.js";
 import { initRefreshButton } from "./refresh-button.js";
 import { initProfileDropdown, authReady, currentUser } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
-import { loadFriendProfiles, removeFriend, isMutualFriend } from "./friends.js";
+import { loadFriendProfiles, removeFriend, addFriend, isMutualFriend, loadIncomingRequests } from "./friends.js";
 import { listChats, otherParticipant, openOrCreateChat } from "./dm.js";
+import { fetchOnline, startPresence } from "./presence.js";
 import { getUserDoc } from "./data.js";
 import { shapeClass } from "./avatar.js";
 import { escapeHtml, timeAgo, showToast } from "./ui.js";
@@ -15,15 +17,18 @@ import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 applySettings();
+markTabSeen("friends");   // страница открыта — здесь всё просмотрено
 // Шапку рисуем немедленно: она не должна мигать пустотой,
 // пока страница ждёт DOMContentLoaded.
 initLayout();
 applyFavicon();
+paintTabDots();
+startTabPolling();
 
 function personRow(u, extraHtml = "", clickAttr = "") {
   return `
     <div class="person-row" ${clickAttr}>
-      <span class="avatar-wrap" style="width:38px;height:38px;">
+      <span class="avatar-wrap ${u.online ? "is-online" : ""}" style="width:38px;height:38px;">
         <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || defaultAvatar()}" style="width:38px;height:38px;">
         <span class="avatar-status" style="width:16px;height:16px;font-size:9px;">${u.statusEmoji || ""}</span>
       </span>
@@ -75,8 +80,9 @@ async function renderFriends() {
   }
   // статус взаимности у каждого — по одному точечному запросу, список чужих
   // друзей при этом не раскрывается
+  const online = await fetchOnline(friends.map(u => u.uid));
   const withMutual = await Promise.all(
-    friends.map(async u => ({ ...u, mutual: await isMutualFriend(u.uid) }))
+    friends.map(async u => ({ ...u, mutual: await isMutualFriend(u.uid), online: online.has(u.uid) }))
   );
 
   el.innerHTML = withMutual.map(u => personRow(u,
@@ -116,12 +122,57 @@ async function renderFriends() {
   });
 }
 
+// Заявки: люди, добавившие тебя, но пока не добавленные в ответ. Принять —
+// значит добавить их к себе, после чего откроется личная переписка.
+async function renderRequests() {
+  const block = document.getElementById("requestsBlock");
+  const el = document.getElementById("requestsList");
+  if (!currentUser) { block.classList.add("hidden"); return; }
+
+  const uids = await loadIncomingRequests();
+  if (!uids.length) { block.classList.add("hidden"); return; }
+
+  const people = await Promise.all(uids.map(async uid => {
+    const u = await getUserDoc(uid).catch(() => null);
+    return { uid, ...(u || { nickname: "неизвестный", username: "???" }) };
+  }));
+
+  block.classList.remove("hidden");
+  el.innerHTML = people.map(u => personRow(u,
+    `<button class="subBtn" data-accept="${u.uid}" style="flex-shrink:0;">Принять</button>`,
+    `data-open="${u.uid}"`)).join("");
+
+  el.querySelectorAll("[data-accept]").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      btn.disabled = true;
+      try {
+        await addFriend(btn.dataset.accept);
+        showToast("Теперь вы друзья ♡");
+        renderRequests();
+        renderFriends();
+      } catch (err) {
+        showToast("Ошибка: " + err.message);
+        btn.disabled = false;
+      }
+    });
+  });
+  el.querySelectorAll("[data-open]").forEach(row => {
+    row.addEventListener("click", (e) => {
+      if (e.target.closest("[data-accept]")) return;
+      location.href = `user.html?uid=${row.dataset.open}`;
+    });
+  });
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   initSettingsModal();
   initStarfield();
   initProfileDropdown();
   initViewProfileModal();
   await authReady;
+  startPresence();
+  renderRequests();
   renderChats();
   renderFriends();
   initRefreshButton(async () => { await renderChats(); await renderFriends(); });

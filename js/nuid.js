@@ -13,6 +13,15 @@ import { db, doc, getDoc, setDoc, collection, query, where, getDocs } from "./fi
 //    nuidIndex/{NUID}  { uid, type }  — get разрешён, list запрещён
 // ============================================================
 
+// Типы идентификаторов по первой цифре:
+//   U1 — человек, U2 — сообщение чата, U3 — трек, U4 — канал
+export const NUID_KIND = { 1: "user", 2: "message", 3: "track", 4: "channel" };
+
+export function nuidKind(nuid) {
+  const m = /^U([1-4])\d{6}$/i.exec((nuid || "").trim());
+  return m ? NUID_KIND[m[1]] : null;
+}
+
 export function maskNuid(nuid) {
   if (!nuid) return "U1••••••";
   return nuid.slice(0, 2) + "••••••";
@@ -71,7 +80,7 @@ export async function requestNuid(uid) {
 // Перечислить индекс целиком правила не дают, так что чужие NUID так не собрать.
 export async function resolveNuid(nuid) {
   const clean = (nuid || "").trim().toUpperCase();
-  if (!/^U[14]\d{6}$/.test(clean)) return null;
+  if (!/^U[1-4]\d{6}$/.test(clean)) return null;
   try {
     const snap = await getDoc(doc(db, "nuidIndex", clean));
     return snap.exists() ? snap.data() : null;
@@ -105,4 +114,12 @@ export async function ensureNuidExists(uid) {
     console.warn("Не смогла досоздать NUID:", e.message);
     return null;
   }
+}
+
+// Идентификатор сообщения чата. Пишется в тот же индекс, что и остальные,
+// поэтому по нему работает и поиск, и ссылка вида ?msg=U2XXXXXX.
+export async function registerMessageNuid(msgId) {
+  const nuid = await generateUniqueNuid(2);
+  await setDoc(doc(db, "nuidIndex", nuid), { uid: msgId, type: "message" });
+  return nuid;
 }

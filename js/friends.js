@@ -51,12 +51,34 @@ export async function addFriend(uid) {
   if (uid === currentUser.uid) throw new Error("Себя в друзья добавить нельзя");
   await setDoc(doc(db, "users", currentUser.uid, "friends", uid), { addedAt: serverTimestamp() });
   cache.add(uid);
+
+  // Отметка у того, кого добавили: только так он узнает про заявку. Свой
+  // список друзей при этом остаётся закрытым — здесь лежит лишь одна запись
+  // «тебя добавил вот этот человек».
+  await setDoc(doc(db, "users", uid, "incoming", currentUser.uid),
+               { addedAt: serverTimestamp() }).catch(() => {});
 }
 
 export async function removeFriend(uid) {
   if (!currentUser) return;
   await deleteDoc(doc(db, "users", currentUser.uid, "friends", uid));
   cache.delete(uid);
+  await deleteDoc(doc(db, "users", uid, "incoming", currentUser.uid)).catch(() => {});
+}
+
+// Кто добавил тебя, но не добавлен в ответ — это и есть заявки.
+export async function loadIncomingRequests() {
+  if (!currentUser) return [];
+  await loadFriends();
+  try {
+    const snap = await getDocs(collection(db, "users", currentUser.uid, "incoming"));
+    return snap.docs
+      .map(d => d.id)
+      .filter(uid => !isFriend(uid));   // взаимных в заявках уже не показываем
+  } catch (e) {
+    console.warn("Заявки не загрузились:", e.message);
+    return [];
+  }
 }
 
 // Взаимность: спрашиваем ровно один документ — «есть ли Я в друзьях у него».

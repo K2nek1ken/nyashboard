@@ -117,3 +117,36 @@ function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+
+
+// ================== Аудио ==================
+// Картинки сжимаются перед отправкой, музыку трогать нельзя — иначе потеряется
+// то, ради чего люди и выкладывают FLAC. Поэтому файл уходит как есть, а из
+// цепочки хостингов подходит только тот, что принимает произвольные файлы:
+// imgbb работает исключительно с изображениями.
+const AUDIO_TYPES = /\.(mp3|wav|flac|ogg|m4a|aac|opus)$/i;
+const MAX_AUDIO_MB = 25;
+
+export function isAudioFile(file) {
+  return file && (file.type.startsWith("audio/") || AUDIO_TYPES.test(file.name));
+}
+
+export async function uploadAudio(file) {
+  if (!isAudioFile(file)) throw new Error("это не аудиофайл");
+  const mb = file.size / (1024 * 1024);
+  if (mb > MAX_AUDIO_MB) throw new Error(`файл больше ${MAX_AUDIO_MB} МБ`);
+
+  const errors = [];
+  for (const hostName of IMAGE_HOSTS) {
+    if (hostName === "imgbb") continue;          // только изображения
+    const uploader = UPLOADERS[hostName];
+    if (!uploader) continue;
+    try {
+      return await uploader(file);
+    } catch (e) {
+      console.warn(`${hostName} не принял аудио:`, e.message);
+      errors.push(`${hostName}: ${e.message}`);
+    }
+  }
+  throw new Error(`не удалось загрузить «${file.name}» — ${errors.join("; ")}`);
+}

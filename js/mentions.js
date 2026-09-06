@@ -1,8 +1,9 @@
 import { resolveHandle } from "./data.js";
 import { currentUser } from "./auth.js";
 import { showToast } from "./ui.js";
-import { openPersonPreview, openChannelPreview } from "./person-preview.js";
+import { openPersonPreview, openChannelPreview, openMessagePreview } from "./person-preview.js";
 import { resolveNuid } from "./nuid.js";
+import { applyMarkup } from "./markup.js";
 
 // Вызывать ПОСЛЕ escapeHtml — работает с уже безопасным текстом, просто оборачивает
 // @хэндлы и #хештеги в кликабельные span'ы.
@@ -12,14 +13,16 @@ import { resolveNuid } from "./nuid.js";
 // пометить чей-то профиль) — такой случай ловим отдельно и делаем ссылкой на аккаунт,
 // а не хештегом.
 export function linkifyMentions(escapedText) {
-  return escapedText
+  // разметка применяется первой: она работает с уже экранированным текстом,
+  // а упоминания и теги затем находятся внутри получившейся строки
+  return applyMarkup(escapedText)
     .replace(
       /@(ch_[a-zA-Z0-9_]{2,17}|[a-zA-Z0-9_]{3,20})\b/g,
       (m, handle) => `<span class="mention" data-mention="${handle}">@${handle}</span>`
     )
     .replace(
       /#([A-Za-zА-Яа-яЁё0-9_]{2,30})/g,
-      (m, tag) => /^U[14]\d{6}$/i.test(tag)
+      (m, tag) => /^U[1-4]\d{6}$/i.test(tag)
         ? `<span class="mention" data-nuid="${tag.toUpperCase()}">#${tag}</span>`
         : `<span class="hashtag" data-hashtag="${tag}">#${tag}</span>`
     );
@@ -34,7 +37,17 @@ export function wireMentions(container) {
       if (el.dataset.nuid) {
         const hit = await resolveNuid(el.dataset.nuid);
         if (!hit) { showToast("Не нашла " + el.dataset.nuid); return; }
-        hit.type === "channel" ? openChannelPreview(hit.uid) : openPersonPreview(hit.uid);
+        if (hit.type === "channel") openChannelPreview(hit.uid);
+        else if (hit.type === "message") openMessagePreview(hit.uid, el.dataset.nuid);
+        else if (hit.type === "track") {
+          // трек проигрывается сразу, без промежуточного окна: это ровно то,
+          // чего от него ждут
+          const { getTrack } = await import("./music.js");
+          const { playTrack } = await import("./player.js");
+          const track = await getTrack(hit.uid);
+          if (track) playTrack(track); else showToast("Трек не найден");
+        }
+        else openPersonPreview(hit.uid);
         return;
       }
       const handle = el.dataset.mention;

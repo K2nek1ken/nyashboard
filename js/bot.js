@@ -56,7 +56,7 @@ const COMMANDS = [
     needsTarget: false,
     text: (a) => {
       const n = Math.floor(Math.random() * 6) + 1;
-      return `${a} броса́ет кубик: выпало ${n}`;
+      return `${a} бросает кубик: выпало ${n}`;
     }
   },
   {

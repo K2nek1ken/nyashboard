@@ -51,13 +51,21 @@ export function subscribeMessages(chatId, onUpdate, onError) {
     err => onError?.(err));
 }
 
-export async function sendMessage(chatId, text, imageUrl = null) {
-  await addDoc(collection(db, "dmChats", chatId, "messages"), {
+export async function sendMessage(chatId, text, imageUrl = null, { isBot = false, replyTo = null } = {}) {
+  const payload = {
     senderUid: currentUser.uid,
     text,
     imageUrl,
+    isBot,
     createdAt: serverTimestamp()
-  });
+  };
+  // цитату храним прямо в сообщении: так она переживает удаление оригинала
+  if (replyTo) {
+    payload.replyToId = replyTo.id;
+    payload.replyToNickname = replyTo.nickname;
+    payload.replyToText = (replyTo.text || "").slice(0, 120);
+  }
+  await addDoc(collection(db, "dmChats", chatId, "messages"), payload);
   // превью для списка чатов
   await updateDoc(doc(db, "dmChats", chatId), {
     lastMessage: (text || "фото").slice(0, 80),

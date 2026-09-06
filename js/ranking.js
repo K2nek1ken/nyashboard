@@ -4,6 +4,7 @@ import { getFriendsSync } from "./friends.js";
 import { interestScore } from "./interests.js";
 import { getSettings } from "./settings.js";
 import { currentUser } from "./auth.js";
+import { isOwned } from "./ownership.js";
 
 // Умная лента. В ленту попадают ВСЕ записи — ничего не отфильтровывается,
 // меняется только порядок. Логика прозрачная, без чёрного ящика:
@@ -20,6 +21,7 @@ import { currentUser } from "./auth.js";
 // Порядок пересчитывается только при загрузке страницы: если бы он менялся
 // во время чтения, лента прыгала бы под пальцами.
 const WEIGHTS = {
+  own: 2000,              // свои записи всегда наверху
   followedUnseen: 1000,
   unseen: 300,
   followedBonus: 200,
@@ -30,12 +32,19 @@ const WEIGHTS = {
 
 export function scorePost(post, subs, friends) {
   const seen = isSeen(post.id);
+  const isMine = currentUser && post.authorUid === currentUser.uid;
   // «Свой» источник — это и канал из подписок, и друг: логика одна и та же
   const followed =
     (post.channelId && subs.includes(post.channelId)) ||
     (post.authorUid && friends.includes(post.authorUid));
 
   let score = 0;
+
+  // Свои записи держим первыми: человек только что опубликовал и хочет
+  // увидеть результат, а не искать его в ленте. Для гостей владение
+  // определяется по локальной отметке — иначе их записи терялись бы.
+  if (isMine || isOwned("post", post.id)) score += WEIGHTS.own;
+
   if (!seen && followed) score += WEIGHTS.followedUnseen;
   else if (!seen) score += WEIGHTS.unseen;
   if (seen) score += WEIGHTS.seenPenalty;
@@ -43,7 +52,6 @@ export function scorePost(post, subs, friends) {
 
   // Похожесть на понравившееся. Свои записи сюда не попадают: лайк собственной
   // записи иначе поднимал бы её выше только что опубликованных, что бессмысленно.
-  const isMine = currentUser && post.authorUid === currentUser.uid;
   if (!isMine && getSettings().recommendations !== "off") {
     score += interestScore(post) * WEIGHTS.interest;
   }
