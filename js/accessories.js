@@ -61,5 +61,9 @@ export function accessoryHtml(key, colorKey) {
   if (!item || key === "none") return "";
   const svg = item.svg(paletteColor(colorKey));
   if (!svg) return "";
-  return `<svg class="avatar-accessory" viewBox="0 0 100 100" aria-hidden="true">${svg}</svg>`;
+  // Размеры продублированы прямо в разметке: если стиль почему-то не применился,
+  // элемент со стороной ноль просто не был бы виден, и причину искать долго.
+  return `<svg class="avatar-accessory" viewBox="0 0 100 100" aria-hidden="true"
+    style="position:absolute;inset:-18%;width:136%;height:136%;pointer-events:none;z-index:1;overflow:visible;"
+  >${svg}</svg>`;
 }

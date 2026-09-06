@@ -2,7 +2,8 @@ import { listTracks, toggleFavorite, loadFavorites, deleteTrack, uploadTrack, fo
 import { playTrack, currentTrackId } from "./player.js";
 import { currentUser } from "./auth.js";
 import { escapeHtml, showToast } from "./ui.js";
-import { askText, askConfirm } from "./dialog.js";
+import { askConfirm } from "./dialog.js";
+import { readAudioMeta } from "./audio-meta.js";
 import { ICON } from "./icons.js";
 
 // Карточка трека: обложка с кнопкой воспроизведения, название, полоса
@@ -75,8 +76,8 @@ export function wireTrackCards(container, tracks, onChanged) {
 export async function initMusicPanel(host) {
   host.innerHTML = `
     ${currentUser ? `
-      <button class="primaryBtn" id="uploadTrackBtn" style="width:auto; margin:0 0 14px;">
-        <span class="nf">${ICON.plus}</span> Загрузить трек
+      <button class="primaryBtn upload-track-btn" id="uploadTrackBtn">
+        <span class="nf">${ICON.plus}</span><span class="upload-track-label">Загрузить трек</span>
       </button>
       <input type="file" id="trackFileInput" accept="audio/*,.flac,.m4a,.opus" hidden>
       <input type="file" id="trackCoverInput" accept="image/*" hidden>` : ""}
@@ -103,37 +104,111 @@ export async function initMusicPanel(host) {
   }
   refresh();
 
-  // Загрузка: файл, затем название и исполнитель, затем необязательная обложка.
+  // Загрузка одним окном: файл выбирается первым, всё остальное — сразу вместе.
+  // Пошаговые вопросы были неудобны, а отмена на любом шаге просто пропускала
+  // его вместо того, чтобы прервать загрузку.
   const fileInput = host.querySelector("#trackFileInput");
-  const coverInput = host.querySelector("#trackCoverInput");
   host.querySelector("#uploadTrackBtn")?.addEventListener("click", () => fileInput.click());
 
   fileInput?.addEventListener("change", async () => {
     const file = fileInput.files[0];
     fileInput.value = "";
     if (!file) return;
+    openUploadForm(file, refresh);
+  });
+}
 
-    const guess = file.name.replace(/\.[^.]+$/, "");
-    const title = await askText("Название трека", { value: guess, maxlength: 80 });
-    if (!title) return;
-    const artist = await askText("Исполнитель", { placeholder: "можно оставить пустым", maxlength: 60 });
+// Форма загрузки: название, исполнитель и обложка в одном окне. Название,
+// исполнителя и картинку пробуем достать прямо из файла — у большинства
+// скачанных треков теги на месте, и заполнять руками ничего не придётся.
+async function openUploadForm(file, onDone) {
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.innerHTML = `
+    <div class="modal-content">
+      <button class="closeBtn modalClose" data-cancel><span class="nf">${ICON.close}</span></button>
+      <h2 style="margin-top:0; font-size:18px;">Новый трек</h2>
+      <p class="muted" style="margin-top:0; font-size:12px;">${escapeHtml(file.name)}</p>
 
-    const wantCover = await askConfirm("Добавить обложку?", { okLabel: "Выбрать" });
-    let coverFile = null;
-    if (wantCover) {
-      coverFile = await new Promise(resolve => {
-        coverInput.onchange = () => { const f = coverInput.files[0]; coverInput.value = ""; resolve(f || null); };
-        coverInput.click();
-      });
+      <div class="upload-form">
+        <label class="upload-cover" data-cover-pick title="нажми, чтобы выбрать обложку">
+          <img data-cover-preview alt="">
+          <span class="upload-cover-hint nf">${ICON.image}</span>
+        </label>
+        <div style="flex:1; min-width:0;">
+          <input class="inlineEdit" data-title placeholder="Название" maxlength="80">
+          <input class="inlineEdit" data-artist placeholder="Исполнитель" maxlength="60" style="margin-top:8px;">
+        </div>
+      </div>
+      <input type="file" accept="image/*" hidden data-cover-input>
+      <p class="muted" data-meta-note style="font-size:12px;"></p>
+
+      <div class="dialog-buttons">
+        <button class="secondaryBtn" data-cancel>Отмена</button>
+        <button class="primaryBtn" data-submit>Опубликовать</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const titleInput = modal.querySelector("[data-title]");
+  const artistInput = modal.querySelector("[data-artist]");
+  const coverInput = modal.querySelector("[data-cover-input]");
+  const coverPreview = modal.querySelector("[data-cover-preview]");
+  const note = modal.querySelector("[data-meta-note]");
+
+  titleInput.value = file.name.replace(/\.[^.]+$/, "");
+  let coverFile = null;
+
+  const setCover = (blob) => {
+    coverFile = blob;
+    coverPreview.src = URL.createObjectURL(blob);
+    coverPreview.style.display = "block";
+    modal.querySelector(".upload-cover-hint").style.display = "none";
+  };
+
+  // теги читаем в фоне: окно уже открыто, ждать разбора файла незачем
+  note.textContent = "Читаю сведения из файла…";
+  readAudioMeta(file).then(meta => {
+    if (meta.title) titleInput.value = meta.title;
+    if (meta.artist) artistInput.value = meta.artist;
+    if (meta.cover) {
+      setCover(meta.cover);
+      note.textContent = "Обложка и название взяты из файла — можно поменять";
+    } else {
+      note.textContent = meta.title ? "Название взято из файла" : "";
     }
+  }).catch(() => { note.textContent = ""; });
 
-    showToast("Загружаю трек…");
+  modal.querySelector("[data-cover-pick]").addEventListener("click", () => coverInput.click());
+  coverInput.addEventListener("change", () => {
+    const f = coverInput.files[0];
+    coverInput.value = "";
+    if (f) { setCover(f); note.textContent = "Обложка выбрана"; }
+  });
+
+  const close = () => modal.remove();
+  modal.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
+  modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+
+  modal.querySelector("[data-submit]").addEventListener("click", async () => {
+    const title = titleInput.value.trim();
+    if (!title) { showToast("Нужно название"); return; }
+
+    const btn = modal.querySelector("[data-submit]");
+    btn.disabled = true;
+    btn.textContent = "Загружаю…";
     try {
-      const { publicUid } = await uploadTrack({ file, title, artist, coverFile });
+      const { publicUid } = await uploadTrack({
+        file, title, artist: artistInput.value.trim(), coverFile
+      });
+      close();
       showToast(`Готово ♡ Идентификатор: ${publicUid}`);
-      refresh();
+      onDone?.();
     } catch (e) {
+      console.error(e);
       showToast("Не вышло: " + e.message);
+      btn.disabled = false;
+      btn.textContent = "Опубликовать";
     }
   });
 }

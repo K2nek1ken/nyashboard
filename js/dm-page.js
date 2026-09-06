@@ -56,7 +56,9 @@ function render(msgs) {
   const wasAtBottom = nearBottom || el.childElementCount === 0;
 
   el.innerHTML = msgs.map(m => {
-    const mine = m.senderUid === currentUser?.uid;
+    // Сообщения бота не редактируются даже автором команды — как и в общем
+    // чате: иначе можно подделать выданную ботом фразу.
+    const mine = m.senderUid === currentUser?.uid && !m.isBot;
     const items = [
       { action: "replyMsg", label: "Ответить", icon: ICON.reply },
       ...(mine ? [

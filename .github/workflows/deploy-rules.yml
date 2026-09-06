@@ -1,18 +1,16 @@
 # Автодеплой правил Firestore при пуше в main.
 #
-# Зачем: правила меняются почти каждое обновление, и забыть про них — значит
-# получить «Missing or insufficient permissions» на ровном месте. Пуш из Termux
-# теперь делает всё разом: и сайт, и правила.
+# Настройка один раз, в репозитории → Settings → Secrets and variables → Actions:
+#   FIREBASE_SERVICE_ACCOUNT — содержимое json-ключа целиком
+#   FIREBASE_PROJECT_ID      — идентификатор проекта (например, nyashboard)
 #
-# Что нужно один раз настроить:
-#   1. Создать сервисный аккаунт в Firebase:
-#      Project settings → Service accounts → Generate new private key
-#   2. В репозитории: Settings → Secrets and variables → Actions → New secret
-#      имя  FIREBASE_SERVICE_ACCOUNT
-#      значение — содержимое скачанного json-файла целиком
-#   3. Там же добавить secret FIREBASE_PROJECT_ID со значением nyashboard
+# Ключ берётся в Firebase: Project settings → Service accounts →
+# Generate new private key. Сервисный аккаунт бесплатен и к платному тарифу
+# отношения не имеет.
 #
-# Сервисный аккаунт бесплатен и к тарифу Blaze отношения не имеет.
+# ВАЖНО про права: у сервисного аккаунта должна быть роль
+# «Firebase Rules Admin» либо «Firebase Admin». Со стандартной ролью
+# редактора деплой правил падает с exit code 1 — это самая частая причина.
 
 name: Deploy Firestore rules
 
@@ -22,7 +20,7 @@ on:
     paths:
       - "firestore.rules"
       - "firebase.json"
-  workflow_dispatch:        # можно запустить вручную с сайта GitHub
+  workflow_dispatch:
 
 jobs:
   rules:
@@ -32,17 +30,42 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
+      # Проверяем, что секреты вообще заданы: без этого команда падает
+      # с невнятной ошибкой, и непонятно, дело в ключе или в правилах.
+      - name: Check secrets
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "::error::Секрет FIREBASE_SERVICE_ACCOUNT не задан"
+            exit 1
+          fi
+          if [ -z "${{ secrets.FIREBASE_PROJECT_ID }}" ]; then
+            echo "::error::Секрет FIREBASE_PROJECT_ID не задан"
+            exit 1
+          fi
+
+      - name: Write credentials
+        run: |
+          cat > "$RUNNER_TEMP/service-account.json" <<'JSON'
+          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          JSON
+          # проверяем, что это действительно json, а не обрезанная строка
+          node -e "JSON.parse(require('fs').readFileSync(process.env.RUNNER_TEMP + '/service-account.json','utf8'))" \
+            || { echo "::error::Ключ не читается как JSON — проверь, что секрет скопирован целиком"; exit 1; }
+
       - name: Deploy rules
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account.json
           firebase deploy --only firestore:rules \
             --project "${{ secrets.FIREBASE_PROJECT_ID }}" \
-            --non-interactive
-          rm -f service-account.json
+            --non-interactive \
+            --debug
+
+      - name: Clean up
+        if: always()
+        run: rm -f "$RUNNER_TEMP/service-account.json"

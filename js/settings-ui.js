@@ -143,16 +143,7 @@ export function initSettingsPage() {
         <p class="muted" style="font-size:12px; margin-top:0;" id="logoSoundInfo"></p>
       `)}
 
-      ${group("data", "Мои данные", "перенос настроек и очистка", `
-        <p class="muted" style="font-size:12px; margin-top:0;">
-          Сохрани оформление в файл, чтобы вернуть его после чистки браузера или
-          перенести на другое устройство. Данные аккаунта в файл не попадают.
-        </p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button id="exportSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Сохранить в файл</button>
-          <label class="secondaryBtn" for="importSettingsInput" style="width:auto; margin:0; cursor:pointer;">Восстановить из файла</label>
-          <input type="file" id="importSettingsInput" accept="application/json,.json" hidden>
-        </div>
+      ${group("data", "Мои данные", "интересы и аккаунт", `
         <p class="muted" style="font-size:12px;" id="interestsInfo"></p>
         <button id="clearInterestsBtn" class="dangerBtn">Очистить интересы</button>
         <button id="clearSeenBtn" class="secondaryBtn">Сбросить «просмотренное»</button>
@@ -163,6 +154,22 @@ export function initSettingsPage() {
           </p>
           <button id="deleteAccountBtn" class="dangerBtn">Удалить аккаунт</button>` : ""}
       `)}
+
+      <!-- Перенос настроек стоит после всех групп, а не внутри одной из них:
+           это действие над всем сразу, и прятать его в свёрнутый раздел
+           означало бы, что о нём просто не узнают. -->
+      <div class="settings-transfer">
+        <div class="settings-transfer-title">Перенос настроек</div>
+        <p class="muted" style="font-size:12px; margin-top:0;">
+          Сохрани оформление в файл, чтобы вернуть его после чистки браузера или
+          перенести на другое устройство. Данные аккаунта в файл не попадают.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="exportSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Сохранить в файл</button>
+          <label class="secondaryBtn" for="importSettingsInput" style="width:auto; margin:0; cursor:pointer;">Восстановить из файла</label>
+          <input type="file" id="importSettingsInput" accept="application/json,.json" hidden>
+        </div>
+      </div>
 
       <p class="muted" style="font-size:11px; text-align:center; margin-top:22px;">
         Сборка от ${BUILD.date} — ${BUILD.name}
