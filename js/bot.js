@@ -56,7 +56,7 @@ const COMMANDS = [
     needsTarget: false,
     text: (a) => {
       const n = Math.floor(Math.random() * 6) + 1;
-      return `${a} бросает кубик: выпало ${n}`;
+      return `${a} кида${gendered("ет", "ет", "ет")} кубик: выпало ${n}`;
     }
   },
   {
@@ -80,12 +80,16 @@ export function parseCommand(text, author, target) {
   const clean = (text || "").trim().toLowerCase();
   if (!clean) return null;
 
-  const first = clean.split(/\s+/)[0].replace(/[!.,]+$/, "");
-  const cmd = COMMANDS.find(c => c.names.includes(first));
+  // Командой считается только сообщение, состоящее из неё одной. Раньше
+  // достаточно было начать с нужного слова, и «обними меня крепче» уходило
+  // в бота вместо чата — а это уже обычная фраза, а не команда.
+  // Знаки в конце допускаются: «обнять!» — всё ещё команда.
+  const bare = clean.replace(/[!.,?…\s]+$/u, "");
+  const cmd = COMMANDS.find(c => c.names.includes(bare));
   if (!cmd) return null;
 
   if (cmd.needsTarget && !target) {
-    return { error: `Команда «${first}» работает только в ответ на чьё-то сообщение` };
+    return { error: `Команда «${bare}» работает только в ответ на чьё-то сообщение` };
   }
   return { text: cmd.text(author, target) };
 }
