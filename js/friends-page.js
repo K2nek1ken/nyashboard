@@ -3,7 +3,7 @@ import { askText, askConfirm } from "./dialog.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { initSettingsModal } from "./settings-modal.js";
 import { applyFavicon } from "./favicon.js";
-import { paintTabDots, markTabSeen, startTabPolling } from "./notifications.js";
+import { paintTabDots, markTabSeen, keepTabSeen, startTabPolling } from "./notifications.js";
 import { initRefreshButton } from "./refresh-button.js";
 import { initProfileDropdown, authReady, currentUser } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
@@ -18,7 +18,8 @@ import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 applySettings();
-markTabSeen("friends");   // страница открыта — здесь всё просмотрено
+markTabSeen("friends");
+keepTabSeen("friends");   // страница открыта — здесь всё просмотрено
 // Шапку рисуем немедленно: она не должна мигать пустотой,
 // пока страница ждёт DOMContentLoaded.
 initLayout();

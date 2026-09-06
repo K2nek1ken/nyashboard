@@ -2,6 +2,39 @@
 // цвета текущей темы: розовый котик на оранжевой теме смотрелся чужеродно.
 // Результат — data-URI, поэтому его можно подставлять в обычный <img src>.
 
+// ============================================================
+//  Свой оттенок для анонимной аватарки
+//
+//  Присваивается при первом заходе и хранится отдельно от аккаунта — поэтому
+//  переживает и выход, и повторный вход: в общем чате человек остаётся узнаваем
+//  по цвету, но связать его с профилем всё так же нечем.
+//
+//  Тем, кто заходил раньше, оттенок выдаётся при первом появлении этого кода —
+//  проверка стоит на чтении, а не только на регистрации.
+// ============================================================
+const ANON_COLOR_KEY = "nyash_anon_color";
+
+const ANON_PALETTE = [
+  "#e88fd0", "#e78fa4", "#f5a45c", "#f0c674", "#c3e88d", "#8fe0b0",
+  "#6fd3cf", "#7fc8f0", "#7f9cf5", "#b48ce8", "#c986c9", "#f2b9a0"
+];
+
+export function anonColor() {
+  let color = localStorage.getItem(ANON_COLOR_KEY);
+  if (color && /^#[0-9a-f]{6}$/i.test(color)) return color;
+  color = ANON_PALETTE[Math.floor(Math.random() * ANON_PALETTE.length)];
+  localStorage.setItem(ANON_COLOR_KEY, color);
+  return color;
+}
+
+// Светлее основного — чтобы сам силуэт был виден на цветном фоне.
+function lightenHex(hex, amount = 0.55) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return "#ffffff";
+  const mix = (c) => Math.round(parseInt(c, 16) + (255 - parseInt(c, 16)) * amount);
+  return "#" + [m[1], m[2], m[3]].map(c => mix(c).toString(16).padStart(2, "0")).join("");
+}
+
 function readTheme() {
   const cs = getComputedStyle(document.documentElement);
   const pick = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
@@ -49,11 +82,18 @@ function hiddenSvg({ accent, light, dark }) {
 </svg>`;
 }
 
-const BUILDERS = { neko: nekoSvg, hidden: hiddenSvg };
+const BUILDERS = { neko: nekoSvg, hidden: hiddenSvg, anon: nekoSvg };
 const cache = new Map();
 
 export function defaultAvatar(variant = "neko") {
   const theme = readTheme();
+  // Аватарка анонима красится в его личный оттенок, а не в акцент темы:
+  // так участники общего чата отличаются друг от друга.
+  if (variant === "anon") {
+    const base = anonColor();
+    theme.accent = base;
+    theme.light = lightenHex(base, 0.62);
+  }
   const key = `${variant}|${theme.accent}|${theme.light}|${theme.dark}`;
   if (cache.has(key)) return cache.get(key);
   const svg = (BUILDERS[variant] || nekoSvg)(theme);

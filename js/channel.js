@@ -11,7 +11,8 @@ import { loadSubscriptions } from "./subscriptions.js";
 import { loadChannelWall, renderPostsInto } from "./feed.js";
 import { getUserDoc } from "./data.js";
 import { shapeClass, shapePickerHtml } from "./avatar.js";
-import { CHANNEL_COLOR } from "./palette.js";
+import { CHANNEL_COLOR, paletteColor, paletteEntries } from "./palette.js";
+import { ACCESSORIES, accessoryHtml } from "./accessories.js";
 import { uploadImage, uploadImages } from "./storage.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
@@ -307,6 +308,61 @@ function wireSettingsModal(channelId) {
   }
   renderChannelShapes();
   csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+
+  // Украшение и цвет — те же, что у профилей: канал такой же участник ленты.
+  let pendingChannelAccessory = channel.accessory || "none";
+  let pendingChannelBorder = channel.avatarBorder || "teal";
+  const csAccessoryHost = document.getElementById("csAccessoryHost");
+  const csColorHost = document.getElementById("csColorHost");
+
+  function applyChannelDecor() {
+    const wrap = csAvatar.closest(".avatar-wrap") || csAvatar.parentElement;
+    if (!wrap) return;
+    csAvatar.style.borderColor = paletteColor(pendingChannelBorder);
+    wrap.querySelector(".avatar-accessory")?.remove();
+    const html = accessoryHtml(pendingChannelAccessory, pendingChannelBorder);
+    if (html) csAvatar.insertAdjacentHTML("afterend", html);
+  }
+
+  function renderChannelAccessories() {
+    if (!csAccessoryHost) return;
+    csAccessoryHost.innerHTML = `<div class="accessory-picker">
+      ${Object.entries(ACCESSORIES).map(([key, label]) => `
+        <button type="button" class="accessoryOption ${key === pendingChannelAccessory ? "selected" : ""}"
+                data-ch-accessory="${key}" title="${label}">
+          ${key === "none" ? '<span class="none-label">нет</span>'
+                           : accessoryHtml(key, pendingChannelBorder).replace("avatar-accessory", "")}
+        </button>`).join("")}
+    </div>`;
+    csAccessoryHost.querySelectorAll("[data-ch-accessory]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        pendingChannelAccessory = btn.dataset.chAccessory;
+        renderChannelAccessories();
+        applyChannelDecor();
+      });
+    });
+  }
+
+  function renderChannelColors() {
+    if (!csColorHost) return;
+    csColorHost.innerHTML = `<div class="color-picker">
+      ${paletteEntries().map(p => `
+        <button type="button" class="colorOption ${p.key === pendingChannelBorder ? "selected" : ""}"
+                data-ch-color="${p.key}" title="${p.label}" style="background:${p.color};"></button>`).join("")}
+    </div>`;
+    csColorHost.querySelectorAll("[data-ch-color]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        pendingChannelBorder = btn.dataset.chColor;
+        renderChannelColors();
+        renderChannelAccessories();
+        applyChannelDecor();
+      });
+    });
+  }
+
+  renderChannelAccessories();
+  renderChannelColors();
+  applyChannelDecor();
 
   saveBtn.addEventListener("click", async () => {
     const name = nameInput.value.trim();

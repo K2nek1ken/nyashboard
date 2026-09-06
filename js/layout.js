@@ -68,7 +68,9 @@ export function initLayout() {
       }).join("")}
     </nav>
     <div id="profileIcon" class="profile-icon" title="профиль">
-      <img id="profilePic" src="${defaultAvatar()}" data-default-avatar="neko" alt="профиль">
+      <span class="avatar-wrap" style="width:34px;height:34px;">
+        <img id="profilePic" src="${defaultAvatar()}" data-default-avatar="neko" alt="профиль">
+      </span>
     </div>`;
 
   // Логотип теперь кнопка: короткое нажатие мяукает, долгое (или средний клик)

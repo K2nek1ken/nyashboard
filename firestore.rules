@@ -397,7 +397,8 @@ service cloud.firestore {
       // канала падала с permission-denied.)
       allow update: if request.auth != null &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'username', 'description', 'avatarUrl', 'adminUids', 'adminSince', 'avatarShape']) &&
+          .hasOnly(['name', 'username', 'description', 'avatarUrl', 'adminUids', 'adminSince',
+                    'avatarShape', 'accessory', 'avatarBorder']) &&
         (!('username' in request.resource.data.diff(resource.data).affectedKeys()) ||
           request.resource.data.username.matches('ch_[a-zA-Z0-9_]{2,17}')) &&
         request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(channelId)).data.creatorUid;

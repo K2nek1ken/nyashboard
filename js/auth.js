@@ -203,8 +203,13 @@ export function initProfileDropdown() {
   // «сгенерированная», иначе при смене темы своя картинка подменялась анонимом.
   function paintHeaderAvatar() {
     const doc = currentUserDoc || (authPending ? cachedUserDoc : null);
-    applyAvatar(profilePic, doc, "neko");   // украшение подставится вместе с аватаркой
+    // Кнопка профиля показывает то же, что видят другие: аватарку с рамкой
+    // и украшением. Раньше украшение туда не попадало, и своё оформление
+    // можно было увидеть только в чужих глазах.
+    const wrap = profilePic.closest(".avatar-wrap") || profilePic.parentElement;
+    applyAvatar(profilePic, doc, doc ? "neko" : "anon");
     profilePic.style.width = profilePic.style.height = "";
+    if (wrap) wrap.classList.add("avatar-wrap");
   }
 
   paintHeaderAvatar();

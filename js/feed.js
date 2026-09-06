@@ -34,7 +34,13 @@ let lastRenderedPosts = null;
 // для этого не нужна — данные и так приходят живым потоком.
 export async function refreshFeed() {
   await Promise.all([loadSubscriptions(), loadFriends(), loadSeen(), loadInterests()]);
-  if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+  if (!lastRenderedPosts) return;
+  // Оформление авторов дозагружается заново: без этого кнопка «Обновить»
+  // рисовала ленту по сырым данным записи, и рамка, украшение и цвет ника
+  // пропадали.
+  authorCache.clear();
+  await enrichAuthors(lastRenderedPosts);
+  renderFeed(rankPosts(lastRenderedPosts));
 }
 
 // Разовая загрузка последних записей — для подвкладок и подборок, где живая
@@ -61,8 +67,19 @@ export function subscribeFeed() {
       && changes.every(c => c.type === "modified");
 
     if (onlyUpdates) {
+      // переносим уже подгруженное оформление на новые данные, иначе
+      // обновление счётчика стирало бы украшение и цвет ника
+      const byId = new Map(lastRenderedPosts.map(p => [p.id, p]));
+      posts.forEach(p => {
+        const old = byId.get(p.id);
+        if (!old) return;
+        p.authorAccessory = old.authorAccessory;
+        p.authorBorder = old.authorBorder;
+        p.authorNickColor = old.authorNickColor;
+        p.authorShape = p.authorShape || old.authorShape;
+      });
       lastRenderedPosts = posts;
-      changes.forEach(c => updatePostCard({ id: c.doc.id, ...c.doc.data() }));
+      changes.forEach(c => updatePostCard(posts.find(p => p.id === c.doc.id) || { id: c.doc.id, ...c.doc.data() }));
       return;
     }
 
@@ -125,13 +142,34 @@ async function enrichAuthors(posts) {
     posts.filter(p => p.authorUid && !p.isAnonymous && p.authorAccessory === undefined)
          .map(p => p.authorUid)
   )];
-  if (!uids.length) return;
+  const needChannels = posts.some(p => p.channelId && p.channelAccessory === undefined);
+  if (!uids.length && !needChannels) return;
 
   const { getUserDoc } = await import("./data.js");
   await Promise.all(uids.map(async uid => {
     if (authorCache.has(uid)) return;
     authorCache.set(uid, await getUserDoc(uid).catch(() => null));
   }));
+
+  // каналы: оформление тоже могло измениться после публикации
+  const channelIds = [...new Set(
+    posts.filter(p => p.channelId && p.channelAccessory === undefined).map(p => p.channelId)
+  )];
+  if (channelIds.length) {
+    const { getChannel } = await import("./channels.js");
+    await Promise.all(channelIds.map(async id => {
+      if (authorCache.has("ch:" + id)) return;
+      authorCache.set("ch:" + id, await getChannel(id).catch(() => null));
+    }));
+    posts.forEach(p => {
+      const ch = p.channelId && authorCache.get("ch:" + p.channelId);
+      if (!ch) return;
+      p.channelAccessory = ch.accessory || "none";
+      p.channelBorder = ch.avatarBorder || "teal";
+      p.channelShape = ch.avatarShape || "circle";
+      p.channelAvatar = ch.avatarUrl || p.channelAvatar;
+    });
+  }
 
   posts.forEach(p => {
     const u = p.authorUid && authorCache.get(p.authorUid);
@@ -329,7 +367,8 @@ export function postToHtml(p, maskAuthor = false) {
   const rawText = p.text || "";
   const isLong = rawText.length > 420 || rawText.split("\n").length > 10;
   const authorForAvatar = isChannelPost
-    ? { avatarUrl: p.channelAvatar, avatarShape: "rounded" }
+    ? { avatarUrl: p.channelAvatar, avatarShape: p.channelShape || "circle",
+        accessory: p.channelAccessory, avatarBorder: p.channelBorder }
     : (p.isAnonymous || masked ? {}
                      : { avatarUrl: p.authorAvatar, avatarShape: p.authorShape,
                          statusEmoji: p.authorStatus, accessory: p.authorAccessory,

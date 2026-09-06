@@ -33,6 +33,17 @@ export function markTabSeen(tab) {
   writeSeen(seen);
 }
 
+// Пока человек смотрит на вкладку, отметка обновляется: иначе сообщения,
+// пришедшие во время чтения, оставались бы «непрочитанными» навсегда, и точка
+// зажигалась бы снова при каждой проверке.
+export function keepTabSeen(tab) {
+  const touch = () => { if (!document.hidden) markTabSeen(tab); };
+  touch();
+  setInterval(touch, 10000);
+  document.addEventListener("visibilitychange", touch);
+  window.addEventListener("focus", touch);
+}
+
 function seenAt(tab) {
   return readSeen()[tab] || 0;
 }
@@ -65,7 +76,11 @@ export async function checkTabs() {
       const m = d.data();
       const ts = m.createdAt?.toMillis?.() || 0;
       if (ts <= since) return false;
-      const mine = isOwned("chatMessage", d.id) || (currentUser && m.authorUid === currentUser.uid);
+      // Своё — это и отправленное с этого устройства, и от своего аккаунта,
+      // и ответ бота на собственную команду: он приходит от тебя же.
+      const mine = isOwned("chatMessage", d.id)
+        || (currentUser && m.authorUid === currentUser.uid)
+        || m.isBot;
       return !mine;
     });
   } catch {}

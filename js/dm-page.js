@@ -205,7 +205,11 @@ async function init() {
     if (!file) return;
     pendingImage = file;
     preview.classList.remove("hidden");
-    preview.innerHTML = `<img src="${URL.createObjectURL(file)}"><button class="removeImg" data-remove><span class="nf">${ICON.close}</span></button>`;
+    preview.innerHTML = `
+      <div class="thumb">
+        <img src="${URL.createObjectURL(file)}" alt="">
+        <button class="removeThumb" data-remove title="убрать"><span class="nf">${ICON.close}</span></button>
+      </div>`;
     preview.querySelector("[data-remove]").addEventListener("click", () => {
       pendingImage = null; imageInput.value = "";
       preview.classList.add("hidden"); preview.innerHTML = "";

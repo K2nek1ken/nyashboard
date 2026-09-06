@@ -32,6 +32,8 @@ export async function createChannel(name, description, avatarUrl = null) {
     description: (description || "").trim(),
     avatarUrl: avatarUrl || null,
     avatarShape: "circle",   // как у профилей: форма задаётся, а не жёстко квадрат
+    accessory: "none",       // украшение вокруг аватарки канала
+    avatarBorder: "teal",    // цвет рамки и украшения
     adminUids: [],
     adminSince: {},          // когда каждый управляющий получил доступ
     createdAt: serverTimestamp()
@@ -217,6 +219,9 @@ export async function createChannelPost(channelId, text, imageUrls) {
     channelId,
     channelName: channel.name,
     channelAvatar: channel.avatarUrl,
+    channelShape: channel.avatarShape || "circle",
+    channelAccessory: channel.accessory || "none",
+    channelBorder: channel.avatarBorder || "teal",
     channelUsername: channel.username,
     isAnonymous: false,
     text,

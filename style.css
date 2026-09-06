@@ -1307,7 +1307,7 @@ html[data-theme="quiet"] .searchBox {
 /* карусель в сообщении чата — компактнее, чем в ленте */
 .chat-msg .carousel-track { aspect-ratio: 4 / 3; max-height: 260px; }
 .chat-msg .carousel { max-width: 320px; }
-.chat-msg .image-preview { display: flex; gap: 6px; flex-wrap: wrap; }
+
 
 /* постепенное появление записей: карточка «подъезжает» снизу и проявляется */
 .post-card { transition: opacity .28s ease, transform .28s ease; }
@@ -1535,3 +1535,32 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 .cselect-option:hover { background: var(--card); }
 .cselect-option.selected { color: var(--accent); font-weight: 600; }
+
+
+/* ---------- миниатюры выбранных фотографий над полем ввода ----------
+   Строго в один ряд с прокруткой вбок: раньше они шли в столбец в полный
+   размер и закрывали собой всю переписку. */
+#chatImagePreview, #dmImagePreview {
+  display: flex; gap: 6px; margin: 0 6px 6px;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+}
+#chatImagePreview::-webkit-scrollbar, #dmImagePreview::-webkit-scrollbar { display: none; }
+#chatImagePreview .thumb, #dmImagePreview .thumb {
+  position: relative; flex: 0 0 auto;
+  width: 52px; height: 52px; border-radius: 10px; overflow: hidden;
+}
+#chatImagePreview .thumb img, #dmImagePreview .thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block; max-width: none;
+}
+#chatImagePreview .removeThumb, #dmImagePreview .removeThumb {
+  position: absolute; top: 2px; right: 2px;
+  width: 18px; height: 18px; border-radius: 50%; padding: 0;
+  background: rgba(0,0,0,0.6); border: none; color: #fff; cursor: pointer;
+  font-size: 10px; display: flex; align-items: center; justify-content: center;
+}
+
+/* аватарка на кнопке профиля: украшение не должно обрезаться */
+.profile-icon .avatar-wrap { display: block; overflow: visible; }
+.profile-icon img { width: 100%; height: 100%; }
+@media (min-width: 900px) { .profile-icon .avatar-wrap { width: 42px !important; height: 42px !important; } }

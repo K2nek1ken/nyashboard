@@ -7,7 +7,8 @@ import { getSettings } from "./settings.js";
 import { parseCommand, listCommands } from "./bot.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getUserDoc } from "./data.js";
-import { relationBadge, badgeHtml, nameHtml, miniAvatarHtml } from "./person.js";
+import { relationBadge, badgeHtml, nameHtml } from "./person.js";
+import { avatarHtml } from "./avatar.js";
 import { loadFriends } from "./friends.js";
 import { openPersonPreview } from "./person-preview.js";
 import { initChatNav, trackMentions } from "./chat-nav.js";
@@ -287,11 +288,17 @@ function renderChat(msgs, { keepScroll = false } = {}) {
       ? `<span class="nf">${ICON.smile}</span> бот`
       : m.authorUid
         ? `<span class="person-chip" data-person="${m.authorUid}">
-             ${miniAvatarHtml({ avatarUrl: m.authorAvatar, avatarShape: m.authorShape }, 20)}
+             ${avatarHtml({
+                 avatarUrl: m.authorAvatar, avatarShape: m.authorShape,
+                 accessory: m.authorAccessory, avatarBorder: m.authorBorder
+               }, 22)}
              ${nameHtml({ nickname: m.nickname, nickColor: m.nickColor })}
              ${badgeHtml(badges.get(m.authorUid))}
            </span>`
-        : escapeHtml(m.nickname);
+        : `<span class="person-chip">
+             ${avatarHtml({}, 20, "", "anon")}
+             ${escapeHtml(m.nickname)}
+           </span>`;
 
     return `
     <div class="chat-msg ${m.isBot ? "is-bot" : ""}" data-id="${m.id}">
@@ -472,10 +479,14 @@ export function initChatForm() {
       return;
     }
     preview.classList.remove("hidden");
+    // Миниатюры идут в один ряд и прокручиваются вбок: в столбик они
+    // закрывали собой всю переписку.
     preview.innerHTML = pendingChatImages.map((f, i) => `
       <div class="thumb">
-        <img src="${URL.createObjectURL(f)}">
-        <button class="removeThumb" data-remove="${i}"><span class="nf">${ICON.close}</span></button>
+        <img src="${URL.createObjectURL(f)}" alt="">
+        <button class="removeThumb" data-remove="${i}" title="убрать">
+          <span class="nf">${ICON.close}</span>
+        </button>
       </div>`).join("");
     preview.querySelectorAll("[data-remove]").forEach(btn => {
       btn.addEventListener("click", () => {
