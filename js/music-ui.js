@@ -1,6 +1,6 @@
 import { listTracks, toggleFavorite, loadFavorites, deleteTrack, uploadTrack, formatDuration } from "./music.js";
 import { playTrack, currentTrackId } from "./player.js";
-import { currentUser } from "./auth.js";
+import { currentUser, authReady } from "./auth.js";
 import { escapeHtml, showToast } from "./ui.js";
 import { askConfirm } from "./dialog.js";
 import { readAudioMeta } from "./audio-meta.js";
@@ -74,13 +74,16 @@ export function wireTrackCards(container, tracks, onChanged) {
 
 // Подвкладка «Музыка» во вкладке «Контент».
 export async function initMusicPanel(host) {
+  // Ждём восстановления входа: панель открывается по нажатию, и без этого
+  // кнопка загрузки могла не появиться просто потому, что состояние входа
+  // ещё не подтвердилось.
+  await authReady;
+
   host.innerHTML = `
-    ${currentUser ? `
-      <button class="primaryBtn upload-track-btn" id="uploadTrackBtn">
-        <span class="nf">${ICON.plus}</span><span class="upload-track-label">Загрузить трек</span>
-      </button>
-      <input type="file" id="trackFileInput" accept="audio/*,.flac,.m4a,.opus" hidden>
-      <input type="file" id="trackCoverInput" accept="image/*" hidden>` : ""}
+    <button class="primaryBtn upload-track-btn" id="uploadTrackBtn">
+      <span class="nf">${ICON.plus}</span><span class="upload-track-label">Загрузить трек</span>
+    </button>
+    <input type="file" id="trackFileInput" accept="audio/*,.flac,.m4a,.opus,.wav,.ogg,.aac" hidden>
     <div id="tracksList"><div class="stub-note">Загружаю…</div></div>`;
 
   const listEl = host.querySelector("#tracksList");
@@ -108,7 +111,12 @@ export async function initMusicPanel(host) {
   // Пошаговые вопросы были неудобны, а отмена на любом шаге просто пропускала
   // его вместо того, чтобы прервать загрузку.
   const fileInput = host.querySelector("#trackFileInput");
-  host.querySelector("#uploadTrackBtn")?.addEventListener("click", () => fileInput.click());
+  host.querySelector("#uploadTrackBtn")?.addEventListener("click", () => {
+    // Кнопка видна всем: если её прятать, невошедшему непонятно, можно ли
+    // тут вообще что-то выложить.
+    if (!currentUser) { showToast("Войди, чтобы выкладывать музыку"); return; }
+    fileInput.click();
+  });
 
   fileInput?.addEventListener("change", async () => {
     const file = fileInput.files[0];

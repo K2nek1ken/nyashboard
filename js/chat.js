@@ -546,7 +546,7 @@ export function initChatForm() {
                 : identity.nickname,
         isBot: !!parsed,
         text: parsed ? parsed.text : text,
-        imageUrl,
+        imageUrls,
         createdAt: serverTimestamp()
       };
       // цитату сохраняем прямо в сообщении: так она переживёт удаление оригинала

@@ -56,13 +56,17 @@ function render(msgs) {
   const wasAtBottom = nearBottom || el.childElementCount === 0;
 
   el.innerHTML = msgs.map(m => {
-    // Сообщения бота не редактируются даже автором команды — как и в общем
-    // чате: иначе можно подделать выданную ботом фразу.
-    const mine = m.senderUid === currentUser?.uid && !m.isBot;
+    // Сторона определяется отправителем: команду набрал ты, значит и ответ бота
+    // должен стоять с твоей стороны. А вот править его нельзя даже тебе —
+    // иначе можно подделать выданную ботом фразу.
+    const mine = m.senderUid === currentUser?.uid;
+    const canEdit = mine && !m.isBot;
     const items = [
       { action: "replyMsg", label: "Ответить", icon: ICON.reply },
+      ...(canEdit ? [
+        { action: "editMsg", label: "Изменить", icon: ICON.pencil }
+      ] : []),
       ...(mine ? [
-        { action: "editMsg", label: "Изменить", icon: ICON.pencil },
         { action: "deleteMsg", label: "Удалить", icon: ICON.close, danger: true }
       ] : [])
     ];
