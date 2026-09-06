@@ -25,6 +25,11 @@ export const PALETTE = {
   slate:     { label: "Графит",       color: "#8d97a8", soft: "#6f7889" }
 };
 
+// Отдельный оттенок для названий каналов: он не входит в палитру выбора,
+// поэтому совпасть с чьим-то ником не может — увидев его, сразу понятно,
+// что запись от канала, а не от человека.
+export const CHANNEL_COLOR = "#66d9e8";
+
 export function paletteColor(key, fallback = "#e88fd0") {
   return PALETTE[key]?.color || fallback;
 }

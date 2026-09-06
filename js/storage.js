@@ -46,6 +46,45 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
+// Для больших файлов обычного запроса мало: он не сообщает, сколько уже ушло,
+// и человек смотрит на неподвижную надпись, гадая, идёт ли что-то вообще.
+// Здесь запрос старого образца — он единственный умеет отдавать ход отправки.
+// Отсчёт времени тоже другой: он сбрасывается на каждом сдвиге, поэтому
+// медленная, но живая загрузка не обрывается по общему сроку.
+function uploadWithProgress(url, formData, { onProgress, stallMs = 45000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let stallTimer = null;
+
+    const resetStall = () => {
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        xhr.abort();
+        reject(new Error("отправка остановилась — проверь связь"));
+      }, stallMs);
+    };
+
+    xhr.upload.onprogress = (e) => {
+      resetStall();
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      clearTimeout(stallTimer);
+      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText.trim());
+      else reject(new Error(`ответ ${xhr.status}`));
+    };
+    xhr.onerror = () => {
+      clearTimeout(stallTimer);
+      reject(new Error("не удалось соединиться с хранилищем"));
+    };
+    xhr.onabort = () => clearTimeout(stallTimer);
+
+    xhr.open("POST", url);
+    resetStall();
+    xhr.send(formData);
+  });
+}
+
 const UPLOADERS = {
   // Быстрый, но требует ключ и имеет суточные лимиты на бесплатном тарифе.
   async imgbb(file) {
@@ -150,22 +189,39 @@ export function isAudioFile(file) {
   return file && (file.type.startsWith("audio/") || AUDIO_TYPES.test(file.name));
 }
 
-export async function uploadAudio(file) {
+// Загрузка аудио идёт запросом с отслеживанием хода: файлы тяжёлые, и без
+// этого непонятно, идёт ли отправка вообще. onProgress получает долю от 0 до 1.
+export async function uploadAudio(file, onProgress = null) {
   if (!isAudioFile(file)) throw new Error("это не аудиофайл");
   const mb = file.size / (1024 * 1024);
   if (mb > MAX_AUDIO_MB) throw new Error(`файл больше ${MAX_AUDIO_MB} МБ`);
 
   const errors = [];
-  for (const hostName of IMAGE_HOSTS) {
-    if (hostName === "imgbb") continue;          // только изображения
-    const uploader = UPLOADERS[hostName];
-    if (!uploader) continue;
-    try {
-      return await uploader(file);
-    } catch (e) {
-      console.warn(`${hostName} не принял аудио:`, e.message);
-      errors.push(`${hostName}: ${e.message}`);
-    }
+
+  // catbox
+  try {
+    const form = new FormData();
+    form.append("reqtype", "fileupload");
+    form.append("fileToUpload", file, file.name);
+    const text = await uploadWithProgress("https://catbox.moe/user/api.php", form, { onProgress });
+    if (text.startsWith("https://")) return text;
+    errors.push(`catbox: ${text.slice(0, 80)}`);
+  } catch (e) {
+    console.warn("catbox не принял аудио:", e.message);
+    errors.push(`catbox: ${e.message}`);
   }
+
+  // uguu — запасной вариант
+  try {
+    const form = new FormData();
+    form.append("files[]", file, file.name);
+    const text = await uploadWithProgress("https://uguu.se/upload?output=text", form, { onProgress });
+    if (text.startsWith("https://")) return text;
+    errors.push(`uguu: ${text.slice(0, 80)}`);
+  } catch (e) {
+    console.warn("uguu не принял аудио:", e.message);
+    errors.push(`uguu: ${e.message}`);
+  }
+
   throw new Error(`не удалось загрузить «${file.name}» — ${errors.join("; ")}`);
 }

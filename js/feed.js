@@ -15,7 +15,7 @@ import { markOwned, isOwned } from "./ownership.js";
 import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
 import { avatarHtml, applyAvatar } from "./avatar.js";
-import { paletteColor } from "./palette.js";
+import { paletteColor, CHANNEL_COLOR } from "./palette.js";
 import { openEmojiPicker } from "./emoji.js";
 import { extractHashtags } from "./hashtags.js";
 import { rankPosts } from "./ranking.js";
@@ -144,8 +144,10 @@ export function postToHtml(p, maskAuthor = false) {
       : masked ? "•".repeat(Math.min(8, (p.authorNickname || "").length || 6))
       : escapeHtml(p.authorNickname || "???"));
   // цвет ника выбирает автор, и он одинаков для всех, кто видит запись
-  const nameStyle = (!isChannelPost && !p.isAnonymous && !masked && p.authorNickColor)
-    ? ` style="color:${paletteColor(p.authorNickColor)}"` : "";
+  const nameStyle = isChannelPost
+    ? ` style="color:${CHANNEL_COLOR}"`
+    : (!p.isAnonymous && !masked && p.authorNickColor
+        ? ` style="color:${paletteColor(p.authorNickColor)}"` : "");
   const authorAttrs = isChannelPost
     ? `data-action="viewChannel" data-channel-id="${p.channelId}"`
     : `data-action="viewAuthor" data-uid="${p.authorUid || ""}"`;

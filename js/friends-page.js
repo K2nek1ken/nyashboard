@@ -11,7 +11,8 @@ import { loadFriendProfiles, removeFriend, addFriend, isMutualFriend, loadIncomi
 import { listChats, otherParticipant, openOrCreateChat } from "./dm.js";
 import { fetchOnline, startPresence } from "./presence.js";
 import { getUserDoc } from "./data.js";
-import { shapeClass } from "./avatar.js";
+import { avatarHtml } from "./avatar.js";
+import { nameHtml } from "./person.js";
 import { escapeHtml, timeAgo, showToast } from "./ui.js";
 import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
@@ -26,14 +27,13 @@ paintTabDots();
 startTabPolling();
 
 function personRow(u, extraHtml = "", clickAttr = "") {
+  // avatarHtml рисует и украшение, и цвет рамки, и статус — раньше здесь была
+  // своя упрощённая вёрстка, и украшения в списках просто не появлялись.
   return `
     <div class="person-row" ${clickAttr}>
-      <span class="avatar-wrap ${u.online ? "is-online" : ""}" style="width:38px;height:38px;">
-        <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || defaultAvatar()}" style="width:38px;height:38px;">
-        <span class="avatar-status" style="width:16px;height:16px;font-size:9px;">${u.statusEmoji || ""}</span>
-      </span>
+      <span class="${u.online ? "online-wrap" : ""}">${avatarHtml(u, 38)}</span>
       <div style="flex:1; min-width:0;">
-        <div>${escapeHtml(u.nickname || "???")}</div>
+        <div>${nameHtml(u, { clickable: false })}</div>
         <div class="pmuted">@${escapeHtml(u.username || "???")}</div>
       </div>
       ${extraHtml}

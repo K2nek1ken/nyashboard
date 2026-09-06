@@ -2,7 +2,7 @@ import { listAllUsers, getUserDoc } from "./data.js";
 import { loadUserFeed, renderPostsInto } from "./feed.js";
 import { currentUser, authReady } from "./auth.js";
 import { escapeHtml } from "./ui.js";
-import { shapeClass } from "./avatar.js";
+import { avatarHtml, shapeClass } from "./avatar.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
 import { loadFriends } from "./friends.js";
 import { resolveNuid } from "./nuid.js";
@@ -31,10 +31,7 @@ async function renderPeople(users) {
 
   listEl.innerHTML = users.map(u => `
     <div class="person-row" data-uid="${u.uid}">
-      <span class="avatar-wrap" style="width:38px;height:38px;">
-        <img class="avatar-shaped ${shapeClass(u.avatarShape)}" src="${u.avatarUrl || defaultAvatar()}" style="width:38px;height:38px;">
-        <span class="avatar-status" style="width:16px;height:16px;font-size:9px;">${u.statusEmoji || ""}</span>
-      </span>
+      ${avatarHtml(u, 38)}
       <div style="min-width:0;">
         <div>${nameHtml(u, { clickable: false })}${badgeHtml(badges.get(u.uid))}</div>
         <div class="pmuted">@${escapeHtml(u.username)}</div>

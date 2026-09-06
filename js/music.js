@@ -16,11 +16,11 @@ import { generateUniqueNuid, registerNuid } from "./nuid.js";
 //  прикрепить к записи, как упоминание.
 // ============================================================
 
-export async function uploadTrack({ file, title, artist, coverFile }) {
+export async function uploadTrack({ file, title, artist, coverFile, onProgress }) {
   if (!currentUser) throw new Error("Нужен аккаунт");
   if (!title?.trim()) throw new Error("Нужно название");
 
-  const url = await uploadAudio(file);
+  const url = await uploadAudio(file, onProgress);
   const coverUrl = coverFile ? await uploadImage(coverFile) : null;
 
   // Длительность читаем в браузере: сервер её не сообщит, а показывать

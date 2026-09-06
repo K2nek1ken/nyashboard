@@ -55,7 +55,19 @@ export async function checkTabs() {
   const result = { chat: false, friends: false, content: false, feed: false };
 
   try {
-    result.chat = await hasNewerThan("chatMessages", "createdAt", seenAt("chat"));
+    // Смотрим последние сообщения, а не одно: последнее вполне может быть
+    // своим, и тогда точка загоралась от собственной же реплики.
+    const snap = await getDocs(query(collection(db, "chatMessages"),
+      orderBy("createdAt", "desc"), limit(5)));
+    const since = seenAt("chat");
+    const { isOwned } = await import("./ownership.js");
+    result.chat = snap.docs.some(d => {
+      const m = d.data();
+      const ts = m.createdAt?.toMillis?.() || 0;
+      if (ts <= since) return false;
+      const mine = isOwned("chatMessage", d.id) || (currentUser && m.authorUid === currentUser.uid);
+      return !mine;
+    });
   } catch {}
 
   if (!currentUser) return result;

@@ -8,6 +8,7 @@ import { currentUser, authReady } from "./auth.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
 import { shapeClass } from "./avatar.js";
+import { CHANNEL_COLOR } from "./palette.js";
 
 let allChannels = [];
 let managedIds = new Set(); // каналы, где я создатель/админ — там кнопки "подписаться" нет
@@ -94,7 +95,7 @@ function channelCard(c) {
     <a class="channel-card" href="channel.html?id=${c.id}" data-id="${c.id}">
       <div class="channel-icon">${icon}</div>
       <div class="channel-info">
-        <div class="channel-name">${escapeHtml(c.name)}</div>
+        <div class="channel-name" style="color:${CHANNEL_COLOR}">${escapeHtml(c.name)}</div>
         <div class="channel-desc">@${escapeHtml(c.username)} · ${escapeHtml(c.description || "без описания")}</div>
       </div>
       ${isManaged

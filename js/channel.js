@@ -11,6 +11,7 @@ import { loadSubscriptions } from "./subscriptions.js";
 import { loadChannelWall, renderPostsInto } from "./feed.js";
 import { getUserDoc } from "./data.js";
 import { shapeClass, shapePickerHtml } from "./avatar.js";
+import { CHANNEL_COLOR } from "./palette.js";
 import { uploadImage, uploadImages } from "./storage.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
@@ -36,8 +37,13 @@ export async function initChannelPage() {
   if (!channel) { wallEl.innerHTML = `<div class="stub-note">Канал не найден</div>`; return; }
 
   document.title = `NyashBoard ♡ — ${channel.name}`;
-  document.getElementById("chAvatar").src = channel.avatarUrl || defaultAvatar();
-  document.getElementById("chName").textContent = channel.name;
+  // форма применяется и на самой странице канала, а не только в его настройках
+  const chAvatarEl = document.getElementById("chAvatar");
+  chAvatarEl.src = channel.avatarUrl || defaultAvatar();
+  chAvatarEl.className = `avatar-shaped ${shapeClass(channel.avatarShape)}`;
+  const chNameEl = document.getElementById("chName");
+  chNameEl.textContent = channel.name;
+  chNameEl.style.color = CHANNEL_COLOR;   // тот же оттенок, что и в ленте
   document.getElementById("chUsername").textContent = channel.username;
   document.getElementById("chNuid").textContent = channel.publicUid || "";
   document.getElementById("chDescription").textContent = channel.description || "";
@@ -321,8 +327,12 @@ function wireSettingsModal(channelId) {
         await changeChannelUsername(channelId, channel.username, usernameSuffix);
       }
       channel = await getChannel(channelId);
-      document.getElementById("chAvatar").src = channel.avatarUrl || defaultAvatar();
-      document.getElementById("chName").textContent = channel.name;
+      const el = document.getElementById("chAvatar");
+      el.src = channel.avatarUrl || defaultAvatar();
+      el.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+      const chNameEl = document.getElementById("chName");
+  chNameEl.textContent = channel.name;
+  chNameEl.style.color = CHANNEL_COLOR;   // тот же оттенок, что и в ленте
       document.getElementById("chUsername").textContent = channel.username;
       document.getElementById("chDescription").textContent = channel.description || "";
       showToast("Сохранено ♡");

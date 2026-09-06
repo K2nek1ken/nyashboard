@@ -204,10 +204,13 @@ async function openUploadForm(file, onDone) {
 
     const btn = modal.querySelector("[data-submit]");
     btn.disabled = true;
-    btn.textContent = "Загружаю…";
+    btn.textContent = "Загружаю… 0%";
     try {
       const { publicUid } = await uploadTrack({
-        file, title, artist: artistInput.value.trim(), coverFile
+        file, title, artist: artistInput.value.trim(), coverFile,
+        // показываем ход отправки прямо на кнопке: у больших файлов без этого
+        // непонятно, идёт ли что-то вообще
+        onProgress: (ratio) => { btn.textContent = `Загружаю… ${Math.round(ratio * 100)}%`; }
       });
       close();
       showToast(`Готово ♡ Идентификатор: ${publicUid}`);
