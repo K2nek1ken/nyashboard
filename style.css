@@ -1330,10 +1330,20 @@ html[data-theme="quiet"] .searchBox {
 }
 
 /* ---------- группы настроек ---------- */
+/* Без overflow: hidden — иначе группа обрезала выпадающие списки внутри себя,
+   и они проваливались под соседние группы. Скругление углов обеспечивают
+   заголовок и содержимое по отдельности. */
 .settings-group {
   background: var(--card); border-radius: var(--radius);
-  margin-bottom: 10px; overflow: hidden;
+  margin-bottom: 10px;
 }
+.settings-group summary { border-radius: var(--radius) var(--radius) 0 0; }
+.settings-group:not([open]) summary { border-radius: var(--radius); }
+.settings-group-body { border-radius: 0 0 var(--radius) var(--radius); }
+
+/* Раскрытая группа лежит выше соседних: её список должен накрывать то,
+   что под ним, а не прятаться за следующей группой. */
+.settings-group[open] { position: relative; z-index: 5; }
 .settings-group summary {
   padding: 14px 16px; cursor: pointer; list-style: none;
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
@@ -1510,8 +1520,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 .cselect-btn:hover { border-color: var(--accent); }
 .cselect-arrow { color: var(--muted); transform: rotate(90deg); font-size: 15px; }
+/* Положение задаёт код (см. select.js): список выносится из потока, чтобы его
+   не обрезали прокручиваемые области — окно настроек, группа, карточка. */
 .cselect-menu {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 70;
+  position: fixed; z-index: 95;
   background: var(--bg-soft); border: 1px solid #3a2f47; border-radius: 12px;
   padding: 5px; min-width: 180px; max-height: 260px; overflow-y: auto;
   box-shadow: 0 12px 30px rgba(0,0,0,0.45);

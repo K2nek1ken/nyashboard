@@ -193,10 +193,23 @@ function columnCount(container) {
   return Math.max(1, Math.min(3, Math.floor(width / MIN_COLUMN)));
 }
 
-// Раскладка змейкой: запись с номером i попадает в колонку i % n.
-// Так порядок чтения совпадает с порядком в ленте — первая запись слева
-// вверху, вторая справа, третья снова слева. Если просто разделить список
-// пополам, вторая по важности запись окажется в самом низу левой колонки.
+// Примерная высота записи. Точную до отрисовки знать нельзя, но для раскладки
+// хватает оценки: важно лишь понимать, какая запись заметно выше остальных.
+function estimateHeight(p) {
+  let h = 110;                                  // шапка, кнопки, поле ответа
+  const text = p.text || "";
+  h += Math.min(320, Math.ceil(text.length / 48) * 21);   // строки текста
+  if ((p.imageUrls?.length || p.imageUrl) ? 1 : 0) h += 250;  // карусель фиксированной высоты
+  if (/#U3\d{6}/i.test(text)) h += 90;           // прикреплённый трек
+  return h;
+}
+
+// Раскладка по колонкам. Записи идут по порядку, но каждая следующая ложится
+// в самую короткую колонку — иначе две записи с фотографиями подряд попадали
+// в одну и вытягивали её вдвое, оставляя рядом пустоту.
+//
+// Порядок чтения при этом сохраняется: первые записи всё равно занимают начала
+// колонок слева направо, потому что пустая колонка всегда самая короткая.
 function layoutPosts(container, posts, buildHtml) {
   const cols = columnCount(container);
   if (cols === 1) {
@@ -204,8 +217,21 @@ function layoutPosts(container, posts, buildHtml) {
     container.classList.remove("has-columns");
     return;
   }
+
   const buckets = Array.from({ length: cols }, () => []);
-  posts.forEach((p, i) => buckets[i % cols].push(buildHtml(p)));
+  const heights = new Array(cols).fill(0);
+
+  posts.forEach(p => {
+    // из равных по высоте выбираем самую левую — так первые записи
+    // раскладываются слева направо, как и читаются
+    let target = 0;
+    for (let i = 1; i < cols; i++) {
+      if (heights[i] < heights[target] - 1) target = i;
+    }
+    buckets[target].push(buildHtml(p));
+    heights[target] += estimateHeight(p);
+  });
+
   container.innerHTML = buckets
     .map(items => `<div class="feed-column">${items.join("")}</div>`)
     .join("");
@@ -222,6 +248,33 @@ function renderFeed(posts) {
   layoutPosts(feedListEl, posts, p => postToHtml(p));
   posts.forEach(p => wirePostCard(p, feedListEl));
   revealSequentially(feedListEl);
+  balanceColumns(feedListEl);
+}
+
+// Оценка высоты приблизительная, поэтому после отрисовки смотрим, что вышло
+// на самом деле, и если одна колонка сильно длиннее — переносим в короткую
+// нижние записи. Двигаем только с конца: верх ленты трогать нельзя, там
+// самое важное, и записи не должны прыгать под уже читающим человеком.
+function balanceColumns(container) {
+  const columns = [...container.querySelectorAll(".feed-column")];
+  if (columns.length < 2) return;
+
+  for (let pass = 0; pass < 4; pass++) {
+    const heights = columns.map(c => c.offsetHeight);
+    const tallest = heights.indexOf(Math.max(...heights));
+    const shortest = heights.indexOf(Math.min(...heights));
+    const gap = heights[tallest] - heights[shortest];
+
+    // перекос меньше высоты средней записи выравнивать незачем
+    if (gap < 260) return;
+
+    const last = columns[tallest].lastElementChild;
+    if (!last) return;
+    // перенос не должен сделать короткую колонку длиннее длинной
+    if (last.offsetHeight > gap) return;
+
+    columns[shortest].appendChild(last);
+  }
 }
 
 // Управляющие каналов знают свои каналы из общего списка — он загружается

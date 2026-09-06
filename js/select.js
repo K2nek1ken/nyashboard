@@ -1,4 +1,4 @@
-import { keepInViewport } from "./anchor.js";
+import { positionNear } from "./anchor.js";
 
 // ============================================================
 //  Свой выпадающий список
@@ -43,7 +43,12 @@ export function wireSelects(container, onChange) {
       closeAll();
       if (wasOpen) return;
       menu.classList.remove("hidden");
-      keepInViewport(menu);
+
+      // Список позиционируется относительно окна, а не своего места в разметке.
+      // Иначе его обрезает любой прокручиваемый контейнер выше по дереву —
+      // например, окно настроек на компьютере или сама группа настроек.
+      menu.style.minWidth = `${btn.offsetWidth}px`;
+      positionNear(menu, btn, { prefer: "bottom", align: "left" });
     });
 
     menu.querySelectorAll("[data-value]").forEach(opt => {
@@ -61,12 +66,19 @@ export function wireSelects(container, onChange) {
   if (!wired) {
     wired = true;
     document.addEventListener("click", closeAll);
+    // Список привязан к положению кнопки на экране, поэтому при прокрутке
+    // он остался бы висеть в стороне — проще закрыть.
+    window.addEventListener("scroll", closeAll, true);
+    window.addEventListener("resize", closeAll);
   }
 }
 
 let wired = false;
 
 function closeAll() {
-  document.querySelectorAll("[data-cselect-menu]:not(.hidden)")
-    .forEach(m => m.classList.add("hidden"));
+  document.querySelectorAll("[data-cselect-menu]:not(.hidden)").forEach(m => {
+    m.classList.add("hidden");
+    // сбрасываем вычисленное положение: при следующем открытии оно считается заново
+    m.style.position = m.style.top = m.style.left = m.style.transform = "";
+  });
 }
