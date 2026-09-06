@@ -490,7 +490,10 @@ button, input, textarea { font-family: inherit; color: inherit; }
      и запись, которая должна быть второй, оказывалась в самом низу слева.
      Теперь порядок идёт змейкой: первая запись слева, вторая справа, третья
      снова слева — как и читается. */
-  .feed-list { display: flex; gap: 16px; align-items: flex-start; }
+  /* flex-direction обязателен: в основном правиле список идёт колонкой,
+     и без сброса колонки вставали одна под другой — визуально это выглядело
+     как один широкий столбец. */
+  .feed-list { display: flex; flex-direction: row; gap: 16px; align-items: flex-start; }
   .feed-column { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
   #vpPosts.feed-list, #previewPosts.feed-list { display: block; }   /* в карточке профиля колонка одна */
 
