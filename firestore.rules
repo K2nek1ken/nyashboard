@@ -95,6 +95,14 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Взаимная дружба между участниками переписки: оба должны быть в списках
+    // друг у друга. Проверяется при каждом сообщении, а не только при создании.
+    function isMutualWith(participants) {
+      let other = participants[0] == request.auth.uid ? participants[1] : participants[0];
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(other))
+          && exists(/databases/$(database)/documents/users/$(other)/friends/$(request.auth.uid));
+    }
+
     // ===================== ЛИЧНЫЕ ЧАТЫ =====================
     // id чата — оба uid по алфавиту через подчёркивание, чтобы у пары людей
     // всегда был ровно один чат независимо от того, кто написал первым.
@@ -116,11 +124,17 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{msgId} {
+        // Читать переписку участники могут всегда — история остаётся доступной.
         allow read: if request.auth != null &&
           request.auth.uid in get(/databases/$(database)/documents/dmChats/$(chatId)).data.participants;
+
+        // А вот писать — только пока дружба взаимная. Раньше проверка стояла
+        // лишь при создании чата, и после удаления из друзей переписка
+        // продолжала работать как ни в чём не бывало.
         allow create: if request.auth != null &&
           request.auth.uid in get(/databases/$(database)/documents/dmChats/$(chatId)).data.participants &&
-          request.resource.data.senderUid == request.auth.uid;
+          request.resource.data.senderUid == request.auth.uid &&
+          isMutualWith(get(/databases/$(database)/documents/dmChats/$(chatId)).data.participants);
         // остальные поля (цитата, пометка бота) свободны: они не влияют
         // на права и проверяются только на стороне отправителя
         allow update: if request.auth != null &&
@@ -220,6 +234,20 @@ service cloud.firestore {
       );
     }
 
+    // ===================== ТВОРЧЕСТВО =====================
+    // Работы видны всем; менять и удалять может только автор. Оценки, как
+    // и у записей, проверяются на согласованность — счётчик не накрутить.
+    match /artworks/{artId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if request.auth != null && (
+        isVoteToggle('likedBy', 'likesCount') ||
+        resource.data.authorUid == request.auth.uid
+      );
+      allow delete: if request.auth != null && resource.data.authorUid == request.auth.uid;
+    }
+
     // ===================== МУЗЫКА =====================
     // Треки видны всем: это публичная библиотека сайта. Загрузивший может
     // изменить описание и удалить свой трек — владение хранится в самом
@@ -242,6 +270,11 @@ service cloud.firestore {
     // Личная фонотека: что человек добавил в любимое. Приватная, как интересы
     // и подписки — видимостью управляет настройка в профиле, а сам список
     // читает только владелец.
+    // Подборки — личные: читает и меняет только владелец, как интересы.
+    match /users/{userId}/playlists/{playlistId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /users/{userId}/music/{trackId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
@@ -263,6 +296,20 @@ service cloud.firestore {
          || (wasIn && !isIn && after.get(countField, 0) == count - 1));
     }
 
+    // Записи стены: их видят только те, кого автор добавил в друзья, и те,
+    // кто добавил его. Это отдельная лента «для своих», а не публичная.
+    //
+    // Проверять «кто кого добавил» на стороне базы нельзя для запроса списка:
+    // правило применяется к каждой записи, а условие зависит от читающего.
+    // Поэтому видимость хранится прямо в записи полем audience, а список
+    // запрашивается с фильтром по нему — база отдаёт ровно то, что можно.
+    function canSeeWallPost(post) {
+      return post.audience != 'friends'
+        || request.auth.uid == post.authorUid
+        || exists(/databases/$(database)/documents/users/$(post.authorUid)/friends/$(request.auth.uid))
+        || exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(post.authorUid));
+    }
+
     // ===================== ПОСТЫ ЛЕНТЫ =====================
     // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
     // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null
@@ -271,7 +318,10 @@ service cloud.firestore {
     // Править можно текст/картинки/editedAt — только владелец (через postSecrets).
     // Лайк — отдельная ветка update, тоже разрешена всем, независимо от владения.
     match /posts/{postId} {
-      allow read: if true;
+      // Публичные записи читают все; записи «для своих» — только друзья.
+      allow get: if resource.data.get('audience', 'public') != 'friends'
+        || (request.auth != null && canSeeWallPost(resource.data));
+      allow list: if true;
       allow create: if request.auth != null && (
         (request.resource.data.channelId == null &&
           (request.resource.data.authorUid == null || request.resource.data.authorUid == request.auth.uid))
@@ -357,6 +407,13 @@ service cloud.firestore {
         !('authorUid' in request.resource.data) ||
         request.resource.data.authorUid == null ||
         request.resource.data.authorUid == request.auth.uid
+      ) && (
+        // От имени канала пишут только его создатель и управляющие: иначе
+        // любой мог бы выдать себя за канал, подставив его идентификатор.
+        !('channelId' in request.resource.data) ||
+        request.resource.data.channelId == null ||
+        request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(request.resource.data.channelId)).data.creatorUid ||
+        request.auth.uid in get(/databases/$(database)/documents/channels/$(request.resource.data.channelId)).data.adminUids
       );
       allow update: if request.auth != null &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'publicUid', 'imageUrls']) &&

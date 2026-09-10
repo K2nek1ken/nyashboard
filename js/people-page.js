@@ -1,27 +1,36 @@
-import { applySettings } from "./settings.js";
-import { initLayout, initStarfield } from "./layout.js";
-import { initSettingsModal } from "./settings-modal.js";
-import { applyFavicon } from "./favicon.js";
-import { paintTabDots, startTabPolling } from "./notifications.js";
-import { startPresence } from "./presence.js";
+import { initShell } from "./shell.js";
+import { keepScrollPosition } from "./session-state.js";
 import { initRefreshButton } from "./refresh-button.js";
-import { initProfileDropdown } from "./auth.js";
 import { loadPeopleTab, initPeopleSearch, initViewProfileModal } from "./people.js";
 
-applySettings();
-// Шапку рисуем немедленно: она не должна мигать пустотой,
-// пока страница ждёт DOMContentLoaded.
-initLayout();
-applyFavicon();
-paintTabDots();
-startTabPolling();
-startPresence();
-window.addEventListener("DOMContentLoaded", () => {
-  initSettingsModal();
-  initStarfield();
-  initProfileDropdown();
+// ============================================================
+//  Запуск и сворачивание вкладки
+//
+//  Переход между вкладками не перезагружает страницу (см. router.js),
+//  поэтому содержимое нужно уметь и включать, и выключать: живые подписки
+//  на базу обязаны закрываться, иначе с каждым переходом их копилось бы
+//  всё больше.
+// ============================================================
+export async function initPage() {
+  keepScrollPosition();
   initViewProfileModal();
   initPeopleSearch();
   loadPeopleTab();
   initRefreshButton(() => loadPeopleTab());
+}
+
+export function destroyPage() {
+  stopPage?.();
+}
+
+// Что закрыть при уходе — заполняется при запуске
+let stopPage = null;
+
+// Первая загрузка: сначала общая оболочка, затем содержимое вкладки
+initShell();   // один раз на всю жизнь страницы
+
+window.addEventListener("DOMContentLoaded", async () => {
+  const { initRouter } = await import("./router.js");
+  await initPage();
+  initRouter({ initPage, destroyPage });
 });

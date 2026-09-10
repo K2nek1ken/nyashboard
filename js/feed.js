@@ -20,7 +20,7 @@ import { openEmojiPicker } from "./emoji.js";
 import { extractHashtags } from "./hashtags.js";
 import { rankPosts } from "./ranking.js";
 import { loadSubscriptions } from "./subscriptions.js";
-import { loadFriends } from "./friends.js";
+import { loadFriends, isFriend } from "./friends.js";
 import { learnFromPost, markNotInterested, undoNotInterested, isSuppressed, loadInterests } from "./interests.js";
 import { observeSeen, loadSeen } from "./seen.js";
 
@@ -55,7 +55,20 @@ export function subscribeFeed() {
   if (feedUnsub) return;
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
   feedUnsub = onSnapshot(q, (snap) => {
-    const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Записи «для своих» отсеиваем на месте: база отдаёт список целиком,
+    // а разрешение зависит от того, кто смотрит. Правило при этом всё равно
+    // не даст открыть такую запись напрямую — здесь мы лишь не показываем
+    // её в ленте.
+    // В общей ленте показываем записи ленты, а записи стены — только своих
+    // друзей и только если автор разрешил это в настройках профиля.
+    const posts = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(p => {
+        if (p.place !== "wall") return true;
+        if (!currentUser) return false;
+        if (p.authorUid === currentUser.uid) return true;
+        return isFriend(p.authorUid) && p.wallInFeed !== false;
+      });
 
     // Лайк меняет одну запись, а не состав ленты. Перерисовывать весь список
     // из-за него — значит сбрасывать раскрытые тексты, положение каруселей
@@ -278,6 +291,74 @@ function layoutPosts(container, posts, buildHtml) {
   container.classList.add("has-columns");
 }
 
+// Правка на месте: текст записи превращается в поле ввода, остальное
+// остаётся как есть — видно, как запись будет выглядеть после сохранения.
+function startInlineEdit(post, card) {
+  const textEl = card.querySelector(".post-text");
+  if (!textEl || card.dataset.editing) return;
+  card.dataset.editing = "1";
+
+  const original = textEl.dataset.raw || post.text || "";
+  const holder = document.createElement("div");
+  holder.className = "inline-edit-box";
+  holder.innerHTML = `
+    <textarea class="inline-edit-area">${escapeHtml(original)}</textarea>
+    <div class="inline-edit-actions">
+      <button class="secondaryBtn" data-cancel>Отмена</button>
+      <button class="primaryBtn" data-save>Сохранить</button>
+    </div>`;
+  textEl.replaceWith(holder);
+
+  const area = holder.querySelector(".inline-edit-area");
+  const grow = () => { area.style.height = "auto"; area.style.height = area.scrollHeight + "px"; };
+  grow();
+  area.addEventListener("input", grow);
+  area.focus();
+  area.setSelectionRange(area.value.length, area.value.length);
+
+  const restore = (text) => {
+    const fresh = document.createElement("div");
+    fresh.className = "post-text";
+    fresh.dataset.raw = text;
+    fresh.innerHTML = linkifyMentions(escapeHtml(text.replace(/\s*#U3\d{6}/gi, "").trim()));
+    holder.replaceWith(fresh);
+    wireMentions(fresh);
+    delete card.dataset.editing;
+  };
+
+  holder.querySelector("[data-cancel]").addEventListener("click", () => restore(original));
+
+  holder.querySelector("[data-save]").addEventListener("click", async () => {
+    const next = area.value.trim();
+    if (!next || next === original) { restore(original); return; }
+
+    const saveBtn = holder.querySelector("[data-save]");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Сохраняю…";
+    try {
+      await updateDoc(doc(db, "posts", post.id), {
+        text: next,
+        hashtags: extractHashtags(next),
+        editedAt: serverTimestamp()
+      });
+      post.text = next;
+      restore(next);
+      showToast("Изменено ♡");
+    } catch (e) {
+      console.error(e);
+      showToast("Не вышло: " + e.message);
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Сохранить";
+    }
+  });
+
+  // Escape отменяет, Ctrl+Enter сохраняет — привычнее, чем целиться в кнопки
+  area.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") restore(original);
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) holder.querySelector("[data-save]").click();
+  });
+}
+
 function renderFeed(posts) {
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
@@ -364,7 +445,10 @@ export function postToHtml(p, maskAuthor = false) {
       : [])
   ];
   // длинный текст сворачиваем, чтобы один пост не занимал весь экран
-  const rawText = p.text || "";
+  // Идентификатор трека убираем из текста: он написан на самой карточке
+  // проигрывателя, и дублировать его строкой незачем. При правке текст
+  // берётся из data-raw, поэтому там идентификатор остаётся на месте.
+  const rawText = (p.text || "").replace(/\s*#U3\d{6}/gi, "").trim();
   const isLong = rawText.length > 420 || rawText.split("\n").length > 10;
   const authorForAvatar = isChannelPost
     ? { avatarUrl: p.channelAvatar, avatarShape: p.channelShape || "circle",
@@ -380,11 +464,12 @@ export function postToHtml(p, maskAuthor = false) {
         <span ${authorAttrs} style="cursor:pointer;">${avatarHtml(authorForAvatar, 34, "", avatarVariant)}</span>
         <span class="post-author ${(!isChannelPost && p.isAnonymous) ? "anon" : ""} ${masked ? "author-masked" : ""}" ${authorAttrs}${nameStyle}>${authorName}</span>
         <div class="post-meta-right">
+          ${p.place === "wall" ? `<span class="wall-badge" title="запись со стены"><span class="nf">${ICON.users}</span></span>` : ""}
           <span class="post-time">${timeAgo(p.createdAt)}${p.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
           ${kebabHtml(kebabItems, p.id)}
         </div>
       </div>
-      <div class="post-text ${isLong ? "collapsible" : ""}" data-raw="${escapeHtml(rawText)}">${linkifyMentions(escapeHtml(rawText))}</div>
+      <div class="post-text ${isLong ? "collapsible" : ""}" data-raw="${escapeHtml(p.text || "")}">${linkifyMentions(escapeHtml(rawText))}</div>
       ${isLong ? `<button class="expandBtn" data-action="toggleExpand"><span class="nf">${ICON.down}</span> показать полностью</button>` : ""}
       ${imagesToHtml(getPostImages(p))}
       <div class="post-tracks" data-post-tracks="${p.id}"></div>
@@ -453,7 +538,12 @@ export function wirePostCard(p, container = document) {
       card.style.opacity = "";
       showToast("Вернула в рекомендации");
     },
-    editPost: () => openPostEditor(p),
+    editPost: () => {
+      // На широком экране правим прямо в карточке: отдельный экран ради
+      // пары слов — лишний шаг, и из него не видно, как запись выглядит.
+      if (window.matchMedia("(min-width: 900px)").matches) startInlineEdit(p, card);
+      else openPostEditor(p);
+    },
     deletePost: () => deletePost(p, card)
   });
 
@@ -549,8 +639,16 @@ async function renderPostTracks(p, card) {
       if (track) tracks.push(track);
     }
     if (!tracks.length) return;
-    host.innerHTML = tracks.map(t => trackCardHtml(t)).join("");
-    wireTrackCards(host, tracks);
+
+    // Отметка «в любимом» должна быть видна и здесь, а не только в разделе
+    // музыки: иначе непонятно, добавлен трек или нет.
+    const { loadFavorites } = await import("./music.js");
+    const favIds = currentUser
+      ? new Set((await loadFavorites().catch(() => [])).map(t => t.id))
+      : new Set();
+
+    host.innerHTML = tracks.map(t => trackCardHtml(t, { favorite: favIds.has(t.id) })).join("");
+    wireTrackCards(host, tracks, () => renderPostTracks(p, card));
   } catch (e) {
     console.warn("Треки записи не загрузились:", e.message);
   }
@@ -684,7 +782,7 @@ export function openPostEditor(post = null) {
   const editor = document.getElementById("postEditor");
   const textarea = document.getElementById("postTextArea");
   const anonToggle = document.getElementById("postAnonToggle");
-  const anonLabel = document.getElementById("postAnonLabel");
+  const wallToggle = document.getElementById("postWallToggle");
   const anonRow = document.getElementById("anonToggleRow");
   const title = document.getElementById("editorTitle");
   const publishBtn = document.getElementById("publishPostBtn");
@@ -706,11 +804,9 @@ export function openPostEditor(post = null) {
     if (!currentUser) {
       anonToggle.checked = true;
       anonToggle.disabled = true;
-      anonLabel.textContent = "гость — всегда анонимно";
     } else {
       anonToggle.disabled = false;
       anonToggle.checked = false;
-      anonLabel.textContent = "от своего имени";
     }
   }
 
@@ -725,15 +821,11 @@ export function initPostEditor() {
   const closeBtn = document.getElementById("closeEditorBtn");
   const textarea = document.getElementById("postTextArea");
   const anonToggle = document.getElementById("postAnonToggle");
-  const anonLabel = document.getElementById("postAnonLabel");
+  const wallToggle = document.getElementById("postWallToggle");
   const imageInput = document.getElementById("postImageInput");
   const publishBtn = document.getElementById("publishPostBtn");
 
   if (fab) fab.addEventListener("click", () => openPostEditor(null));
-
-  anonToggle.addEventListener("change", () => {
-    anonLabel.textContent = anonToggle.checked ? "анонимно" : "от своего имени";
-  });
 
   closeBtn.addEventListener("click", () => editor.classList.add("hidden"));
 
@@ -787,6 +879,13 @@ export function initPostEditor() {
           text,
           hashtags: extractHashtags(text),
           imageUrls,
+          // Где опубликовано: в ленте или на стене профиля. Это разные места,
+          // а не уровни доступа — записи стены живут у тебя на странице и
+          // попадают в чужую ленту только к друзьям, и то по твоей настройке.
+          place: wallToggle?.checked ? "wall" : "feed",
+          // копия настройки автора: лента не должна запрашивать профиль
+          // ради каждой записи
+          wallInFeed: currentUserDoc?.wallInFeed !== false,
           likesCount: 0,
           likedBy: [],
           dislikesCount: 0,
@@ -903,4 +1002,13 @@ async function revealRepostAuthor(p, container) {
   } catch {
     // отказ сервера — значит автор закрыл доступ, маска остаётся
   }
+}
+
+
+// Закрывает живую подписку на ленту. Нужна при переходе на другую вкладку:
+// без неё каждая открытая лента продолжала бы слушать базу, и подписки
+// копились бы с каждым переходом.
+export function unsubscribeFeed() {
+  if (feedUnsub) { feedUnsub(); feedUnsub = null; }
+  lastRenderedPosts = null;
 }

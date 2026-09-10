@@ -4,6 +4,10 @@ import { ICON } from "./icons.js";
 // внизу она мешала бы и была бы бессмысленной: там обычно догружают старое,
 // а не проверяют новое.
 export function initRefreshButton(onRefresh) {
+  // При переходе между вкладками кнопка создаётся заново — прошлую убираем,
+  // иначе они накапливались бы одна на другой.
+  document.querySelector(".refreshFab")?.remove();
+
   const btn = document.createElement("button");
   btn.className = "refreshFab";
   btn.type = "button";

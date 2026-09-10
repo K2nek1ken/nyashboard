@@ -2,7 +2,9 @@ import { getUserDoc } from "./data.js";
 import { loadUserFeed, renderPostsInto } from "./feed.js";
 import { authReady, currentUser } from "./auth.js";
 import { escapeHtml } from "./ui.js";
-import { shapeClass } from "./avatar.js";
+import { avatarHtml } from "./avatar.js";
+import { relationBadge, badgeHtml, nameHtml } from "./person.js";
+import { fetchOnline } from "./presence.js";
 import { requestNuid, maskNuid } from "./nuid.js";
 import { loadFriends, isFriend, addFriend, removeFriend, isMutualFriend } from "./friends.js";
 import { openOrCreateChat } from "./dm.js";
@@ -23,12 +25,24 @@ export async function initUserPage() {
   const user = await getUserDoc(uid);
   if (!user) { postsEl.innerHTML = `<div class="stub-note">Профиль не найден</div>`; return; }
 
-  document.getElementById("uNickname").textContent = user.nickname;
+  // Аватарка со всем оформлением и метка отношения — то же, что видно
+  // в списках. Раньше здесь была своя упрощённая вёрстка, и на странице
+  // человека пропадали и рамка, и украшение, и цвет ника, и метка «в сети».
+  await loadFriends().catch(() => {});
+  const [badge, online] = await Promise.all([
+    relationBadge(uid, user).catch(() => null),
+    fetchOnline([uid]).catch(() => new Set())
+  ]);
+
+  const head = document.getElementById("uAvatarHost");
+  if (head) {
+    head.className = online.has(uid) ? "online-wrap" : "";
+    head.innerHTML = avatarHtml(user, 72);
+  }
+
+  document.getElementById("uNickname").innerHTML =
+    nameHtml(user, { clickable: false }) + badgeHtml(badge);
   document.getElementById("uUsername").textContent = user.username;
-  const avatarEl = document.getElementById("uAvatar");
-  avatarEl.src = user.avatarUrl || defaultAvatar();
-  avatarEl.className = `avatar-shaped ${shapeClass(user.avatarShape)}`;
-  document.getElementById("uStatus").textContent = user.statusEmoji || "";
   document.getElementById("uBio").textContent = user.bio || "";
   document.title = `NyashBoard ♡ — ${user.nickname}`;
 
@@ -63,7 +77,44 @@ export async function initUserPage() {
 
   try {
     const posts = await loadUserFeed(uid);
-    renderPostsInto(postsEl, posts, user.nickname);
+
+    // Записи разложены по двум вкладкам: слева то, что человек писал в ленту,
+    // справа — его стена. Вкладку «Лента» можно закрыть в настройках профиля,
+    // и тогда посторонние её не увидят.
+    const feedPosts = posts.filter(p => p.place !== "wall");
+    const wallPosts = posts.filter(p => p.place === "wall");
+
+    const isSelf = currentUser && currentUser.uid === uid;
+    const visibility = user.feedTabVisibility || "everyone";
+    let canSeeFeed = isSelf || visibility === "everyone";
+    if (!canSeeFeed && visibility === "friends") {
+      canSeeFeed = await isMutualFriend(uid).catch(() => false);
+    }
+
+    const tabs = document.getElementById("userSubtabs");
+    const feedBtn = tabs?.querySelector('[data-usub="feed"]');
+    if (feedBtn) feedBtn.classList.toggle("hidden", !canSeeFeed);
+
+    // если ленту смотреть нельзя, сразу открываем стену
+    let active = canSeeFeed ? "feed" : "wall";
+
+    function paint() {
+      const list = active === "wall" ? wallPosts : feedPosts;
+      tabs?.querySelectorAll("[data-usub]").forEach(b =>
+        b.classList.toggle("active", b.dataset.usub === active));
+
+      if (!list.length) {
+        postsEl.innerHTML = `<div class="stub-note">${
+          active === "wall" ? "На стене пока пусто" : "В ленте пока пусто"}</div>`;
+        return;
+      }
+      renderPostsInto(postsEl, list, user.nickname);
+    }
+
+    tabs?.querySelectorAll("[data-usub]").forEach(btn => {
+      btn.addEventListener("click", () => { active = btn.dataset.usub; paint(); });
+    });
+    paint();
   } catch (e) {
     console.error(e);
     postsEl.innerHTML = `<div class="stub-note">Ошибка загрузки: ${escapeHtml(e.message)}</div>`;

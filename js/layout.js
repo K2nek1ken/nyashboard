@@ -77,6 +77,9 @@ export function initLayout() {
   // уводит на ленту — чтобы не отнимать привычный способ вернуться на главную.
   // Нажатие по вкладке, на которой уже находишься, перезагружало страницу —
   // теперь просто прокручиваем наверх, это заметно приятнее.
+  // Нажатие по вкладке, на которой уже находишься, прокручивает наверх.
+  // Переходы на другие вкладки перехватывает роутер — здесь ничего делать
+  // не нужно, ссылки остаются обычными ссылками.
   host.querySelectorAll(".navBtn.active").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -174,6 +177,18 @@ export function initStarfield() {
   // характерную форму с выемкой. Рисуем через картинку, потому что повторять
   // это построение на холсте вручную было бы заметно многословнее.
   let petalImage = null;
+
+  // Своя картинка: подгружается из браузера и рисуется вместо готовых форм.
+  // Прозрачный PNG и SVG подходят лучше всего — у них нет лишнего фона.
+  if (particleKind === "custom") {
+    import("./logo-sound.js").then(({ getParticleImage }) => getParticleImage()).then(rec => {
+      if (!rec?.blob) return;
+      const img = new Image();
+      img.onload = () => { petalImage = img; };
+      img.src = URL.createObjectURL(rec.blob);
+    }).catch(() => {});
+  }
+
   if (particleKind === "petals") {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="120" height="120">
 <defs>
@@ -213,7 +228,7 @@ export function initStarfield() {
     ctx.globalAlpha = s.alpha;
     ctx.fillStyle = starColor;
     const glyph = GLYPHS[particleKind];
-    if (particleKind === "petals" && petalImage?.complete) {
+    if ((particleKind === "petals" || particleKind === "custom") && petalImage?.complete) {
       const sz = s.size * 3.4;
       ctx.drawImage(petalImage, -sz / 2, -sz / 2, sz, sz);
     }

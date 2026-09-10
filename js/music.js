@@ -117,3 +117,84 @@ export function formatDuration(seconds) {
   const s = Math.floor(seconds % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+
+// ============================================================
+//  Плейлисты
+//
+//  Лежат в приватной части аккаунта, рядом с любимым: это личные подборки,
+//  и показывать их кому-то, кроме владельца, незачем.
+//
+//  В подборке хранятся только идентификаторы треков — сами треки живут в общей
+//  библиотеке. Так подборка не ломается, если трек переименуют, и не занимает
+//  лишнего места.
+// ============================================================
+
+export async function listPlaylists() {
+  if (!currentUser) return [];
+  const snap = await getDocs(collection(db, "users", currentUser.uid, "playlists"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+export async function createPlaylist(name) {
+  if (!currentUser) throw new Error("Нужен аккаунт");
+  if (!name?.trim()) throw new Error("Нужно название");
+  const ref = await addDoc(collection(db, "users", currentUser.uid, "playlists"), {
+    name: name.trim(),
+    trackIds: [],
+    updatedAt: Date.now()
+  });
+  return ref.id;
+}
+
+export async function renamePlaylist(playlistId, name) {
+  await updateDoc(doc(db, "users", currentUser.uid, "playlists", playlistId),
+                  { name: name.trim(), updatedAt: Date.now() });
+}
+
+export async function deletePlaylist(playlistId) {
+  await deleteDoc(doc(db, "users", currentUser.uid, "playlists", playlistId));
+}
+
+export async function addToPlaylist(playlistId, trackId) {
+  const ref = doc(db, "users", currentUser.uid, "playlists", playlistId);
+  const snap = await getDoc(ref);
+  const ids = snap.data()?.trackIds || [];
+  if (ids.includes(trackId)) return false;      // уже есть — не дублируем
+  await updateDoc(ref, { trackIds: [...ids, trackId], updatedAt: Date.now() });
+  return true;
+}
+
+export async function removeFromPlaylist(playlistId, trackId) {
+  const ref = doc(db, "users", currentUser.uid, "playlists", playlistId);
+  const snap = await getDoc(ref);
+  const ids = (snap.data()?.trackIds || []).filter(id => id !== trackId);
+  await updateDoc(ref, { trackIds: ids, updatedAt: Date.now() });
+}
+
+// Треки подборки в заданном порядке. Пропавшие (удалённые из библиотеки)
+// молча отбрасываем — иначе подборка ломалась бы целиком из-за одного трека.
+export async function loadPlaylistTracks(playlist) {
+  const tracks = await Promise.all((playlist.trackIds || []).map(id => getTrack(id).catch(() => null)));
+  return tracks.filter(Boolean);
+}
+
+// Порядок в любимом человек задаёт сам: «поднять наверх» переставляет трек
+// в начало. Порядок хранится отдельно, потому что в самих записях его нет.
+const FAV_ORDER_KEY = "favOrder";
+
+export async function moveFavoriteToTop(trackId) {
+  if (!currentUser) return;
+  const ref = doc(db, "users", currentUser.uid, "private", FAV_ORDER_KEY);
+  const snap = await getDoc(ref);
+  const order = (snap.exists() ? snap.data().ids : []) || [];
+  const next = [trackId, ...order.filter(id => id !== trackId)];
+  await setDoc(ref, { ids: next }, { merge: true });
+}
+
+export async function loadFavoriteOrder() {
+  if (!currentUser) return [];
+  const snap = await getDoc(doc(db, "users", currentUser.uid, "private", FAV_ORDER_KEY)).catch(() => null);
+  return snap?.exists() ? (snap.data().ids || []) : [];
+}

@@ -12,7 +12,8 @@ import { loadChannelWall, renderPostsInto } from "./feed.js";
 import { getUserDoc } from "./data.js";
 import { shapeClass, shapePickerHtml } from "./avatar.js";
 import { CHANNEL_COLOR, paletteColor, paletteEntries } from "./palette.js";
-import { ACCESSORIES, accessoryHtml } from "./accessories.js";
+import { CHANNEL_ACCESSORIES, accessoryHtml } from "./accessories.js";
+import { avatarHtml } from "./avatar.js";
 import { uploadImage, uploadImages } from "./storage.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
@@ -39,9 +40,14 @@ export async function initChannelPage() {
 
   document.title = `NyashBoard ♡ — ${channel.name}`;
   // форма применяется и на самой странице канала, а не только в его настройках
-  const chAvatarEl = document.getElementById("chAvatar");
-  chAvatarEl.src = channel.avatarUrl || defaultAvatar();
-  chAvatarEl.className = `avatar-shaped ${shapeClass(channel.avatarShape)}`;
+  // Аватарка канала со всем оформлением — как у профилей.
+  const chHost = document.getElementById("chAvatarHost");
+  if (chHost) {
+    chHost.innerHTML = avatarHtml({
+      avatarUrl: channel.avatarUrl, avatarShape: channel.avatarShape,
+      accessory: channel.accessory, avatarBorder: channel.avatarBorder
+    }, 72);
+  }
   const chNameEl = document.getElementById("chName");
   chNameEl.textContent = channel.name;
   chNameEl.style.color = CHANNEL_COLOR;   // тот же оттенок, что и в ленте
@@ -327,11 +333,11 @@ function wireSettingsModal(channelId) {
   function renderChannelAccessories() {
     if (!csAccessoryHost) return;
     csAccessoryHost.innerHTML = `<div class="accessory-picker">
-      ${Object.entries(ACCESSORIES).map(([key, label]) => `
+      ${Object.entries(CHANNEL_ACCESSORIES).map(([key, label]) => `
         <button type="button" class="accessoryOption ${key === pendingChannelAccessory ? "selected" : ""}"
                 data-ch-accessory="${key}" title="${label}">
           ${key === "none" ? '<span class="none-label">нет</span>'
-                           : accessoryHtml(key, pendingChannelBorder).replace("avatar-accessory", "")}
+                           : accessoryHtml(key, pendingChannelBorder)}
         </button>`).join("")}
     </div>`;
     csAccessoryHost.querySelectorAll("[data-ch-accessory]").forEach(btn => {
@@ -383,9 +389,14 @@ function wireSettingsModal(channelId) {
         await changeChannelUsername(channelId, channel.username, usernameSuffix);
       }
       channel = await getChannel(channelId);
-      const el = document.getElementById("chAvatar");
-      el.src = channel.avatarUrl || defaultAvatar();
-      el.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+      // обновляем аватарку в шапке после сохранения — тем же общим рендером
+      const host = document.getElementById("chAvatarHost");
+      if (host) {
+        host.innerHTML = avatarHtml({
+          avatarUrl: channel.avatarUrl, avatarShape: pendingChannelShape,
+          accessory: pendingChannelAccessory, avatarBorder: pendingChannelBorder
+        }, 72);
+      }
       const chNameEl = document.getElementById("chName");
   chNameEl.textContent = channel.name;
   chNameEl.style.color = CHANNEL_COLOR;   // тот же оттенок, что и в ленте

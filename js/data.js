@@ -80,6 +80,8 @@ export async function ensureUserDoc(fbUser) {
     nickColor: "",                 // цвет ника в чате; пусто — обычный
     hiddenFromList: false,         // не показывать во вкладке «Люди»
     musicVisibility: "everyone",   // everyone | friends | nobody — кто видит фонотеку
+    wallInFeed: true,              // показывать записи стены в ленте друзей
+    feedTabVisibility: "everyone", // кто видит вкладку «лента» на моей странице
 
     createdAt: Date.now()
   };

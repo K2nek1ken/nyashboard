@@ -31,6 +31,8 @@ export function initProfilePageForm() {
     genderSelect:     { options: { m: "в мужском роде", f: "в женском роде", x: "нейтрально" }, def: "x" },
     listVisibility:   { options: { show: "Да", hide: "Нет" }, def: "show" },
     musicVisibility:  { options: { everyone: "Все", friends: "Только друзья", nobody: "Никто" }, def: "everyone" },
+    wallInFeed:       { options: { yes: "Показывать", no: "Не показывать" }, def: "yes" },
+    feedTabVisibility:{ options: { everyone: "Все", friends: "Только друзья", nobody: "Никто" }, def: "everyone" },
     repostVisibility: { options: { everyone: "Все", reposters: "Только репостнувшие", nobody: "Никто" }, def: "everyone" },
     nuidVisibility:   { options: { everyone: "Все", friends: "Только друзья", nobody: "Никто" }, def: "friends" }
   };
@@ -75,7 +77,7 @@ export function initProfilePageForm() {
         <button type="button" class="accessoryOption ${key === pendingAccessory ? "selected" : ""}"
                 data-accessory="${key}" title="${label}">
           ${key === "none" ? '<span class="none-label">нет</span>'
-                           : accessoryHtml(key, pendingBorder).replace("avatar-accessory", "")}
+                           : accessoryHtml(key, pendingBorder)}
         </button>`).join("")}
     </div>`;
     accessoryHost.querySelectorAll("[data-accessory]").forEach(btn => {
@@ -173,6 +175,8 @@ export function initProfilePageForm() {
         genderSelect: currentUserDoc.gender || "x",
         listVisibility: currentUserDoc.hiddenFromList ? "hide" : "show",
         musicVisibility: currentUserDoc.musicVisibility || "everyone",
+        wallInFeed: currentUserDoc.wallInFeed === false ? "no" : "yes",
+        feedTabVisibility: currentUserDoc.feedTabVisibility || "everyone",
         repostVisibility: currentUserDoc.repostVisibility || "everyone",
         nuidVisibility: currentUserDoc.nuidVisibility || "friends"
       });
@@ -283,7 +287,9 @@ export function initProfilePageForm() {
         repostVisibility: selectValues.repostVisibility,
         gender: selectValues.genderSelect,
         hiddenFromList: selectValues.listVisibility === "hide",
-        musicVisibility: selectValues.musicVisibility
+        musicVisibility: selectValues.musicVisibility,
+        wallInFeed: selectValues.wallInFeed !== "no",
+        feedTabVisibility: selectValues.feedTabVisibility
       };
       if (pendingAvatarFile) {
         showToast("Загружаю аватарку...");

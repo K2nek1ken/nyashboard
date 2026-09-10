@@ -9,6 +9,7 @@ import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getUserDoc } from "./data.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
 import { avatarHtml } from "./avatar.js";
+import { CHANNEL_COLOR } from "./palette.js";
 import { loadFriends } from "./friends.js";
 import { openPersonPreview } from "./person-preview.js";
 import { initChatNav, trackMentions } from "./chat-nav.js";
@@ -226,6 +227,48 @@ function reactToMeow(msgs) {
   const meowed = fresh.some(m => m.isBot && /мяукнул/i.test(m.text || ""));
   if (!meowed) return;
 
+  playMeow();
+}
+
+// Упомянутый в сообщении трек показываем проигрывателем — так же, как в ленте.
+async function renderChatTracks(container, msgs) {
+  const withTracks = msgs.filter(m => /#U3\d{6}/i.test(m.text || ""));
+  if (!withTracks.length) return;
+
+  try {
+    const { resolveNuid } = await import("./nuid.js");
+    const { getTrack } = await import("./music.js");
+    const { trackCardHtml, wireTrackCards } = await import("./music-ui.js");
+
+    for (const m of withTracks) {
+      const row = container.querySelector(`.chat-msg[data-id="${m.id}"] .txt`);
+      if (!row || row.dataset.tracksDone) continue;
+      row.dataset.tracksDone = "1";
+
+      const ids = [...new Set((m.text.match(/#U3\d{6}/gi) || []))].map(t => t.slice(1).toUpperCase());
+      const tracks = [];
+      for (const nuid of ids.slice(0, 2)) {
+        const hit = await resolveNuid(nuid);
+        if (hit?.type !== "track") continue;
+        const track = await getTrack(hit.uid);
+        if (track) tracks.push(track);
+      }
+      if (!tracks.length) continue;
+
+      // из текста идентификатор убираем — он написан на карточке
+      row.innerHTML = linkifyMentions(escapeHtml(m.text.replace(/\s*#U3\d{6}/gi, "").trim()));
+      const host = document.createElement("div");
+      host.className = "chat-tracks";
+      host.innerHTML = tracks.map(t => trackCardHtml(t)).join("");
+      row.after(host);
+      wireTrackCards(host, tracks);
+    }
+  } catch (e) {
+    console.warn("Треки в чате не загрузились:", e.message);
+  }
+}
+
+function playMeow() {
   showToast("мяу!");
   try {
     const audio = new Audio("assets/sounds/meow.mp3");
@@ -270,7 +313,13 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   messagesEl.innerHTML = msgs.map(m => {
     // Сообщения бота править нельзя даже автору команды: иначе можно
     // подделать чужую фразу, выданную ботом.
-    const canManage = isOwned("chatMessage", m.id) && !m.isBot;
+    // Своим считается и сообщение от аккаунта, отправленное с другого
+    // устройства: раньше владение определялось только локальной отметкой,
+    // и на втором устройстве своих сообщений будто не существовало.
+    const canManage = !m.isBot && (
+      isOwned("chatMessage", m.id) ||
+      (currentUser && m.authorUid === currentUser.uid)
+    );
     const kebabItems = [
       { action: "replyMsg", label: "Ответить", icon: ICON.reply },
       ...(m.publicUid ? [
@@ -285,7 +334,13 @@ function renderChat(msgs, { keepScroll = false } = {}) {
     // Сообщение либо анонимное (просто ник), либо от аккаунта — тогда рядом
     // миниатюра аватарки, имя своим цветом, метка и переход к профилю.
     const authorHtml = m.isBot
-      ? `<span class="nf">${ICON.smile}</span> бот`
+      ? `<span class="person-chip">${avatarHtml({}, 22, "", "bot")}meowbot</span>`
+      : m.channelId
+        ? `<span class="person-chip" data-channel="${m.channelId}">
+             ${avatarHtml({ avatarUrl: m.channelAvatar, avatarShape: m.channelShape,
+                            accessory: m.channelAccessory, avatarBorder: m.channelBorder }, 22)}
+             <span class="person-name" style="color:${CHANNEL_COLOR}">${escapeHtml(m.channelName || "канал")}</span>
+           </span>`
       : m.authorUid
         ? `<span class="person-chip" data-person="${m.authorUid}">
              ${avatarHtml({
@@ -308,7 +363,9 @@ function renderChat(msgs, { keepScroll = false } = {}) {
         ${kebabHtml(kebabItems, m.id)}
       </div>
       ${quoteHtml(m)}
-      ${m.text ? `<div class="txt">${linkifyMentions(escapeHtml(m.text))}</div>` : ""}
+      ${m.text ? `<div class="txt ${/мяукнул/i.test(m.text) ? "meow-again" : ""}"
+                       ${/мяукнул/i.test(m.text) ? 'title="нажми, чтобы услышать"' : ""}
+                  >${linkifyMentions(escapeHtml(m.text))}</div>` : ""}
       ${imagesToHtml(chatImages(m))}
     </div>`;
   }).join("");
@@ -319,6 +376,21 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   wireMentions(messagesEl);
   wireCarousels(messagesEl);
   wireImageZoom(messagesEl);
+  // «мяу» можно услышать в любой момент, а не только когда мяукнули при тебе
+  renderChatTracks(messagesEl, msgs);
+
+  messagesEl.querySelectorAll(".meow-again").forEach(el => {
+    el.addEventListener("click", () => playMeow());
+  });
+
+  messagesEl.querySelectorAll("[data-channel]").forEach(el => {
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const { openChannelPreview } = await import("./person-preview.js");
+      openChannelPreview(el.dataset.channel);
+    });
+  });
+
   messagesEl.querySelectorAll("[data-person]").forEach(el => {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -507,10 +579,45 @@ export function initChatForm() {
   const asAccount = document.getElementById("asAccountToggle");
   const nickRow = document.querySelector(".chat-nick-row");
 
+  // Каналы, от имени которых можно писать: свои и те, где ты управляющий.
+  let myChannels = [];
+  let speakAs = "self";     // self | channel:<id>
+
+  async function loadSpeakOptions() {
+    if (!currentUser) return;
+    try {
+      // Функция отдаёт два списка — созданные и те, где ты управляющий.
+      // Для чата разницы нет: писать можно от любого.
+      const { fetchManagedChannels } = await import("./channels.js");
+      const { created, admin } = await fetchManagedChannels();
+      const seen = new Set();
+      myChannels = [...created, ...admin].filter(c => {
+        if (!c || seen.has(c.id)) return false;   // создатель бывает и в админах
+        seen.add(c.id);
+        return true;
+      });
+    } catch { myChannels = []; }
+
+    const host = document.getElementById("channelPickHost");
+    if (!host || !myChannels.length) return;
+
+    const { customSelect, wireSelects } = await import("./select.js");
+    const options = { self: "от себя" };
+    myChannels.forEach(c => { options["channel:" + c.id] = c.name; });
+
+    host.innerHTML = customSelect("speakAs", options, speakAs);
+    wireSelects(host, (_, value) => {
+      speakAs = value;
+      // писать от канала можно только от аккаунта, анонимность тут ни при чём
+      if (value !== "self") asAccount.checked = true;
+    });
+  }
+
   authReady.then(() => {
     const mode = getSettings().chatIdentity || "both";
     const canAccount = !!currentUser && mode !== "anon";
     accountRow.classList.toggle("hidden", !canAccount);
+    if (canAccount) loadSpeakOptions();
     if (canAccount && mode === "account") {
       asAccount.checked = true;
       asAccount.disabled = true;
@@ -579,14 +686,26 @@ export function initChatForm() {
       // в само сообщение, чтобы список не требовал запроса профиля на каждую
       // строку — так же, как это сделано у записей ленты.
       const useAccount = !parsed && asAccount?.checked && currentUser && currentUserDoc;
+      const channel = (!parsed && speakAs.startsWith("channel:"))
+        ? myChannels.find(c => c.id === speakAs.slice(8))
+        : null;
 
       const payload = {
         guestId: identity.id,
         authorUid: useAccount ? currentUser.uid : null,
+        // Сообщение от канала: подписано каналом, но право писать проверяется
+        // по человеку — правила пускают только команду канала.
+        channelId: channel ? channel.id : null,
+        channelName: channel ? channel.name : null,
+        channelAvatar: channel ? (channel.avatarUrl || null) : null,
+        channelShape: channel ? (channel.avatarShape || "circle") : null,
+        channelAccessory: channel ? (channel.accessory || "none") : null,
+        channelBorder: channel ? (channel.avatarBorder || "teal") : null,
         authorAvatar: useAccount ? (currentUserDoc.avatarUrl || "") : null,
         authorShape: useAccount ? (currentUserDoc.avatarShape || "circle") : null,
         nickColor: useAccount ? (currentUserDoc.nickColor || "") : null,
         nickname: parsed ? "бот"
+                : channel ? channel.name
                 : useAccount ? currentUserDoc.nickname
                 : identity.nickname,
         isBot: !!parsed,
@@ -630,4 +749,14 @@ export function initChatForm() {
       sending = false;
     }
   });
+}
+
+
+// см. unsubscribeFeed: то же самое для общего чата
+export function unsubscribeChat() {
+  if (chatUnsub) { chatUnsub(); chatUnsub = null; }
+  lastMessages = [];
+  olderMessages = [];
+  oldestDoc = null;
+  chatStarted = false;
 }

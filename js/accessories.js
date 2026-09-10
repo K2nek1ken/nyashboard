@@ -9,8 +9,25 @@ import { paletteColor, lighten } from "./palette.js";
 //
 // Цвет задаётся владельцем профиля из общей палитры и не зависит от того,
 // какой акцент выбрал смотрящий: украшение должно выглядеть одинаково у всех.
+// Наборы разделены: у профилей и каналов свои украшения, и смешивать их
+// не стоит — принадлежность к каналу должна читаться с первого взгляда.
+// Пометка forChannel означает «только для каналов», её отсутствие — «только
+// для людей». Вариант «без украшений» доступен и там, и там.
 const ITEMS = {
-  none: { label: "Без украшений", svg: () => "" },
+  none: { label: "Без украшений", forChannel: true, forUser: true, svg: () => "" },
+
+  // Четырёхконечная звезда в левом верхнем углу — знак канала.
+  spark: {
+    label: "Искра",
+    forChannel: true,
+    svg: (c) => {
+      const p = (x, y, long, short) =>
+        `${x},${y - long} ${x + short},${y - short} ${x + long},${y} ` +
+        `${x + short},${y + short} ${x},${y + long} ${x - short},${y + short} ` +
+        `${x - long},${y} ${x - short},${y - short}`;
+      return `<polygon points="${p(20, 22, 15, 4.2)}" fill="${c}"/>`;
+    }
+  },
 
   // Ободок с ушками: дуга по верхней части аватарки плюс два треугольника.
   // Именно ободок, а не приставленные ушки — так он выглядит как надетая вещь.
@@ -55,19 +72,25 @@ const ITEMS = {
   // читается как круг, лежащий под наклоном, а не как ровная обводка.
   // Собирается из двух эллипсов с правилом «чётности»: внутренний вырезает
   // середину, и обводить его отдельно не нужно.
+  // Нимб-серафим по эскизу Неко: три вытянутых кольца под углами и круг
+  // в середине. Углы ±17.5° взяты из самого эскиза.
   halo2: {
-    label: "Нимб широкий",
+    label: "Нимб серафима",
+    forChannel: true,
     svg: (c) => {
-      const ring = (rx, ry) =>
-        `M ${50 - rx},27.4 a ${rx},${ry} 0 1,0 ${rx * 2},0 a ${rx},${ry} 0 1,0 ${-rx * 2},0 Z`;
-      return `<path d="${ring(35, 12.4)} ${ring(31.5, 11.1)}"
-                    fill="${c}" fill-rule="evenodd"/>`;
+      const ring = (angle) =>
+        `<ellipse cx="50" cy="50" rx="48.9" ry="15.1" fill="none"
+                  stroke="${c}" stroke-width="2.6"
+                  transform="rotate(${angle} 50 50)"/>`;
+      return `${ring(0)}${ring(17.5)}${ring(-17.5)}
+              <circle cx="50" cy="50" r="9.5" fill="${c}"/>`;
     }
   },
 
   // Пятиконечная звезда сбоку — как цветочек, но для каналов.
   star: {
     label: "Звёздочка",
+    forChannel: true,
     svg: (c) => {
       const pts = [];
       for (let i = 0; i < 10; i++) {
@@ -80,8 +103,18 @@ const ITEMS = {
   }
 };
 
+// Для людей — всё, что не помечено как «только для каналов».
 export const ACCESSORIES = Object.fromEntries(
-  Object.entries(ITEMS).map(([k, v]) => [k, v.label])
+  Object.entries(ITEMS)
+    .filter(([, v]) => !v.forChannel || v.forUser)
+    .map(([k, v]) => [k, v.label])
+);
+
+// Для каналов — только помеченные.
+export const CHANNEL_ACCESSORIES = Object.fromEntries(
+  Object.entries(ITEMS)
+    .filter(([, v]) => v.forChannel)
+    .map(([k, v]) => [k, v.label])
 );
 
 export function accessoryHtml(key, colorKey) {

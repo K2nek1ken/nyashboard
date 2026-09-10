@@ -4,6 +4,7 @@
 const DB_NAME = "nyash_media";
 const STORE = "sounds";
 const KEY = "logo";
+const PARTICLE_KEY = "particle";
 
 function withStore(mode) {
   return new Promise((resolve, reject) => {
@@ -55,4 +56,36 @@ export async function playLogoSound() {
   audio.volume = 0.7;
   audio.play().catch(() => {});
   return true;
+}
+
+
+// ---------- своя картинка для частиц ----------
+// Хранится рядом со звуком логотипа: тоже личный файл, который незачем
+// отправлять на сервер.
+
+export async function saveParticleImage(file) {
+  if (!file.size) throw new Error("файл не читается — скопируй его на устройство");
+  if (file.size > 512 * 1024) throw new Error("картинка больше 512 КБ — возьми полегче");
+  const { store } = await withStore("readwrite");
+  return new Promise((resolve, reject) => {
+    const r = store.put({ blob: file, name: file.name }, PARTICLE_KEY);
+    r.onsuccess = () => resolve(file.name);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function getParticleImage() {
+  try {
+    const { store } = await withStore("readonly");
+    return new Promise((resolve) => {
+      const r = store.get(PARTICLE_KEY);
+      r.onsuccess = () => resolve(r.result || null);
+      r.onerror = () => resolve(null);
+    });
+  } catch { return null; }
+}
+
+export async function clearParticleImage() {
+  const { store } = await withStore("readwrite");
+  store.delete(PARTICLE_KEY);
 }

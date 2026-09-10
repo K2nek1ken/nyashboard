@@ -61,7 +61,10 @@ export function wireKebab(container, handlers) {
       e.preventDefault();
       document.querySelectorAll(".kebabMenu").forEach(m => { if (m !== menu) m.classList.add("hidden"); });
       menu.classList.remove("hidden");
-      keepInViewport(menu);
+      // та же поправка, что и при обычном открытии: панель ввода внизу
+      // перекрывала меню у последних сообщений
+      const bar = document.querySelector(".chat-floating-bar");
+      keepInViewport(menu, 10, bar ? bar.getBoundingClientRect().height + 12 : 10);
     });
   }
 

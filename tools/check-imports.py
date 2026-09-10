@@ -42,8 +42,10 @@ for f in files:
             imported.add(p[-1] if len(p) > 1 else p[0])
     for m in re.finditer(r'import\s+(\w+)\s+from', t):
         imported.add(m.group(1))
-    # динамические:  const { a, b } = await import("./x.js")
-    for m in re.finditer(r'(?:const|let|var)\s*\{([^{}]+)\}\s*=\s*await\s+import\s*\(', t):
+    # динамические, два вида:
+    #   const { a } = await import("./x.js")
+    #   import("./x.js").then(({ a }) => ...)
+    for m in re.finditer(r'\{([^{}]+)\}\s*(?:=\s*await\s+import|\)\s*=>)', t):
         for x in m.group(1).split(','):
             p = [y.strip() for y in x.split(':')]
             imported.add(p[-1] if len(p) > 1 else p[0])

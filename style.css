@@ -72,7 +72,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 .navBtn:hover { color: var(--text); }
 .profile-icon { cursor: pointer; flex-shrink: 0; position: relative; }
 .profile-icon img {
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 34px; height: 34px;
   object-fit: cover; border: 2px solid var(--accent-2);
 }
 
@@ -137,7 +137,10 @@ button, input, textarea { font-family: inherit; color: inherit; }
   padding: 14px; position: relative;
 }
 .post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
-.post-head img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; cursor: pointer; }
+/* Форму задаёт класс shape-*, поэтому здесь её быть не должно: круг,
+   прописанный жёстко, перебивал выбор человека и все аватарки выходили
+   круглыми независимо от настройки. */
+.post-head img { width: 34px; height: 34px; object-fit: cover; cursor: pointer; }
 .post-head > span:first-child { flex-shrink: 0; }
 /* min-width: 0 обязателен: без него длинное имя (или точный формат времени)
    не даёт flex-элементу сжаться, и правый блок с кнопками выдавливает
@@ -349,7 +352,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
   display: flex; align-items: center; gap: 10px; background: var(--card);
   padding: 10px 12px; border-radius: 12px; cursor: pointer;
 }
-.person-row img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.person-row img { width: 38px; height: 38px; object-fit: cover; }
 .person-row .pmuted { color: var(--muted); font-size: 12px; }
 
 .stub-note { color: var(--muted); text-align: center; padding: 40px 20px; }
@@ -363,9 +366,12 @@ button, input, textarea { font-family: inherit; color: inherit; }
   background: var(--card); border-radius: 12px; padding: 12px;
   text-decoration: none; color: var(--text);
 }
+/* Форму и фон задаёт содержимое: если у канала есть аватарка, она сама
+   определяет вид, а заливка нужна только для запасного значка. Раньше
+   и форма, и градиент стояли жёстко — оттого каналы всегда выглядели
+   квадратами с акцентным фоном, что бы ни выбрал владелец. */
 .channel-icon {
-  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  width: 40px; height: 40px; flex-shrink: 0; position: relative;
   display: flex; align-items: center; justify-content: center; color: #1a1420; font-size: 18px;
 }
 .channel-info { flex: 1; min-width: 0; }
@@ -398,7 +404,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 .modalClose { position: absolute; top: 12px; right: 14px; }
 .profile-head { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; }
-.avatar-lg { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+.avatar-lg { width: 64px; height: 64px; object-fit: cover; border-radius: 50%; }
 .nick-lg { font-size: 18px; font-weight: 700; }
 .inlineEdit {
   background: var(--card); border: 1px solid #3a2f47; border-radius: 8px;
@@ -458,7 +464,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 @media (min-width: 900px) {
   #navHost {
     position: fixed; top: 0; left: 0; bottom: 0;
-    width: 232px; flex-direction: column; align-items: stretch;
+    width: 320px; flex-direction: column; align-items: stretch;
     gap: 6px; padding: 22px 14px;
     border-bottom: none; border-right: 1px solid #3a2f47;
   }
@@ -479,7 +485,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
      и центрируем содержимое в оставшейся области, а не прижимаем к краю. */
   #app {
     max-width: none;
-    margin-left: 232px;
+    margin-left: 320px;
     padding: 28px 40px 60px;
   }
   #app > section, #app > .tab { max-width: 1080px; margin: 0 auto; }
@@ -496,7 +502,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 
   /* чат на ПК: используем всю ширину, панель ввода прижата к правой части */
   .chat-page-body #app { max-width: 900px; padding-bottom: 130px; }
-  .chat-floating-bar { left: 232px; padding-bottom: 18px; }
+  .chat-floating-bar { left: 320px; padding-bottom: 18px; }
   .chat-floating-inner { max-width: 836px; }
   .chat-msg { max-width: 68%; }
 
@@ -552,9 +558,11 @@ button, input, textarea { font-family: inherit; color: inherit; }
   border: 2px solid #3a2f47;   /* рамка, чтобы прозрачный PNG не «терялся» на фоне */
   object-fit: cover;
 }
-.shape-circle { border-radius: 50%; }
-.shape-rounded { border-radius: 26%; }
-.shape-squircle {
+/* Классы форм объявлены с запасом по весу: иначе любое общее правило
+   с border-radius, объявленное ниже, перебивало бы выбор человека. */
+.avatar-shaped.shape-circle { border-radius: 50%; }
+.avatar-shaped.shape-rounded { border-radius: 26%; }
+.avatar-shaped.shape-squircle {
   border-radius: 42% 58% 43% 57% / 52% 44% 56% 48%;
 }
 .shape-picker { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
@@ -890,16 +898,21 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
 #navHost { position: fixed; top: 0; left: 0; right: 0; }
 body { padding-top: 56px; }
 @media (min-width: 900px) {
-  #navHost { right: auto; bottom: 0; }
+  /* Колонка стала шире: в ней теперь помещается и плеер, а подписи вкладок
+     не жмутся. Отступ содержимого считается от неё же. */
+  #navHost {
+    right: auto; bottom: 0;
+    width: 320px; padding: 18px 16px;
+  }
   body { padding-top: 0; }
 
   /* Меню профиля внутри колонки навигации: она фиксированной ширины (232),
      иконка стоит внизу — значит и место у меню всегда одно и то же.
      Уровень выше шапки, иначе оно оказывается под ней. */
   .profile-dropdown {
-    left: 14px; right: auto;
+    left: 16px; right: auto;
     bottom: 76px; top: auto;
-    width: 204px;
+    width: 288px;
     z-index: 90;
   }
 }
@@ -944,7 +957,7 @@ body { padding-top: 56px; }
 .refreshFab.spinning .nf { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin-slow { display: inline-block; animation: spin 1.4s linear infinite; }
-@media (min-width: 900px) { .refreshFab { bottom: 26px; left: calc(50% + 116px); } }
+@media (min-width: 900px) { .refreshFab { bottom: 26px; left: calc(50% + 160px); } }
 
 /* ---------- строки настроек: текст не должен двигать элементы управления ---------- */
 .setting-row {
@@ -1168,7 +1181,13 @@ html[data-theme="quiet"] .searchBox {
   background: var(--card); border: 2px solid #3a2f47; border-radius: 12px; padding: 0;
 }
 .accessoryOption.selected { border-color: var(--accent); }
-.accessoryOption svg { position: absolute; inset: 6%; width: 88%; height: 88%; }
+/* Превью внутри кнопки выбора: раньше сюда попадали размеры настоящего
+   украшения (шире аватарки в полтора раза), и они вылезали за кнопку. */
+.accessoryOption svg {
+  position: absolute !important;
+  inset: 8% !important; width: 84% !important; height: 84% !important;
+  z-index: auto !important;
+}
 .accessoryOption .none-label { font-size: 10px; color: var(--muted); }
 
 /* Обе половинки разбитого сердца должны меняться одинаково: раньше правило
@@ -1227,7 +1246,7 @@ html[data-theme="quiet"] .searchBox {
 .badge-following { background: var(--card-hover); color: var(--muted); }
 
 .person-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.mini-avatar { border-radius: 50%; object-fit: cover; flex-shrink: 0; border: none; }
+.mini-avatar { object-fit: cover; flex-shrink: 0; border: none; }
 .person-name { font-weight: 600; }
 .person-name.clickable { cursor: pointer; }
 .person-name.clickable:hover { text-decoration: underline; }
@@ -1238,7 +1257,13 @@ html[data-theme="quiet"] .searchBox {
 .preview-content { max-width: 340px; max-height: 80vh; display: flex; flex-direction: column; }
 .preview-content > [data-body] { overflow-y: auto; min-height: 0; }
 #previewPosts { max-height: 46vh; overflow-y: auto; }
-.preview-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+/* Украшения выходят за пределы аватарки, поэтому строке нужен запас сверху:
+   иначе нимб и ушки срезались верхней границей карточки. */
+.preview-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 10px; padding-top: 14px;
+}
+.preview-content > [data-body] { overflow-x: visible; }
 .preview-name { font-size: 16px; font-weight: 700; }
 .preview-actions { display: flex; gap: 8px; margin-top: 16px; }
 .preview-actions .primaryBtn, .preview-actions .secondaryBtn { flex: 1; text-align: center; }
@@ -1384,7 +1409,14 @@ html[data-theme="quiet"] .searchBox {
 body.player-open { padding-top: 116px; }
 body.player-open .chat-floating-bar { /* поле ввода остаётся на месте */ }
 @media (min-width: 900px) {
-  .player-bar { left: 232px; top: 0; }
+  /* Плеер переезжает в колонку навигации, над кнопкой профиля: так он
+     всегда на виду и не отнимает место у содержимого. */
+  .player-bar {
+    left: 16px; right: auto; top: auto; bottom: 76px;
+    width: 288px; border-radius: 14px; border: 1px solid #3a2f47;
+    flex-wrap: wrap; padding: 10px;
+  }
+  body.player-open #app { padding-top: 28px; }
   body.player-open { padding-top: 0; }
   body.player-open #app { padding-top: 88px; }
 }
@@ -1564,3 +1596,228 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .profile-icon .avatar-wrap { display: block; overflow: visible; }
 .profile-icon img { width: 100%; height: 100%; }
 @media (min-width: 900px) { .profile-icon .avatar-wrap { width: 42px !important; height: 42px !important; } }
+
+
+/* заливка только под запасным значком, не под аватаркой */
+.channel-icon:not(:has(img)) {
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.channel-icon.no-avatar {
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.channel-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+/* сообщение о мяуканье можно нажать и услышать снова */
+.chat-msg .txt.meow-again { cursor: pointer; }
+.chat-msg .txt.meow-again:hover { color: var(--accent); }
+
+/* Аватарки в чате: форму задаёт класс, а общее правило сообщения её перебивало
+   и все становились скруглёнными квадратами. */
+.chat-msg .avatar-shaped { border-radius: inherit; }
+.chat-msg .avatar-shaped.shape-circle { border-radius: 50%; }
+.chat-msg .avatar-shaped.shape-rounded { border-radius: 26%; }
+.chat-msg .avatar-shaped.shape-squircle { border-radius: 42% 58% 43% 57% / 52% 44% 56% 48%; }
+.chat-tracks { margin-top: 8px; }
+.chat-tracks .track-card { margin-bottom: 6px; }
+
+/* ============================================================
+   ПК: чат и его элементы
+   ============================================================ */
+@media (min-width: 900px) {
+  /* Чат прижимался к левому краю: содержимое центрируется, а закреплённые
+     панели считались от всего окна, не учитывая колонку навигации. */
+  .chat-floating-bar {
+    left: 320px; right: 0;
+    padding-left: 40px; padding-right: 40px;
+  }
+  .chat-floating-bar > * { max-width: 1080px; margin-left: auto; margin-right: auto; }
+
+  /* Шапка личного чата должна оставаться на виду, а не уезжать в начало
+     переписки вместе с прокруткой. */
+  #dmHeader {
+    position: sticky; top: 0; z-index: 15;
+    background: var(--bg); padding: 10px 0;
+  }
+
+  /* Кнопки «вниз» и «к упоминаниям» — правее переписки и выше поля ввода,
+     чтобы не закрывать собой сообщения. */
+  .chat-nav {
+    right: max(16px, calc(50% - 640px));
+    bottom: 130px;
+  }
+}
+
+/* Шапка личного чата закреплена и на телефоне */
+#dmHeader {
+  position: sticky; top: 56px; z-index: 15;
+  background: var(--bg); padding: 8px 0;
+}
+
+/* Цвета идентификаторов по типу: человек, сообщение, трек, канал.
+   Оттенки не из палитры выбора — чтобы не путались с чьим-то ником. */
+.mention.nuid-user    { color: var(--accent); }
+.mention.nuid-message { color: #9db4d0; }
+.mention.nuid-track   { color: #c9a5f0; }
+.mention.nuid-channel { color: #66d9e8; }
+
+/* ---------- меню плеера и очередь ---------- */
+.player-menu-wrap { position: relative; flex-shrink: 0; }
+.player-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 80;
+  background: var(--bg-soft); border: 1px solid #3a2f47; border-radius: 12px;
+  padding: 5px; min-width: 170px; box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+}
+.player-menu button {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  background: none; border: none; color: var(--text); cursor: pointer;
+  font: inherit; font-size: 13px; padding: 9px 11px; border-radius: 8px; text-align: left;
+}
+.player-menu button:hover { background: var(--card); }
+.queue-list { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.queue-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  background: var(--card); border: none; border-radius: 10px; cursor: pointer;
+  color: var(--text); font: inherit; font-size: 13px; padding: 10px 12px; text-align: left;
+}
+.queue-item:hover { background: var(--card-hover); }
+.queue-item.current { color: var(--accent); font-weight: 600; }
+.queue-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Плавная смена содержимого при переходе между вкладками: короткое затухание
+   вместо мигания белым, как при полной перезагрузке. */
+#app { transition: opacity .13s ease; }
+body.page-leaving #app { opacity: 0.35; }
+@media (prefers-reduced-motion: reduce) {
+  #app { transition: none; }
+  body.page-leaving #app { opacity: 1; }
+}
+
+/* ---------- раскрытый вид плеера ---------- */
+.now-playing {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(10, 8, 14, 0.94);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 24px;
+  animation: npIn .2s ease;
+}
+.now-playing.closing { animation: npOut .18s ease forwards; }
+@keyframes npIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes npOut { to { opacity: 0; transform: translateY(12px); } }
+
+/* Полоса плеера уезжает под шапку, пока открыт раскрытый вид */
+body.np-open .player-bar { transform: translateY(-120%); transition: transform .2s ease; }
+.player-bar { transition: transform .2s ease; }
+.player-cover { cursor: pointer; }
+
+.np-close {
+  position: absolute; top: 16px; right: 16px;
+  background: rgba(255,255,255,0.1); border: none; color: #fff;
+  width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 17px;
+}
+.np-cover {
+  width: min(320px, 76vw); aspect-ratio: 1;
+  border-radius: 20px; overflow: hidden; background: var(--card);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.5);
+}
+.np-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.np-cover-empty {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  color: var(--accent); font-size: 54px;
+}
+.np-title { font-size: 18px; font-weight: 700; text-align: center; margin-top: 8px; }
+.np-artist { color: var(--muted); font-size: 14px; }
+.np-progress {
+  width: min(320px, 76vw); height: 5px; background: var(--card);
+  border-radius: 999px; cursor: pointer; overflow: hidden; margin-top: 6px;
+}
+.np-fill { height: 100%; width: 0; background: var(--accent); }
+.np-times {
+  width: min(320px, 76vw); display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--muted);
+}
+.np-controls { display: flex; align-items: center; gap: 18px; margin-top: 10px; }
+.np-btn {
+  background: none; border: none; color: var(--text); cursor: pointer; font-size: 18px;
+  width: 46px; height: 46px; border-radius: 50%;
+}
+.np-btn:hover { background: var(--card); }
+.np-play {
+  background: var(--accent); color: #1a1420;
+  width: 58px; height: 58px; font-size: 20px;
+}
+.np-play:hover { background: var(--accent); filter: brightness(1.1); }
+
+/* ---------- плеер в колонке навигации (ПК) ---------- */
+@media (min-width: 900px) {
+  .player-bar .player-info { flex: 1 1 100%; order: 3; }
+  .player-bar .player-title { white-space: normal; font-size: 12px; line-height: 1.3; }
+  .player-cover { width: 42px; height: 42px; }
+  .player-time { font-size: 10px; }
+
+  /* Профиль остаётся внизу колонки, плеер — прямо над ним */
+  #profileIcon { margin-top: auto; }
+  body.player-open #navHost { padding-bottom: 96px; }
+}
+
+/* активный режим повтора выделен */
+.np-btn.active { color: var(--accent); }
+
+/* запись «только для друзей» помечена, чтобы автор видел её отличие */
+.wall-badge {
+  font-size: 11px; color: var(--accent-2);
+  background: var(--card-hover); border-radius: 999px; padding: 2px 7px;
+}
+
+/* ---------- моя музыка ---------- */
+.playlist-row {
+  display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;
+  scrollbar-width: none;
+}
+.playlist-row::-webkit-scrollbar { display: none; }
+.playlist-card {
+  flex: 0 0 auto; width: 110px; height: 110px;
+  background: var(--card); border: 2px solid transparent; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; color: var(--text); font: inherit; padding: 10px;
+}
+.playlist-card:hover { background: var(--card-hover); }
+.playlist-card.active { border-color: var(--accent); color: var(--accent); }
+.playlist-card .nf { font-size: 22px; }
+.playlist-name {
+  font-size: 12px; text-align: center; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.playlist-count { font-size: 11px; color: var(--muted); }
+.music-actions { display: flex; gap: 10px; margin: 14px 0 4px; flex-wrap: wrap; }
+
+/* правка записи прямо в карточке (ПК) */
+.inline-edit-box { margin: 6px 0; }
+.inline-edit-area {
+  width: 100%; background: var(--bg-soft); border: 1px solid var(--accent-2);
+  border-radius: 12px; padding: 10px 12px; color: var(--text);
+  font: inherit; font-size: 15px; line-height: 1.5; resize: none; outline: none;
+  min-height: 60px; overflow: hidden;
+}
+.inline-edit-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+.inline-edit-actions button { width: auto; margin: 0; padding: 7px 16px; font-size: 13px; }
+
+/* ---------- творчество ---------- */
+.art-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 700px) { .art-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .art-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.art-card { background: var(--card); border-radius: var(--radius); overflow: hidden; }
+.art-image {
+  width: 100%; display: block; cursor: zoom-in;
+  max-height: 420px; object-fit: cover; background: var(--bg-soft);
+}
+.art-body { padding: 12px; }
+.art-title { font-weight: 600; margin-bottom: 4px; }
+.art-desc { font-size: 13px; color: var(--muted); line-height: 1.45; margin-bottom: 8px; }
+.art-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; color: var(--muted); margin-bottom: 8px;
+}
+.art-actions { display: flex; gap: 8px; }
+.art-actions .liked { color: var(--accent); border-color: var(--accent); }

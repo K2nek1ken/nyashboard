@@ -100,6 +100,9 @@ export function openLightbox(src, allSrcs = [], startIndex = 0) {
   let pinchStart = 0, startScale = 1;
   stage.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 2) return;
+    // плавность мешает при щипке: движение и без неё непрерывное,
+    // а с ней картинка догоняет пальцы и выглядит трясущейся
+    img.style.transition = "none";
     pinchStart = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
                             e.touches[0].clientY - e.touches[1].clientY);
     startScale = scale;
@@ -109,11 +112,16 @@ export function openLightbox(src, allSrcs = [], startIndex = 0) {
     e.preventDefault();
     const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
                          e.touches[0].clientY - e.touches[1].clientY);
+
+    // Мелкие колебания пальцев отбрасываем: без этого картинка дрожала,
+    // потому что каждое движение на пиксель пересчитывало масштаб.
+    if (Math.abs(d - pinchStart) < 6) return;
+
     scale = Math.min(6, Math.max(1, startScale * (d / pinchStart)));
-    if (scale === 1) { tx = 0; ty = 0; }
+    if (scale <= 1.01) { scale = 1; tx = 0; ty = 0; }
     clamp(); apply();
   }, { passive: false });
-  stage.addEventListener("touchend", () => { pinchStart = 0; });
+  stage.addEventListener("touchend", () => { pinchStart = 0; img.style.transition = ""; });
 
   function close() {
     document.body.style.overflow = "";

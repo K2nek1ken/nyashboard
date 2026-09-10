@@ -4,10 +4,11 @@ import {
 } from "./channels.js";
 import { loadSubscriptions, getSubscriptionsSync } from "./subscriptions.js";
 import { loadFriends, getFriendsSync } from "./friends.js";
+import { remember, recall } from "./session-state.js";
 import { currentUser, authReady } from "./auth.js";
 import { showToast, escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
-import { shapeClass } from "./avatar.js";
+import { avatarHtml } from "./avatar.js";
 import { CHANNEL_COLOR } from "./palette.js";
 
 let allChannels = [];
@@ -16,25 +17,63 @@ let managedIds = new Set(); // каналы, где я создатель/адм
 // Переключение подвкладок. Записи друзей и музыка подгружаются лениво — при
 // первом открытии, а не вместе со страницей: иначе за каналы платили бы
 // лишними запросами те, кто пришёл только за ними.
-const loaded = { friends: false, music: false };
+let loaded = { friends: false, music: false, art: false };
+
+// Переход на другую вкладку и обратно должен начинаться с чистого листа:
+// разметка новая, а пометки о загруженном остались бы от прошлого раза.
+export function resetContentState() {
+  loaded = { friends: false, music: false, art: false };
+}
 
 export function initSubtabs() {
   const tabs = document.getElementById("contentSubtabs");
   if (!tabs) return;
+
+  function openSub(key) {
+    tabs.querySelectorAll("[data-sub]").forEach(b => b.classList.toggle("active", b.dataset.sub === key));
+    document.querySelectorAll("[data-panel]").forEach(p =>
+      p.classList.toggle("hidden", p.dataset.panel !== key));
+    remember("contentSub", key);   // вернёмся сюда же после перезагрузки
+
+    if (key === "friends" && !loaded.friends) { loaded.friends = true; loadFriendsFeed(); }
+    if (key === "music" && !loaded.music) { loaded.music = true; loadMusicPanel(); }
+    if (key === "art" && !loaded.art) { loaded.art = true; loadArtPanel(); }
+  }
+
+  // Восстанавливаем последнюю открытую подвкладку: раньше при любом
+  // возвращении всё сбрасывалось на каналы.
+  const saved = recall("contentSub", "channels");
+  if (saved !== "channels") openSub(saved);
+
   tabs.querySelectorAll("[data-sub]").forEach(btn => {
     btn.addEventListener("click", () => {
       const key = btn.dataset.sub;
-      tabs.querySelectorAll("[data-sub]").forEach(b => b.classList.toggle("active", b === btn));
-      document.querySelectorAll("[data-panel]").forEach(p =>
-        p.classList.toggle("hidden", p.dataset.panel !== key));
-
-      if (key === "friends" && !loaded.friends) { loaded.friends = true; loadFriendsFeed(); }
-      if (key === "music" && !loaded.music) { loaded.music = true; loadMusicPanel(); }
+      openSub(key);
     });
   });
 }
 
 // Записи друзей и отслеживаемых — то же, что в ленте, но без чужих.
+let friendsPosts = [];
+
+// Поиск по записям друзей — на месте, без запроса к базе: список уже загружен.
+function wireFriendsSearch() {
+  const input = document.getElementById("friendsSearch");
+  if (!input || input.dataset.wired) return;
+  input.dataset.wired = "1";
+
+  input.addEventListener("input", async () => {
+    const q = input.value.trim().toLowerCase();
+    const el = document.getElementById("friendsFeed");
+    const { renderPostsInto } = await import("./feed.js");
+    const found = q
+      ? friendsPosts.filter(p => (p.text || "").toLowerCase().includes(q))
+      : friendsPosts;
+    if (!found.length) { el.innerHTML = `<div class="stub-note">Ничего не нашлось</div>`; return; }
+    renderPostsInto(el, found, "");
+  });
+}
+
 async function loadFriendsFeed() {
   const el = document.getElementById("friendsFeed");
   await loadFriends().catch(() => {});
@@ -47,11 +86,18 @@ async function loadFriendsFeed() {
     const { loadRecentPosts, renderPostsInto } = await import("./feed.js");
     const posts = (await loadRecentPosts(60))
       .filter(p => p.authorUid && friends.includes(p.authorUid));
+    friendsPosts = posts;
     if (!posts.length) { el.innerHTML = `<div class="stub-note">Друзья пока ничего не публиковали</div>`; return; }
     renderPostsInto(el, posts, "");
+    wireFriendsSearch();
   } catch (e) {
     el.innerHTML = `<div class="stub-note">Ошибка: ${escapeHtml(e.message)}</div>`;
   }
+}
+
+async function loadArtPanel() {
+  const { initArtPanel } = await import("./art-ui.js");
+  initArtPanel();
 }
 
 async function loadMusicPanel() {
@@ -88,12 +134,12 @@ function channelCard(c) {
   const subbed = isSubscribedLocal(c.id);
   const isManaged = managedIds.has(c.id);
   const icon = c.avatarUrl
-    ? `<img src="${c.avatarUrl}" class="avatar-shaped ${shapeClass(c.avatarShape)}"
-            style="width:100%;height:100%;object-fit:cover;border:none;">`
+    ? avatarHtml({ avatarUrl: c.avatarUrl, avatarShape: c.avatarShape,
+                   accessory: c.accessory, avatarBorder: c.avatarBorder }, 40)
     : `<span class="nf">${ICON.hash}</span>`;
   return `
     <a class="channel-card" href="channel.html?id=${c.id}" data-id="${c.id}">
-      <div class="channel-icon">${icon}</div>
+      <div class="channel-icon ${c.avatarUrl ? "" : "no-avatar"}">${icon}</div>
       <div class="channel-info">
         <div class="channel-name" style="color:${CHANNEL_COLOR}">${escapeHtml(c.name)}</div>
         <div class="channel-desc">@${escapeHtml(c.username)} · ${escapeHtml(c.description || "без описания")}</div>

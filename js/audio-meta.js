@@ -8,12 +8,88 @@
 export async function readAudioMeta(file) {
   try {
     const head = new Uint8Array(await file.slice(0, 4 * 1024 * 1024).arrayBuffer());
-    if (String.fromCharCode(head[0], head[1], head[2]) === "ID3") return readId3(head);
-    if (String.fromCharCode(head[0], head[1], head[2], head[3]) === "fLaC") return readFlac(head);
+    const tag4 = String.fromCharCode(head[0], head[1], head[2], head[3]);
+
+    if (tag4.startsWith("ID3")) return readId3(head);
+    if (tag4 === "fLaC") return readFlac(head);
+    // Opus и Ogg: сведения лежат в блоке OpusTags, устроенном как у FLAC
+    if (tag4 === "OggS") return readOgg(head);
+    // M4A: сведения в разделе moov/udta/meta/ilst
+    if (String.fromCharCode(head[4], head[5], head[6], head[7]) === "ftyp") return readMp4(head);
   } catch (e) {
     console.warn("Теги не прочитались:", e.message);
   }
   return { title: "", artist: "", cover: null };
+}
+
+// ---------- Ogg и Opus ----------
+// Внутри лежит тот же список «ключ=значение», что и у FLAC, поэтому ищем
+// его метку и разбираем уже готовым кодом.
+function readOgg(bytes) {
+  const out = { title: "", artist: "", cover: null };
+  const marker = [0x4f, 0x70, 0x75, 0x73, 0x54, 0x61, 0x67, 0x73];   // OpusTags
+  const vorbis = [0x03, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73];          // .vorbis
+
+  const at = findBytes(bytes, marker) ?? findBytes(bytes, vorbis);
+  if (at === null) return out;
+
+  const start = at + (bytes[at] === 0x4f ? marker.length : vorbis.length);
+  try {
+    readVorbis(bytes.subarray(start), out);
+  } catch { /* повреждённый блок — просто без тегов */ }
+  return out;
+}
+
+function findBytes(haystack, needle) {
+  outer: for (let i = 0; i < haystack.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) continue outer;
+    }
+    return i;
+  }
+  return null;
+}
+
+// ---------- M4A и MP4 ----------
+// Файл состоит из вложенных блоков: четыре байта длины, четыре байта имени,
+// дальше содержимое. Нужный список тегов лежит в moov → udta → meta → ilst.
+function readMp4(bytes) {
+  const out = { title: "", artist: "", cover: null };
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  const walk = (start, end) => {
+    let pos = start;
+    while (pos + 8 <= end) {
+      const size = view.getUint32(pos);
+      const name = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+      if (size < 8 || pos + size > end) return;
+
+      if (["moov", "udta", "meta", "ilst"].includes(name)) {
+        // у meta первые четыре байта служебные, поэтому отступаем
+        walk(pos + (name === "meta" ? 12 : 8), pos + size);
+      } else if (["\u00a9nam", "\u00a9ART", "covr"].includes(name)) {
+        readMp4Value(name, pos + 8, pos + size);
+      }
+      pos += size;
+    }
+  };
+
+  const readMp4Value = (name, start, end) => {
+    // внутри ещё один блок: длина, метка data, тип, служебные байты
+    if (start + 16 > end) return;
+    const dataStart = start + 16;
+    const chunk = bytes.subarray(dataStart, end);
+    if (name === "covr") {
+      out.cover = new Blob([chunk], { type: "image/jpeg" });
+    } else {
+      const text = new TextDecoder("utf-8").decode(chunk).replace(/\0+$/, "");
+      if (name === "\u00a9nam") out.title = text;
+      if (name === "\u00a9ART") out.artist = text;
+    }
+  };
+
+  walk(0, bytes.length);
+  return out;
 }
 
 // ---------- ID3v2 (MP3) ----------

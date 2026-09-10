@@ -2,17 +2,17 @@ import { currentUser, authReady } from "./auth.js";
 import { fetchManagedChannels } from "./channels.js";
 import { escapeHtml, gendered } from "./ui.js";
 import { ICON } from "./icons.js";
-import { shapeClass } from "./avatar.js";
+import { avatarHtml } from "./avatar.js";
 import { CHANNEL_COLOR } from "./palette.js";
 
 function cardHtml(c) {
   const icon = c.avatarUrl
-    ? `<img src="${c.avatarUrl}" class="avatar-shaped ${shapeClass(c.avatarShape)}"
-            style="width:100%;height:100%;object-fit:cover;border:none;">`
+    ? avatarHtml({ avatarUrl: c.avatarUrl, avatarShape: c.avatarShape,
+                   accessory: c.accessory, avatarBorder: c.avatarBorder }, 40)
     : `<span class="nf">${ICON.hash}</span>`;
   return `
     <a class="channel-card" href="channel.html?id=${c.id}">
-      <div class="channel-icon">${icon}</div>
+      <div class="channel-icon ${c.avatarUrl ? "" : "no-avatar"}">${icon}</div>
       <div class="channel-info">
         <div class="channel-name" style="color:${CHANNEL_COLOR}">${escapeHtml(c.name)}</div>
         <div class="channel-desc">@${escapeHtml(c.username)}</div>

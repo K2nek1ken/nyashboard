@@ -19,26 +19,36 @@
 const MAX_SIZE = 26;
 
 export function applyMarkup(escapedText) {
-  let out = escapedText;
+  // Порядок важен: размеры разбираются ПЕРВЫМИ, потому что они работают
+  // построчно и не должны видеть уже вставленные теги. Заголовок — после,
+  // иначе он попадал внутрь открытого размера и не закрывал его.
+  let out = applySizes(escapedText);
 
-  // заголовок: строка, начинающаяся с ###
-  out = out.replace(/^###\s*(.+)$/gm, '<span class="md-head">$1</span>');
-
-  // моноширинный — первым, чтобы внутри него ничего больше не разбиралось
+  // моноширинный — до остальных, чтобы внутри него ничего не разбиралось
   out = out.replace(/`([^`\n]+)`/g, '<code class="md-code">$1</code>');
 
   out = out.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
   out = out.replace(/__([^_\n]+)__/g, "<i>$1</i>");
 
-  out = applySizes(out);
+  // заголовок: строка, начинающаяся с ###
+  out = out.replace(/^###\s*(.+)$/gm, '<span class="md-head">$1</span>');
   return out;
 }
 
-// Размеры разбираются отдельно: это не пара «открыть/закрыть», а переключатель,
-// поэтому обычной заменой по образцу не обойтись.
+// Размеры — переключатель, а не пара «открыть/закрыть»:
+//   {20}текст{20}   — второе число закрывает первое
+//   {20}раз{25}два  — «раз» двадцатым, «два» двадцать пятым
+//
+// Каждая строка разбирается отдельно и закрывается в своём конце. Раньше
+// размер тянулся через весь текст, поэтому строки после него — включая
+// заголовок — оставались набранными им же.
 function applySizes(text) {
-  const parts = text.split(/(\{\d{1,2}\})/g);
-  let open = false;
+  return text.split("\n").map(applySizesInLine).join("\n");
+}
+
+function applySizesInLine(line) {
+  const parts = line.split(/(\{\d{1,2}\})/g);
+  let openSize = null;
   let result = "";
 
   for (const part of parts) {
@@ -47,13 +57,19 @@ function applySizes(text) {
 
     const size = Number(m[1]);
     if (!Number.isInteger(size) || size < 1 || size >= MAX_SIZE) {
-      result += part;           // не подходит под правило — оставляем как текст
+      result += part;           // не подходит под правило — остаётся текстом
       continue;
     }
-    if (open) result += "</span>";
+
+    if (openSize !== null) {
+      result += "</span>";
+      // то же число закрывает и не открывает заново — «{20}текст{20}»
+      if (openSize === size) { openSize = null; continue; }
+    }
     result += `<span class="md-size" style="font-size:${size}px">`;
-    open = true;
+    openSize = size;
   }
-  if (open) result += "</span>";
+
+  if (openSize !== null) result += "</span>";
   return result;
 }

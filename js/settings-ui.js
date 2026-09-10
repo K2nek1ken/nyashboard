@@ -86,6 +86,12 @@ export function initSettingsPage() {
              ${select("particles", PARTICLES, s.particles)}
              <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
            </div>`)}
+        ${s.particles === "custom" ? row("Картинка для частиц", "png или svg без фона, до 512 КБ",
+          `<div style="display:flex; gap:6px; align-items:center;">
+             <button id="particlePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
+             <input type="file" id="particleInput" accept="image/*" style="display:none;">
+             <button class="linkBtn" id="particleClear" style="width:auto;">убрать</button>
+           </div>`) : ""}
         ${row("Узор на цитатах", "фон у ответа на сообщение в чате",
           `<div style="display:flex; align-items:center;">
              ${select("quoteDecor", QUOTE_DECOR, s.quoteDecor)}
@@ -186,6 +192,7 @@ export function initSettingsPage() {
         const prev = host.querySelector("#particlePreview");
         if (prev) prev.innerHTML = particleGlyph(value);
         showToast("Обновится после перезагрузки страницы");
+        if (value === "custom") render();
       }
       if (key === "quoteDecor") {
         const prev = host.querySelector("#decorPreview");
@@ -225,6 +232,25 @@ export function initSettingsPage() {
     renderTabOrder();
 
     // звук логотипа
+    // своя картинка для частиц
+    const particleInput = host.querySelector("#particleInput");
+    host.querySelector("#particlePick")?.addEventListener("click", () => particleInput.click());
+    particleInput?.addEventListener("change", async () => {
+      const file = particleInput.files[0];
+      particleInput.value = "";
+      if (!file) return;
+      try {
+        const { saveParticleImage } = await import("./logo-sound.js");
+        await saveParticleImage(file);
+        showToast("Картинка сохранена — обновится после перезагрузки ♡");
+      } catch (e) { showToast("Не вышло: " + e.message); }
+    });
+    host.querySelector("#particleClear")?.addEventListener("click", async () => {
+      const { clearParticleImage } = await import("./logo-sound.js");
+      await clearParticleImage();
+      showToast("Картинка убрана");
+    });
+
     const soundInput = host.querySelector("#logoSoundInput");
     host.querySelector("#logoSoundPick")?.addEventListener("click", () => soundInput.click());
     const soundInfo = host.querySelector("#logoSoundInfo");

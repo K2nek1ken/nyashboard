@@ -19,7 +19,9 @@ let downBtn = null;
 let mentionBtn = null;
 
 export function initChatNav(messagesEl) {
-  if (container) return;
+  // Переход на другую вкладку и обратно создаёт кнопки заново: старые
+  // ссылались бы на исчезнувшую переписку.
+  if (container) { container.remove(); container = null; pending = []; }
 
   container = document.createElement("div");
   container.className = "chat-nav";

@@ -4,6 +4,7 @@ import { currentUser, authReady } from "./auth.js";
 import { escapeHtml } from "./ui.js";
 import { avatarHtml, shapeClass } from "./avatar.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
+import { fetchOnline } from "./presence.js";
 import { loadFriends } from "./friends.js";
 import { resolveNuid } from "./nuid.js";
 import { defaultAvatar } from "./default-avatar.js";
@@ -25,13 +26,14 @@ async function renderPeople(users) {
   // их по одному во время отрисовки означало бы мигающий список.
   await loadFriends().catch(() => {});
   const badges = new Map();
+  const online = await fetchOnline(users.map(u => u.uid)).catch(() => new Set());
   await Promise.all(users.map(async u => {
     badges.set(u.uid, await relationBadge(u.uid, u).catch(() => null));
   }));
 
   listEl.innerHTML = users.map(u => `
     <div class="person-row" data-uid="${u.uid}">
-      ${avatarHtml(u, 38)}
+      <span class="${online.has(u.uid) ? "online-wrap" : ""}">${avatarHtml(u, 38)}</span>
       <div style="min-width:0;">
         <div>${nameHtml(u, { clickable: false })}${badgeHtml(badges.get(u.uid))}</div>
         <div class="pmuted">@${escapeHtml(u.username)}</div>

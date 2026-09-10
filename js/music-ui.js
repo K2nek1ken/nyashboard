@@ -1,5 +1,5 @@
 import { listTracks, toggleFavorite, loadFavorites, deleteTrack, uploadTrack, formatDuration } from "./music.js";
-import { playTrack, currentTrackId } from "./player.js";
+import { playTrack, setQueue, queueNext, currentTrackId } from "./player.js";
 import { currentUser, authReady } from "./auth.js";
 import { escapeHtml, showToast } from "./ui.js";
 import { askConfirm } from "./dialog.js";
@@ -34,6 +34,9 @@ export function trackCardHtml(track, { favorite = false, canDelete = false } = {
         ${track.publicUid ? `<span class="track-nuid">${track.publicUid}</span>` : ""}
       </div>
       <div class="track-actions">
+        <button class="subBtn" data-next="${track.id}" title="играть следующим"><span class="nf">${ICON.play}</span>+</button>
+        <a class="subBtn" href="${track.url}" download="${escapeHtml(track.title)}.${track.format || "mp3"}"
+           title="скачать" target="_blank" rel="noopener"><span class="nf">${ICON.down}</span></a>
         <button class="subBtn" data-fav="${track.id}"><span class="nf">${favorite ? ICON.heartFilled : ICON.heart}</span></button>
         ${canDelete ? `<button class="subBtn" data-del="${track.id}"><span class="nf">${ICON.close}</span></button>` : ""}
       </div>
@@ -43,8 +46,20 @@ export function trackCardHtml(track, { favorite = false, canDelete = false } = {
 export function wireTrackCards(container, tracks, onChanged) {
   container.querySelectorAll("[data-track-play]").forEach(btn => {
     btn.addEventListener("click", () => {
-      const track = tracks.find(t => t.id === btn.dataset.trackPlay);
-      if (track) playTrack(track);
+      const index = tracks.findIndex(t => t.id === btn.dataset.trackPlay);
+      if (index < 0) return;
+      // Ставим в очередь весь список, а не один трек: иначе «дальше»,
+      // «перемешать» и повтор списка нечего было бы играть.
+      setQueue(tracks, index);
+    });
+  });
+
+  container.querySelectorAll("[data-next]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const track = tracks.find(t => t.id === btn.dataset.next);
+      if (!track) return;
+      queueNext(track);
+      showToast("Заиграет следующим ♡");
     });
   });
 
@@ -86,23 +101,54 @@ export async function initMusicPanel(host) {
 
   const listEl = host.querySelector("#tracksList");
 
+  let allTracks = [];
+
+  // Поиск по названию, исполнителю и идентификатору — по уже загруженному
+  // списку, без обращения к базе.
+  function wireSearch() {
+    const input = document.getElementById("musicSearch");
+    if (!input || input.dataset.wired) return;
+    input.dataset.wired = "1";
+    input.addEventListener("input", () => paint(input.value.trim().toLowerCase()));
+  }
+
   async function refresh() {
     try {
       const tracks = await listTracks();
+      allTracks = tracks;
       if (!tracks.length) {
         listEl.innerHTML = `<div class="stub-note">Пока пусто. Загрузи что-нибудь первым ♡</div>`;
         return;
       }
       const favIds = currentUser ? new Set((await loadFavorites()).map(t => t.id)) : new Set();
-      listEl.innerHTML = tracks.map(t => trackCardHtml(t, {
-        favorite: favIds.has(t.id),
-        canDelete: currentUser && t.uploaderUid === currentUser.uid
-      })).join("");
-      wireTrackCards(listEl, tracks, refresh);
+      paint("", favIds);
+      wireSearch();
     } catch (e) {
       listEl.innerHTML = `<div class="stub-note">Ошибка: ${escapeHtml(e.message)}</div>`;
     }
   }
+  let favCache = new Set();
+
+  function paint(query = "", favIds = null) {
+    if (favIds) favCache = favIds;
+    const found = query
+      ? allTracks.filter(t =>
+          (t.title || "").toLowerCase().includes(query) ||
+          (t.artist || "").toLowerCase().includes(query) ||
+          (t.publicUid || "").toLowerCase().includes(query))
+      : allTracks;
+
+    if (!found.length) {
+      listEl.innerHTML = `<div class="stub-note">${query ? "Ничего не нашлось" : "Пока пусто. Загрузи что-нибудь первым ♡"}</div>`;
+      return;
+    }
+    listEl.innerHTML = found.map(t => trackCardHtml(t, {
+      favorite: favCache.has(t.id),
+      canDelete: currentUser && t.uploaderUid === currentUser.uid
+    })).join("");
+    wireTrackCards(listEl, found, refresh);
+  }
+
   refresh();
 
   // Загрузка одним окном: файл выбирается первым, всё остальное — сразу вместе.

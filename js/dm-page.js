@@ -1,10 +1,7 @@
-import { applySettings } from "./settings.js";
+import { initShell } from "./shell.js";
 import { askText, askConfirm } from "./dialog.js";
-import { initLayout, initStarfield } from "./layout.js";
-import { initSettingsModal } from "./settings-modal.js";
-import { applyFavicon } from "./favicon.js";
-import { paintTabDots, startTabPolling } from "./notifications.js";
-import { startPresence } from "./presence.js";
+
+import { keepScrollPosition } from "./session-state.js";
 import { initProfileDropdown, authReady, currentUser } from "./auth.js";
 import { subscribeMessages, sendMessage, editMessage, deleteMessage, otherParticipant } from "./dm.js";
 import { db, doc, getDoc } from "./firebase.js";
@@ -22,15 +19,6 @@ import { getSettings } from "./settings.js";
 import { getAlias, setAlias } from "./aliases.js";
 import { currentUserDoc } from "./auth.js";
 import { defaultAvatar } from "./default-avatar.js";
-
-applySettings();
-// Шапку рисуем немедленно: она не должна мигать пустотой,
-// пока страница ждёт DOMContentLoaded.
-initLayout();
-applyFavicon();
-paintTabDots();
-startTabPolling();
-startPresence();
 
 const chatId = new URLSearchParams(location.search).get("chat");
 let pendingImage = null;
@@ -242,15 +230,22 @@ async function init() {
       input.value = ""; pendingImage = null; imageInput.value = "";
       preview.classList.add("hidden"); preview.innerHTML = "";
     } catch (err) {
+      // Отказ базы означает, что дружба больше не взаимная: писать нельзя,
+      // но читать историю по-прежнему можно.
+      if (/permission|insufficient/i.test(err.message)) {
+        showToast("Переписка закрыта — вы больше не друзья");
+        input.value = text;
+        return;
+      }
       console.error(err);
       showToast("Не отправилось: " + err.message);
     }
   });
 }
 
+initShell();   // шапка, оформление и плеер — общие для всех страниц
+
 window.addEventListener("DOMContentLoaded", () => {
-  initSettingsModal();
-  initStarfield();
-  initProfileDropdown();
+  keepScrollPosition();
   init();
 });

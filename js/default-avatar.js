@@ -82,13 +82,37 @@ function hiddenSvg({ accent, light, dark }) {
 </svg>`;
 }
 
-const BUILDERS = { neko: nekoSvg, hidden: hiddenSvg, anon: nekoSvg };
+// Мордочка бота по эскизу Неко: крупный силуэт снизу, ушки-треугольники,
+// глаза. Отличается от обычной анонимной пропорциями, поэтому узнаётся сразу.
+function botSvg({ accent, light }) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+  <defs><clipPath id="b"><circle cx="540" cy="540" r="536"/></clipPath></defs>
+  <circle cx="540" cy="540" r="536" fill="${accent}"/>
+  <g clip-path="url(#b)">
+    <polygon points="723.5,1203.5 723.5,703.5 963.5,983.5" fill="${light}"
+             transform="rotate(-123.5 723.5 1203.5)"/>
+    <polygon points="355.3,1203.5 355.3,703.5 115.3,983.5" fill="${light}"
+             transform="rotate(-56.5 355.3 1203.5)"/>
+    <circle cx="539.4" cy="921.2" r="449.1" fill="${light}"/>
+    <circle cx="379.2" cy="716.4" r="102" fill="${accent}"/>
+    <circle cx="706.4" cy="716.4" r="102" fill="${accent}"/>
+  </g>
+</svg>`;
+}
+
+const BUILDERS = { neko: nekoSvg, hidden: hiddenSvg, anon: nekoSvg, bot: botSvg };
 const cache = new Map();
 
 export function defaultAvatar(variant = "neko") {
   const theme = readTheme();
   // Аватарка анонима красится в его личный оттенок, а не в акцент темы:
   // так участники общего чата отличаются друг от друга.
+  // Бот всегда одного цвета: он не участник, а часть сайта, и меняться
+  // вместе с чужими темами ему незачем.
+  if (variant === "bot") {
+    theme.accent = "#7f9cf5";
+    theme.light = "#eef2ff";
+  }
   if (variant === "anon") {
     const base = anonColor();
     theme.accent = base;

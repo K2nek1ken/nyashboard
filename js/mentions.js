@@ -22,8 +22,11 @@ export function linkifyMentions(escapedText) {
     )
     .replace(
       /#([A-Za-zА-Яа-яЁё0-9_]{2,30})/g,
-      (m, tag) => /^U[1-4]\d{6}$/i.test(tag)
-        ? `<span class="mention" data-nuid="${tag.toUpperCase()}">#${tag}</span>`
+      (m, tag) => /^U[1-5]\d{6}$/i.test(tag)
+        // Цвет по типу: человек, сообщение, трек, канал — видно сразу,
+        // не открывая карточку
+        ? `<span class="mention nuid-${{ "1": "user", "2": "message", "3": "track", "4": "channel", "5": "art" }[tag[1]] || "user"}"
+                 data-nuid="${tag.toUpperCase()}">#${tag}</span>`
         : `<span class="hashtag" data-hashtag="${tag}">#${tag}</span>`
     );
 }

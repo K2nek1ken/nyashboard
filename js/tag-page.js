@@ -1,23 +1,10 @@
-import { applySettings } from "./settings.js";
-import { initLayout, initStarfield } from "./layout.js";
-import { initSettingsModal } from "./settings-modal.js";
-import { applyFavicon } from "./favicon.js";
-import { paintTabDots, startTabPolling } from "./notifications.js";
-import { startPresence } from "./presence.js";
+import { initShell } from "./shell.js";
+import { keepScrollPosition } from "./session-state.js";
 import { initProfileDropdown, authReady } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
 import { db, collection, query, where, getDocs } from "./firebase.js";
 import { renderPostsInto } from "./feed.js";
 import { escapeHtml } from "./ui.js";
-
-applySettings();
-// Шапку рисуем немедленно: она не должна мигать пустотой,
-// пока страница ждёт DOMContentLoaded.
-initLayout();
-applyFavicon();
-paintTabDots();
-startTabPolling();
-startPresence();
 
 async function initTagPage() {
   const tag = (new URLSearchParams(location.search).get("tag") || "").toLowerCase();
@@ -43,10 +30,10 @@ async function initTagPage() {
   }
 }
 
+initShell();   // шапка, оформление и плеер — общие для всех страниц
+
 window.addEventListener("DOMContentLoaded", () => {
-  initSettingsModal();
-  initStarfield();
-  initProfileDropdown();
+  keepScrollPosition();
   initViewProfileModal();
   initTagPage();
 });

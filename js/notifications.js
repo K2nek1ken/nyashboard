@@ -36,12 +36,29 @@ export function markTabSeen(tab) {
 // Пока человек смотрит на вкладку, отметка обновляется: иначе сообщения,
 // пришедшие во время чтения, оставались бы «непрочитанными» навсегда, и точка
 // зажигалась бы снова при каждой проверке.
+let seenTimer = null;
+let seenHandler = null;
+
 export function keepTabSeen(tab) {
+  // Прошлый отсчёт останавливаем: без перезагрузки страницы вкладку можно
+  // открыть много раз, и таймеры копились бы с каждым переходом.
+  stopKeepingSeen();
+
   const touch = () => { if (!document.hidden) markTabSeen(tab); };
   touch();
-  setInterval(touch, 10000);
+  seenTimer = setInterval(touch, 10000);
+  seenHandler = touch;
   document.addEventListener("visibilitychange", touch);
   window.addEventListener("focus", touch);
+}
+
+export function stopKeepingSeen() {
+  if (seenTimer) { clearInterval(seenTimer); seenTimer = null; }
+  if (seenHandler) {
+    document.removeEventListener("visibilitychange", seenHandler);
+    window.removeEventListener("focus", seenHandler);
+    seenHandler = null;
+  }
 }
 
 function seenAt(tab) {

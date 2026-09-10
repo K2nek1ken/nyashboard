@@ -20,7 +20,7 @@ export function initInlineComposer(onPublished) {
   const fileInput = document.getElementById("icImages");
   const publishBtn = document.getElementById("icPublish");
   const anonToggle = document.getElementById("icAnon");
-  const anonLabel = document.getElementById("icAnonLabel");
+  const wallToggle = document.getElementById("icWall");
   const hint = document.getElementById("icHint");
   let images = [];
 
@@ -35,12 +35,7 @@ export function initInlineComposer(onPublished) {
     if (!currentUser) {
       anonToggle.checked = true;
       anonToggle.disabled = true;
-      anonLabel.textContent = "гость — всегда анонимно";
     }
-  });
-
-  anonToggle.addEventListener("change", () => {
-    anonLabel.textContent = anonToggle.checked ? "анонимно" : "от своего имени";
   });
 
   function renderStrip() {
@@ -104,6 +99,8 @@ export function initInlineComposer(onPublished) {
         authorAccessory: (!isAnon && currentUserDoc) ? (currentUserDoc.accessory || "none") : null,
         authorBorder: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarBorder || "pink") : null,
         authorNickColor: (!isAnon && currentUserDoc) ? (currentUserDoc.nickColor || "") : null,
+        place: wallToggle?.checked ? "wall" : "feed",
+        wallInFeed: currentUserDoc?.wallInFeed !== false,
         channelId: null,
         isAnonymous: isAnon,
         text: savedText,

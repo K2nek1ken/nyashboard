@@ -15,10 +15,10 @@ import { db, doc, getDoc, setDoc, collection, query, where, getDocs } from "./fi
 
 // Типы идентификаторов по первой цифре:
 //   U1 — человек, U2 — сообщение чата, U3 — трек, U4 — канал
-export const NUID_KIND = { 1: "user", 2: "message", 3: "track", 4: "channel" };
+export const NUID_KIND = { 1: "user", 2: "message", 3: "track", 4: "channel", 5: "art" };
 
 export function nuidKind(nuid) {
-  const m = /^U([1-4])\d{6}$/i.exec((nuid || "").trim());
+  const m = /^U([1-5])\d{6}$/i.exec((nuid || "").trim());
   return m ? NUID_KIND[m[1]] : null;
 }
 
@@ -80,7 +80,7 @@ export async function requestNuid(uid) {
 // Перечислить индекс целиком правила не дают, так что чужие NUID так не собрать.
 export async function resolveNuid(nuid) {
   const clean = (nuid || "").trim().toUpperCase();
-  if (!/^U[1-4]\d{6}$/.test(clean)) return null;
+  if (!/^U[1-5]\d{6}$/.test(clean)) return null;
   try {
     const snap = await getDoc(doc(db, "nuidIndex", clean));
     return snap.exists() ? snap.data() : null;
