@@ -1860,10 +1860,17 @@ body.np-open .player-bar { transform: translateY(-120%); transition: transform .
 .player-expand:hover { border-color: var(--accent); background: var(--card-hover); }
 .player-btn.active { color: var(--accent); }
 
-/* Плеер уезжает ПОД шапку, а не наезжает на неё */
+/* На телефоне плеер уезжает под шапку — она выше по слою.
+   На компьютере он живёт ВНУТРИ колонки навигации, поэтому там всё наоборот:
+   с меньшим уровнем он просто исчезал за ней. */
 .player-bar { z-index: 15; }
 #navHost { z-index: 30; }
 body.np-open .player-bar { transform: translateY(-160%); }
+
+@media (min-width: 900px) {
+  .player-bar { z-index: 35; }
+  body.np-open .player-bar { transform: translateX(-140%); }
+}
 
 /* Плеер не должен закрывать шапку личного чата: она сдвигается под него */
 body.player-open #dmHeader { top: 124px; }
@@ -1903,3 +1910,46 @@ body.player-open #dmHeader { top: 124px; }
 }
 .art-form-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .art-form-desc { min-height: 76px; resize: vertical; margin-top: 8px; line-height: 1.4; }
+
+
+/* ============================================================
+   ПК: чат и колонка — окончательная раскладка
+   ============================================================ */
+@media (min-width: 900px) {
+  /* Сообщения центрируются так же, как остальное содержимое: раньше
+     центрировалась только панель ввода, и переписка оставалась у левого края. */
+  #tab-chat, .chat-messages { max-width: 1080px; margin-left: auto; margin-right: auto; }
+
+  /* Кнопки «вниз» и «к упоминаниям» — справа ОТ переписки, а не над вводом:
+     так они не закрывают сообщения. */
+  .chat-nav {
+    right: max(20px, calc(50% - 700px));
+    bottom: 200px;
+    left: auto;
+  }
+
+  /* Профиль внизу колонки, плеер прямо над ним */
+  #navHost { display: flex; flex-direction: column; }
+  #navTabs { flex: 0 0 auto; }
+  #profileIcon { margin-top: auto; order: 99; }
+  body.player-open #profileIcon { margin-bottom: 8px; }
+}
+
+/* ---------- настройки профиля в один столбец ----------
+   Строки шли вразнобой, потому что каждая центрировалась сама по себе.
+   Теперь общая сетка: слева подписи, справа поля, всё выровнено. */
+.profile-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: center;
+  max-width: 460px;
+  margin: 14px auto 0;
+}
+.profile-settings-grid > .setting-row {
+  display: contents;   /* строка растворяется, её части ложатся в общую сетку */
+}
+.profile-settings-grid .setting-row > span:first-child {
+  justify-self: start; text-align: left;
+}
+.profile-settings-grid .setting-row > *:last-child { justify-self: end; }

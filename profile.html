@@ -69,35 +69,37 @@
         <div class="username-row"><span class="at-sign">@</span><input id="usernameInput" class="inlineEdit" placeholder="username" maxlength="20"></div>
         <textarea id="bioInput" class="bioInput" placeholder="Описание профиля — расскажи о себе" maxlength="300"></textarea>
         <div class="uid-row">NUID: <code id="uidDisplay"></code><br><span class="muted">(неизменно, не отправляй кому попало)</span></div>
-        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+        <div class="profile-settings-grid">
+<div class="setting-row">
           <span class="muted" style="font-size:13px;">Записи со стены в ленте друзей:</span>
           <span id="wallInFeedHost"></span>
         </div>
-        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+        <div class="setting-row">
           <span class="muted" style="font-size:13px;">Кто видит мои записи из ленты:</span>
           <span id="feedTabVisibilityHost"></span>
         </div>
-        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+        <div class="setting-row">
           <span class="muted" style="font-size:13px;">Кто видит мою музыку:</span>
           <span id="musicVisibilityHost"></span>
         </div>
-        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+        <div class="setting-row">
           <span class="muted" style="font-size:13px;">Показывать меня во вкладке «Люди»:</span>
           <span id="listVisibilityHost"></span>
         </div>
-        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+        <div class="setting-row">
           <span class="muted" style="font-size:13px;">Обращаться ко мне:</span>
           <span id="genderSelectHost"></span>
         </div>
-        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+        <div class="setting-row">
           <span class="muted" style="font-size:13px;">Кто видит меня как автора в репостах:</span>
           <span id="repostVisibilityHost"></span>
         </div>
-        <div class="setting-row" style="justify-content:center; gap:10px; border:none; padding-top:10px;">
+        <div class="setting-row">
           <span class="muted" style="font-size:13px;">Кто видит мой NUID:</span>
           <span id="nuidVisibilityHost"></span>
         </div>
       </div>
+</div>
 
       <button id="saveProfileBtn" class="primaryBtn">Сохранить профиль</button>
       <hr>
@@ -123,7 +125,7 @@
         <div id="ddUsername" class="muted" style="font-size:12px;"></div>
       </div>
     </div>
-    <a href="profile.html" class="dropdownBtn"><span class="nf">&#xf007;</span> Моя стена</a>
+    <a href="user.html?uid=me" class="dropdownBtn"><span class="nf">&#xf007;</span> Моя стена</a>
     <a href="my-music.html" class="dropdownBtn"><span class="nf">&#xf001;</span> Моя музыка</a>
     <a href="my-channels.html" class="dropdownBtn"><span class="nf">&#xf292;</span> Мои каналы</a>
     <a href="settings.html" class="dropdownBtn"><span class="nf">&#xf013;</span> Настройки</a>

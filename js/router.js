@@ -1,4 +1,5 @@
 import { remember, recall } from "./session-state.js";
+import { showToast } from "./ui.js";
 
 // ============================================================
 //  Переходы без перезагрузки
@@ -112,7 +113,16 @@ async function swap(page, { push = true } = {}) {
 
     const module = await ROUTES[page]();
     currentModule = module;
-    await module.initPage?.();
+
+    // Ошибку внутри вкладки не превращаем в перезагрузку: разметка уже
+    // подставлена, и полная загрузка только скроет причину. Показываем её
+    // и остаёмся на месте — так поломка видна и чинится, а не маскируется.
+    try {
+      await module.initPage?.();
+    } catch (e) {
+      console.error(`Вкладка ${page} не запустилась:`, e);
+      showToast("Что-то пошло не так на этой вкладке");
+    }
 
     // Подсветка активной вкладки — её рисует навигация, а она не перезагружалась
     document.querySelectorAll(".navBtn").forEach(btn => {

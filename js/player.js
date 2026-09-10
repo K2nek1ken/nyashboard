@@ -178,7 +178,7 @@ export function playTrack(track) {
 
   if (current?.id === track.id) { togglePlay(); return; }
 
-  current = track;
+  current = { ...track, title: track.title || "Без названия", artist: track.artist || "" };
   audio.src = track.url;
   audio.play().catch(() => {});
 
@@ -262,15 +262,21 @@ function paintBar(track) {
 // ---------- очередь ----------
 
 export function setQueue(tracks, startIndex = 0) {
-  queue = tracks.map(t => ({ id: t.id, title: t.title, artist: t.artist, url: t.url, coverUrl: t.coverUrl }));
+  // Пустые поля заменяем сразу: иначе после восстановления из памяти
+  // на экране появлялось «undefined».
+  queue = tracks.map(t => ({
+    id: t.id, title: t.title || "Без названия", artist: t.artist || "",
+    url: t.url, coverUrl: t.coverUrl || null
+  }));
   queueIndex = startIndex;
   if (queue[queueIndex]) playTrack(queue[queueIndex]);
 }
 
 // Поставить трек сразу после текущего, не сбивая остальную очередь.
 export function queueNext(track) {
-  const item = { id: track.id, title: track.title, artist: track.artist,
-                 url: track.url, coverUrl: track.coverUrl };
+  const item = { id: track.id, title: track.title || "Без названия",
+                 artist: track.artist || "", url: track.url,
+                 coverUrl: track.coverUrl || null };
   if (!queue.length) { setQueue([track], 0); return; }
   // если этот трек уже стоит в очереди — просто передвигаем его вперёд
   const existing = queue.findIndex(t => t.id === track.id);
@@ -393,7 +399,7 @@ function openNowPlaying() {
         ? `<img src="${current.coverUrl}" alt="">`
         : `<div class="np-cover-empty"><span class="nf">${ICON.music}</span></div>`}
     </div>
-    <div class="np-title">${escapeHtml(current.title)}</div>
+    <div class="np-title">${escapeHtml(current.title || "Без названия")}</div>
     <div class="np-artist">${escapeHtml(current.artist || "")}</div>
     <div class="np-progress" data-np-progress><div class="np-fill" data-np-fill></div></div>
     <div class="np-times"><span data-np-now>0:00</span><span data-np-total>—</span></div>

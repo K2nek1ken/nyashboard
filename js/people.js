@@ -49,6 +49,12 @@ async function renderPeople(users) {
 }
 
 export function initPeopleSearch() {
+  // Элемент берём здесь же: при переходе между вкладками разметка новая,
+  // а раньше эта функция полагалась на ссылку, полученную в другом месте —
+  // и падала, из-за чего роутер аварийно перезагружал всю страницу.
+  searchEl = document.getElementById("peopleSearch");
+  if (!searchEl) return;
+
   // ?q=... приходит при клике по #U1666777 в тексте поста
   const preset = new URLSearchParams(location.search).get("q");
   if (preset) {

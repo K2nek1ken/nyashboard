@@ -13,11 +13,16 @@ import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 function getUid() {
-  return new URLSearchParams(location.search).get("uid");
+  const raw = new URLSearchParams(location.search).get("uid");
+  // «me» — это своя страница: так «Моя стена» в меню ведёт туда же, куда
+  // попадают другие, глядя на тебя. Настройки живут отдельно.
+  if (raw === "me") return currentUser?.uid || null;
+  return raw;
 }
 
 export async function initUserPage() {
   const postsEl = document.getElementById("uPosts");
+  await authReady;                 // «me» известен только после входа
   const uid = getUid();
   if (!uid) { postsEl.innerHTML = `<div class="stub-note">Не указан профиль (нет ?uid= в ссылке)</div>`; return; }
 
@@ -89,6 +94,22 @@ export async function initUserPage() {
     let canSeeFeed = isSelf || visibility === "everyone";
     if (!canSeeFeed && visibility === "friends") {
       canSeeFeed = await isMutualFriend(uid).catch(() => false);
+    }
+
+    // На своей странице даём писать прямо отсюда — за этим на стену и заходят.
+    if (isSelf) {
+      const host = document.getElementById("userPostBox");
+      if (host) {
+        host.classList.remove("hidden");
+        host.innerHTML = `
+          <button class="primaryBtn" id="writeWallBtn" style="width:auto;margin:0 0 14px;">
+            <span class="nf">${ICON.pencil}</span> Написать на стену
+          </button>`;
+        host.querySelector("#writeWallBtn").addEventListener("click", async () => {
+          const { openWallComposer } = await import("./wall-composer.js");
+          openWallComposer(() => location.reload());
+        });
+      }
     }
 
     const tabs = document.getElementById("userSubtabs");
