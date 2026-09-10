@@ -44,14 +44,27 @@ export async function uploadArt({ file, title, description }) {
 }
 
 export async function listArtworks(count = 40) {
-  const snap = await getDocs(query(collection(db, "artworks"),
-    orderBy("createdAt", "desc"), limit(count)));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  try {
+    const snap = await getDocs(query(collection(db, "artworks"),
+      orderBy("createdAt", "desc"), limit(count)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    // Пока правила для работ не залиты, база отвечает отказом. Показываем
+    // это как пустой раздел с понятной причиной, а не как вечную загрузку.
+    if (/permission|insufficient/i.test(e.message)) {
+      throw new Error("правила базы для работ не задеплоены");
+    }
+    throw e;
+  }
 }
 
 export async function getArtwork(id) {
   const snap = await getDoc(doc(db, "artworks", id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+export async function updateArtwork(id, patch) {
+  await updateDoc(doc(db, "artworks", id), { ...patch, editedAt: serverTimestamp() });
 }
 
 export async function deleteArtwork(id) {

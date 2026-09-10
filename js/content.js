@@ -96,14 +96,27 @@ async function loadFriendsFeed() {
 }
 
 async function loadArtPanel() {
-  const { initArtPanel } = await import("./art-ui.js");
-  initArtPanel();
+  const el = document.getElementById("artList");
+  try {
+    const { initArtPanel } = await import("./art-ui.js");
+    await initArtPanel();
+  } catch (e) {
+    // Раньше ошибка здесь терялась молча, и на экране навсегда оставалось
+    // «Загружаю…». Теперь причина видна.
+    console.error("Раздел творчества не загрузился:", e);
+    if (el) el.innerHTML = `<div class="stub-note">Не загрузилось: ${escapeHtml(e.message)}</div>`;
+  }
 }
 
 async function loadMusicPanel() {
   const el = document.getElementById("musicPanel");
-  const { initMusicPanel } = await import("./music-ui.js");
-  initMusicPanel(el);
+  try {
+    const { initMusicPanel } = await import("./music-ui.js");
+    await initMusicPanel(el);
+  } catch (e) {
+    console.error("Раздел музыки не загрузился:", e);
+    if (el) el.innerHTML = `<div class="stub-note">Не загрузилось: ${escapeHtml(e.message)}</div>`;
+  }
 }
 
 export async function initContentTab() {

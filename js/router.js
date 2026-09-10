@@ -20,12 +20,22 @@ import { remember, recall } from "./session-state.js";
 
 // Какие страницы умеют работать без перезагрузки и какими модулями заведуются.
 const ROUTES = {
-  "index.html":    () => import("./feed-page.js"),
-  "chat.html":     () => import("./chat-page.js"),
-  "friends.html":  () => import("./friends-page.js"),
-  "content.html":  () => import("./content-page.js"),
-  "people.html":   () => import("./people-page.js"),
-  "about.html":    () => import("./about-page.js")
+  "index.html":       () => import("./feed-page.js"),
+  "chat.html":        () => import("./chat-page.js"),
+  "friends.html":     () => import("./friends-page.js"),
+  "content.html":     () => import("./content-page.js"),
+  "people.html":      () => import("./people-page.js"),
+  "about.html":       () => import("./about-page.js"),
+  "settings.html":    () => import("./settings-page.js"),
+  "profile.html":     () => import("./profile-page.js"),
+  "my-music.html":    () => import("./my-music-page.js"),
+  "my-channels.html": () => import("./my-channels-page.js"),
+  // страницы с параметрами в адресе: им нужен разбор адреса при запуске
+  "user.html":        () => import("./user-page.js"),
+  "channel.html":     () => import("./channel-page.js"),
+  "post.html":        () => import("./post-page.js"),
+  "dm.html":          () => import("./dm-page.js"),
+  "tag.html":         () => import("./tag-page.js")
 };
 
 const htmlCache = new Map();
@@ -54,22 +64,27 @@ export function initRouter(module) {
 
     const page = pageName(url.pathname);
     if (!ROUTES[page]) return;                 // страница без поддержки — обычный переход
-    if (url.search) return;                    // адрес с параметрами: пусть грузится целиком
 
     e.preventDefault();
-    navigate(page);
+    navigate(page + url.search);               // параметры сохраняем: их читает сама страница
   });
 
   // Кнопка «назад» браузера
   window.addEventListener("popstate", () => {
     const page = pageName(location.pathname);
+    // Плеер при возврате не должен ни останавливаться, ни отматываться:
+    // страница не перезагружается, значит звук просто продолжает идти.
     if (ROUTES[page]) swap(page, { push: false });
+    else location.reload();
   });
 }
 
-export async function navigate(page) {
-  if (navigating || page === currentPath) return;
-  history.pushState({ page }, "", page);
+export async function navigate(target) {
+  const [page, search = ""] = target.split("?");
+  const full = page + (search ? "?" + search : "");
+  if (navigating || full === currentPath + location.search) return;
+
+  history.pushState({ page: full }, "", full);
   await swap(page, { push: false });
 }
 

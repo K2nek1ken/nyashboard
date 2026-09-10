@@ -1,5 +1,7 @@
 import { listTracks, toggleFavorite, loadFavorites, deleteTrack, uploadTrack, formatDuration } from "./music.js";
-import { playTrack, setQueue, queueNext, currentTrackId } from "./player.js";
+import { playTrack, queueNext, currentTrackId } from "./player.js";
+import { kebabHtml, wireKebab } from "./kebab.js";
+import { defaultCover } from "./default-avatar.js";
 import { currentUser, authReady } from "./auth.js";
 import { escapeHtml, showToast } from "./ui.js";
 import { askConfirm } from "./dialog.js";
@@ -14,9 +16,7 @@ export function trackCardHtml(track, { favorite = false, canDelete = false } = {
   return `
     <div class="track-card" data-track="${track.id}">
       <div class="track-cover-wrap">
-        ${track.coverUrl
-          ? `<img class="track-cover" src="${track.coverUrl}" alt="">`
-          : `<div class="track-cover"></div>`}
+        <img class="track-cover" src="${track.coverUrl || defaultCover(track.id || track.title)}" alt="">
         <button class="track-play" data-track-play="${track.id}">
           <span class="nf">${playing ? ICON.pause : ICON.play}</span>
         </button>
@@ -34,11 +34,15 @@ export function trackCardHtml(track, { favorite = false, canDelete = false } = {
         ${track.publicUid ? `<span class="track-nuid">${track.publicUid}</span>` : ""}
       </div>
       <div class="track-actions">
-        <button class="subBtn" data-next="${track.id}" title="играть следующим"><span class="nf">${ICON.play}</span>+</button>
-        <a class="subBtn" href="${track.url}" download="${escapeHtml(track.title)}.${track.format || "mp3"}"
-           title="скачать" target="_blank" rel="noopener"><span class="nf">${ICON.down}</span></a>
-        <button class="subBtn" data-fav="${track.id}"><span class="nf">${favorite ? ICON.heartFilled : ICON.heart}</span></button>
-        ${canDelete ? `<button class="subBtn" data-del="${track.id}"><span class="nf">${ICON.close}</span></button>` : ""}
+        <button class="subBtn ${favorite ? "liked" : ""}" data-fav="${track.id}" title="в любимое">
+          <span class="nf">${favorite ? ICON.heartFilled : ICON.heart}</span>
+        </button>
+        ${kebabHtml([
+          { action: "playNext", label: "Играть следующим", icon: ICON.play },
+          { action: "download", label: "Скачать", icon: ICON.down },
+          { action: "copyNuid", label: "Скопировать NUID", icon: ICON.hash },
+          ...(canDelete ? [{ action: "removeTrack", label: "Удалить", icon: ICON.close, danger: true }] : [])
+        ], track.id)}
       </div>
     </div>`;
 }
@@ -46,20 +50,11 @@ export function trackCardHtml(track, { favorite = false, canDelete = false } = {
 export function wireTrackCards(container, tracks, onChanged) {
   container.querySelectorAll("[data-track-play]").forEach(btn => {
     btn.addEventListener("click", () => {
-      const index = tracks.findIndex(t => t.id === btn.dataset.trackPlay);
-      if (index < 0) return;
-      // Ставим в очередь весь список, а не один трек: иначе «дальше»,
-      // «перемешать» и повтор списка нечего было бы играть.
-      setQueue(tracks, index);
-    });
-  });
-
-  container.querySelectorAll("[data-next]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const track = tracks.find(t => t.id === btn.dataset.next);
+      const track = tracks.find(t => t.id === btn.dataset.trackPlay);
       if (!track) return;
-      queueNext(track);
-      showToast("Заиграет следующим ♡");
+      // Играем один трек: если человек нажал именно на него, включать следом
+      // весь список — не то, чего он просил.
+      playTrack(track);
     });
   });
 
@@ -75,14 +70,37 @@ export function wireTrackCards(container, tracks, onChanged) {
     });
   });
 
-  container.querySelectorAll("[data-del]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      if (!await askConfirm("Удалить трек?", { okLabel: "Удалить", danger: true })) return;
-      try {
-        await deleteTrack(btn.dataset.del);
-        showToast("Удалён");
-        onChanged?.();
-      } catch (e) { showToast("Ошибка: " + e.message); }
+  // Остальные действия — в меню карточки: по значкам было непонятно,
+  // что каждый из них делает.
+  container.querySelectorAll(".track-card").forEach(card => {
+    const track = tracks.find(t => t.id === card.dataset.track);
+    if (!track) return;
+
+    wireKebab(card, {
+      playNext: () => { queueNext(track); showToast("Заиграет следующим ♡"); },
+      download: () => {
+        const a = document.createElement("a");
+        a.href = track.url;
+        a.download = `${track.title || "track"}.${track.format || "mp3"}`;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.click();
+      },
+      copyNuid: async () => {
+        if (!track.publicUid) { showToast("У трека нет номера"); return; }
+        try {
+          await navigator.clipboard.writeText(track.publicUid);
+          showToast("Номер скопирован");
+        } catch { showToast(track.publicUid); }
+      },
+      removeTrack: async () => {
+        if (!await askConfirm("Удалить трек?", { okLabel: "Удалить", danger: true })) return;
+        try {
+          await deleteTrack(track.id);
+          showToast("Удалён");
+          onChanged?.();
+        } catch (e) { showToast("Ошибка: " + e.message); }
+      }
     });
   });
 }

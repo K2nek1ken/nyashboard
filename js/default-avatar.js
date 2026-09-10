@@ -137,3 +137,38 @@ export function refreshDefaultAvatars() {
     img.src = defaultAvatar(img.dataset.defaultAvatar);
   });
 }
+
+
+// ============================================================
+//  Обложка по умолчанию для трека
+//
+//  У треков без обложки её просто не было — и нажимать было не на что.
+//  Рисуем ноту на цветном фоне, а цвет выбираем по идентификатору трека:
+//  так у каждого он свой, но всегда один и тот же, а не случайный при
+//  каждой отрисовке.
+// ============================================================
+const COVER_PALETTE = [
+  ["#e88fd0", "#a98bf0"], ["#f5a45c", "#e8865f"], ["#8fe0b0", "#5ec9a0"],
+  ["#7fc8f0", "#7f9cf5"], ["#b48ce8", "#c986c9"], ["#f0c674", "#e6cf8b"],
+  ["#6fd3cf", "#4fb3b0"], ["#f2b9a0", "#e78fa4"]
+];
+
+export function defaultCover(seed = "") {
+  // простая свёртка строки в число: одинаковый трек — одинаковый цвет
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  const [from, to] = COVER_PALETTE[hash % COVER_PALETTE.length];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>
+    </linearGradient></defs>
+    <rect width="100" height="100" fill="url(#g)"/>
+    <circle cx="38" cy="66" r="11" fill="#fff" opacity="0.92"/>
+    <circle cx="70" cy="58" r="9" fill="#fff" opacity="0.92"/>
+    <rect x="46" y="26" width="5" height="42" rx="2.5" fill="#fff" opacity="0.92"/>
+    <rect x="77" y="20" width="5" height="40" rx="2.5" fill="#fff" opacity="0.92"/>
+    <path d="M46,26 L82,18 L82,30 L46,38 Z" fill="#fff" opacity="0.92"/>
+  </svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg.replace(/\s+/g, " "));
+}

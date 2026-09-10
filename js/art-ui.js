@@ -20,21 +20,10 @@ export async function initArtPanel() {
     fileInput.click();
   });
 
-  fileInput?.addEventListener("change", async () => {
+  fileInput?.addEventListener("change", () => {
     const file = fileInput.files[0];
     fileInput.value = "";
-    if (!file) return;
-
-    const title = await askText("Название работы", { maxlength: 60 });
-    if (!title?.trim()) return;
-    const description = await askText("Описание", { placeholder: "можно пропустить", maxlength: 300 });
-
-    showToast("Загружаю…");
-    try {
-      const { publicUid } = await uploadArt({ file, title, description });
-      showToast(`Готово ♡ Идентификатор: ${publicUid}`);
-      refresh();
-    } catch (e) { showToast("Не вышло: " + e.message); }
+    if (file) openArtForm({ file, onDone: refresh });
   });
 
   const search = document.getElementById("artSearch");
@@ -80,7 +69,8 @@ export async function initArtPanel() {
               <button class="subBtn ${liked ? "liked" : ""}" data-like="${a.id}">
                 <span class="nf">${liked ? ICON.heartFilled : ICON.heart}</span> ${a.likesCount || 0}
               </button>
-              ${mine ? `<button class="subBtn" data-del="${a.id}"><span class="nf">${ICON.close}</span></button>` : ""}
+              ${mine ? `<button class="subBtn" data-edit="${a.id}" title="изменить"><span class="nf">${ICON.pencil}</span></button>
+              <button class="subBtn" data-del="${a.id}" title="удалить"><span class="nf">${ICON.close}</span></button>` : ""}
             </div>
           </div>
         </div>`;
@@ -107,6 +97,13 @@ export async function initArtPanel() {
       });
     });
 
+    listEl.querySelectorAll("[data-edit]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const art = allArt.find(a => a.id === btn.dataset.edit);
+        if (art) openArtForm({ art, onDone: refresh });
+      });
+    });
+
     listEl.querySelectorAll("[data-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
         if (!await askConfirm("Удалить работу?", { okLabel: "Удалить", danger: true })) return;
@@ -118,4 +115,71 @@ export async function initArtPanel() {
   }
 
   refresh();
+}
+
+
+// Окно работы: одно на создание и правку — поля те же, меняется только
+// заголовок и что происходит при сохранении. Пошаговые вопросы были неудобны.
+export function openArtForm({ file = null, art = null, onDone } = {}) {
+  const editing = !!art;
+
+  const box = document.createElement("div");
+  box.className = "modal";
+  box.innerHTML = `
+    <div class="modal-content" style="max-width:460px;">
+      <button class="closeBtn modalClose" data-cancel><span class="nf">${ICON.close}</span></button>
+      <h2 style="margin-top:0;font-size:17px;">${editing ? "Изменить работу" : "Новая работа"}</h2>
+
+      <div class="art-form">
+        <div class="art-form-preview">
+          <img data-preview alt="">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <input class="inlineEdit" data-title placeholder="Название" maxlength="60"
+                 value="${editing ? escapeHtml(art.title || "") : ""}">
+          <textarea class="inlineEdit art-form-desc" data-desc placeholder="Описание"
+                    maxlength="300">${editing ? escapeHtml(art.description || "") : ""}</textarea>
+        </div>
+      </div>
+
+      <div class="dialog-buttons">
+        <button class="secondaryBtn" data-cancel>Отмена</button>
+        <button class="primaryBtn" data-save>${editing ? "Сохранить" : "Выложить"}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(box);
+
+  const preview = box.querySelector("[data-preview]");
+  preview.src = editing ? art.imageUrl : URL.createObjectURL(file);
+
+  const close = () => box.remove();
+  box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
+  box.addEventListener("click", (e) => { if (e.target === box) close(); });
+
+  box.querySelector("[data-save]").addEventListener("click", async () => {
+    const title = box.querySelector("[data-title]").value.trim();
+    const description = box.querySelector("[data-desc]").value.trim();
+    if (!title) { showToast("Нужно название"); return; }
+
+    const btn = box.querySelector("[data-save]");
+    btn.disabled = true;
+    btn.textContent = editing ? "Сохраняю…" : "Загружаю…";
+    try {
+      if (editing) {
+        const { updateArtwork } = await import("./art.js");
+        await updateArtwork(art.id, { title, description });
+        showToast("Изменено ♡");
+      } else {
+        const { publicUid } = await uploadArt({ file, title, description });
+        showToast(`Готово ♡ Номер: ${publicUid}`);
+      }
+      close();
+      onDone?.();
+    } catch (e) {
+      console.error(e);
+      showToast("Не вышло: " + e.message);
+      btn.disabled = false;
+      btn.textContent = editing ? "Сохранить" : "Выложить";
+    }
+  });
 }

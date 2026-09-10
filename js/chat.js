@@ -26,8 +26,16 @@ import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
 import { openEmojiPicker } from "./emoji.js";
 
-const messagesEl = document.getElementById("chatMessages");
-const nickLabel = document.getElementById("chatNickLabel");
+// Ссылки на элементы обновляются при каждом запуске страницы: переход между
+// вкладками заменяет разметку, а взятые один раз ссылки после этого указывают
+// на элементы, которых больше нет в документе.
+let messagesEl = null;
+let nickLabel = null;
+
+function grabElements() {
+  messagesEl = document.getElementById("chatMessages");
+  nickLabel = document.getElementById("chatNickLabel");
+}
 let chatUnsub = null;
 let pendingChatImages = [];
 
@@ -77,6 +85,8 @@ let replyingTo = null;   // { id, nickname, text }
 let lastMessages = [];
 
 export function subscribeChat() {
+  grabElements();
+  if (!messagesEl) return;
   nickLabel.textContent = getGuestIdentity().nickname;
   // подтягиваем ник из аккаунта: локальный мог слететь или отличаться
   syncChatNickname().then(n => { if (n) nickLabel.textContent = n; });
@@ -526,6 +536,7 @@ async function openLinkedMessage() {
 }
 
 export function initChatForm() {
+  grabElements();
   const form = document.getElementById("chatForm");
   const input = document.getElementById("chatInput");
   const imageInput = document.getElementById("chatImageInput");

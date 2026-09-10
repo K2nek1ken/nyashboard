@@ -183,11 +183,29 @@ async function renderMusicButton(uid, user) {
     <button class="secondaryBtn" id="showMusicBtn" style="width:auto; margin:0 0 14px;">
       <span class="nf">${ICON.music}</span> Музыка
     </button>
-    <div id="musicList"></div>`;
+    `;
 
   host.querySelector("#showMusicBtn").addEventListener("click", async () => {
-    const list = host.querySelector("#musicList");
-    list.innerHTML = `<div class="stub-note">Загружаю…</div>`;
+    // Окно вместо блока снизу: раньше список дописывался под страницу и
+    // убирался только перезагрузкой.
+    const box = document.createElement("div");
+    box.className = "modal";
+    box.id = "musicModal";
+    box.innerHTML = `
+      <div class="modal-content" style="max-width:420px;max-height:80vh;display:flex;flex-direction:column;">
+        <button class="closeBtn modalClose" data-close><span class="nf">${ICON.close}</span></button>
+        <h2 style="margin-top:0;font-size:17px;">Музыка</h2>
+        <div data-list style="overflow-y:auto;min-height:0;">
+          <div class="stub-note">Загружаю…</div>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+
+    const close = () => box.remove();
+    box.querySelector("[data-close]").addEventListener("click", close);
+    box.addEventListener("click", (e) => { if (e.target === box) close(); });
+
+    const list = box.querySelector("[data-list]");
 
     if (!isSelf && visibility === "nobody") {
       list.innerHTML = `<div class="stub-note">Пусто</div>`;
@@ -207,7 +225,7 @@ async function renderMusicButton(uid, user) {
       list.innerHTML = tracks.map(t => trackCardHtml(t, { favorite: true })).join("");
       wireTrackCards(list, tracks);
     } catch {
-      // отказ базы означает, что доступ закрыт — показываем то же, что и при «никто»
+      // отказ базы означает закрытый доступ — показываем то же, что и при «никто»
       list.innerHTML = `<div class="stub-note">Пусто</div>`;
     }
   });

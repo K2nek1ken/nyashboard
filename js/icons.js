@@ -35,7 +35,7 @@ export const ICON = {
   music: "\uf001",        // нота
   headphones: "\uf025",   // музыка в навигации
   list: "\uf03a",         // список очереди
-  shuffle: "\uf074",      // перемешать
+  shuffle: "\u{F049D}",   // перемешать (символ из набора Material в патче)
   repeatOne: "\uf0e2"     // повтор одного трека
 };
 

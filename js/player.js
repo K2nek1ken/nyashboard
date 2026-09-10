@@ -1,6 +1,7 @@
 import { formatDuration } from "./music.js";
 import { ICON } from "./icons.js";
 import { escapeHtml, showToast } from "./ui.js";
+import { defaultCover } from "./default-avatar.js";
 
 // ============================================================
 //  Плеер
@@ -103,9 +104,13 @@ function ensureBar() {
   bar = document.createElement("div");
   bar.id = "playerBar";
   bar.className = "player-bar hidden";
+  // Кнопка воспроизведения — прямо на обложке: так понятнее, чем отдельная
+  // кнопка рядом, и освобождается место под остальное.
   bar.innerHTML = `
-    <img class="player-cover" data-cover alt="">
-    <button class="player-btn" data-toggle><span class="nf">${ICON.play || "▶"}</span></button>
+    <div class="player-cover-wrap" data-cover-wrap>
+      <img class="player-cover" data-cover alt="">
+      <button class="player-cover-btn" data-toggle><span class="nf">${ICON.play}</span></button>
+    </div>
     <div class="player-info">
       <div class="player-title" data-title></div>
       <div class="player-progress" data-progress>
@@ -113,19 +118,31 @@ function ensureBar() {
       </div>
     </div>
     <div class="player-time" data-time>0:00</div>
+    <button class="player-btn" data-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
+    <button class="player-btn" data-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
     <div class="player-menu-wrap">
       <button class="player-btn" data-menu title="ещё"><span class="nf">${ICON.kebab}</span></button>
       <div class="player-menu hidden" data-menu-list>
-        <button data-act="shuffle"><span class="nf">${ICON.refresh}</span> Перемешать</button>
         <button data-act="queue"><span class="nf">${ICON.list}</span> Очередь</button>
-        <button data-act="repeat"><span class="nf">${ICON.refresh}</span> Повтор</button>
         <button data-act="stop"><span class="nf">${ICON.close}</span> Стоп</button>
       </div>
-    </div>`;
+    </div>
+    <button class="player-expand" data-expand title="развернуть"><span class="nf">${ICON.down}</span></button>`;
   document.body.appendChild(bar);
 
-  bar.querySelector("[data-toggle]").addEventListener("click", togglePlay);
-  bar.querySelector("[data-cover]").addEventListener("click", openNowPlaying);
+  bar.querySelector("[data-toggle]").addEventListener("click", (e) => {
+    e.stopPropagation();
+    togglePlay();
+  });
+  bar.querySelector("[data-expand]").addEventListener("click", openNowPlaying);
+  bar.querySelector("[data-shuffle]").addEventListener("click", () => {
+    shuffleQueue();
+    showToast("Перемешала ♡");
+  });
+  bar.querySelector("[data-repeat]").addEventListener("click", () => {
+    const mode = cycleRepeat();
+    showToast({ off: "Повтор выключен", all: "Повтор списка", one: "Повтор трека" }[mode]);
+  });
 
   const menuBtn = bar.querySelector("[data-menu]");
   const menuList = bar.querySelector("[data-menu-list]");
@@ -140,12 +157,9 @@ function ensureBar() {
       e.stopPropagation();
       menuList.classList.add("hidden");
       if (btn.dataset.act === "stop") stop();
-      if (btn.dataset.act === "shuffle") { shuffleQueue(); showQueue(); }
+
       if (btn.dataset.act === "queue") showQueue();
-      if (btn.dataset.act === "repeat") {
-        const mode = cycleRepeat();
-        showToast({ off: "Повтор выключен", all: "Повтор списка", one: "Повтор трека" }[mode]);
-      }
+
     });
   });
 
@@ -233,12 +247,16 @@ function paintBar(track) {
   updateMediaSession(track);
   bar.classList.remove("hidden");
   document.body.classList.add("player-open");   // содержимое отъезжает вниз
+  // Пустые значения не должны превращаться в «undefined» на экране:
+  // у восстановленного из памяти трека часть полей может отсутствовать.
+  const title = track.title || "Без названия";
+  const artist = track.artist || "";
   bar.querySelector("[data-title]").innerHTML =
-    `${escapeHtml(track.title)}${track.artist ? ` <span class="muted">— ${escapeHtml(track.artist)}</span>` : ""}`;
+    `${escapeHtml(title)}${artist ? ` <span class="muted">— ${escapeHtml(artist)}</span>` : ""}`;
 
-  const cover = bar.querySelector("[data-cover]");
-  cover.style.display = track.coverUrl ? "" : "none";
-  if (track.coverUrl) cover.src = track.coverUrl;
+  // Обложка есть всегда: у треков без своей рисуется цветная с нотой,
+  // иначе нажимать было бы не на что.
+  bar.querySelector("[data-cover]").src = track.coverUrl || defaultCover(track.id || track.title);
 }
 
 // ---------- очередь ----------
@@ -315,7 +333,7 @@ export function getRepeatMode() { return repeatMode; }
 
 function paintRepeat() {
   const label = { off: "повтор выключен", all: "повтор списка", one: "повтор трека" }[repeatMode];
-  document.querySelectorAll("[data-np-repeat]").forEach(btn => {
+  document.querySelectorAll("[data-np-repeat], [data-repeat]").forEach(btn => {
     btn.classList.toggle("active", repeatMode !== "off");
     btn.title = label;
     const glyph = btn.querySelector(".nf");
@@ -435,10 +453,14 @@ function showQueue() {
       <h2 style="margin-top:0;font-size:17px;">Очередь</h2>
       <div class="queue-list">
         ${queue.map((t, i) => `
-          <button class="queue-item ${i === queueIndex ? "current" : ""}" data-jump="${i}">
-            <span class="nf">${i === queueIndex ? ICON.play : ""}</span>
-            <span class="queue-title">${escapeHtml(t.title)}</span>
-          </button>`).join("")}
+          <div class="queue-row ${i === queueIndex ? "current" : ""}">
+            <button class="queue-item" data-jump="${i}">
+              <span class="nf">${i === queueIndex ? ICON.play : ""}</span>
+              <span class="queue-title">${escapeHtml(t.title || "Без названия")}</span>
+            </button>
+            <button class="queue-act" data-up="${i}" title="выше"><span class="nf">${ICON.up}</span></button>
+            <button class="queue-act" data-remove="${i}" title="убрать"><span class="nf">${ICON.close}</span></button>
+          </div>`).join("")}
       </div>
     </div>`;
   document.body.appendChild(box);
@@ -451,6 +473,32 @@ function showQueue() {
       queueIndex = Number(btn.dataset.jump);
       playTrack(queue[queueIndex]);
       close();
+    });
+  });
+
+  // Перестановка и удаление прямо в списке: без них очередь только
+  // показывала, но не позволяла ничего с собой сделать.
+  box.querySelectorAll("[data-up]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.up);
+      if (i === 0) return;
+      [queue[i - 1], queue[i]] = [queue[i], queue[i - 1]];
+      // текущий трек не должен «потеряться» при перестановке
+      if (queueIndex === i) queueIndex = i - 1;
+      else if (queueIndex === i - 1) queueIndex = i;
+      saveState();
+      close(); showQueue();
+    });
+  });
+
+  box.querySelectorAll("[data-remove]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.remove);
+      if (i === queueIndex) { showToast("Нельзя убрать то, что играет"); return; }
+      queue.splice(i, 1);
+      if (i < queueIndex) queueIndex -= 1;
+      saveState();
+      close(); showQueue();
     });
   });
 }

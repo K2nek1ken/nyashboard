@@ -3,7 +3,7 @@ import {
   addToPlaylist, removeFromPlaylist, loadPlaylistTracks,
   moveFavoriteToTop, loadFavoriteOrder, toggleFavorite
 } from "./music.js";
-import { setQueue, queueNext, shuffleQueue } from "./player.js";
+import { setQueue, shuffleQueue } from "./player.js";
 import { trackCardHtml, wireTrackCards } from "./music-ui.js";
 import { currentUser, authReady } from "./auth.js";
 import { askText, askConfirm } from "./dialog.js";
@@ -159,34 +159,35 @@ async function refreshList() {
 }
 
 // Дополнительные действия, которых нет в общем списке музыки.
+// Добавляются в то же меню карточки, а не отдельными значками: по значкам
+// было непонятно, что каждый из них делает.
 function wireExtraActions(container, tracks) {
   container.querySelectorAll(".track-card").forEach(card => {
     const id = card.dataset.track;
-    const actions = card.querySelector(".track-actions");
-    if (!actions) return;
+    const menu = card.querySelector(".kebabMenu");
+    if (!menu) return;
 
-    actions.insertAdjacentHTML("beforeend", `
-      <button class="subBtn" data-top="${id}" title="поднять наверх"><span class="nf">${ICON.up}</span></button>
-      <button class="subBtn" data-add="${id}" title="в плейлист"><span class="nf">${ICON.plus}</span></button>`);
+    const extra = activePlaylist
+      ? `<button data-action="fromPlaylist"><span class="nf">${ICON.close}</span> Убрать из плейлиста</button>`
+      : `<button data-action="toTop"><span class="nf">${ICON.up}</span> Поднять наверх</button>
+         <button data-action="toPlaylist"><span class="nf">${ICON.plus}</span> В плейлист</button>`;
+    menu.insertAdjacentHTML("afterbegin", extra);
 
-    actions.querySelector("[data-top]").addEventListener("click", async () => {
-      if (activePlaylist) { showToast("Порядок меняется только в любимом"); return; }
+    menu.querySelector('[data-action="toTop"]')?.addEventListener("click", async () => {
       await moveFavoriteToTop(id);
       showToast("Наверх ♡");
       refreshList();
     });
 
-    actions.querySelector("[data-add]").addEventListener("click", async () => {
-      if (activePlaylist) {
-        // внутри подборки эта кнопка убирает трек из неё
-        await removeFromPlaylist(activePlaylist.id, id);
-        showToast("Убрано из плейлиста");
-        await refreshPlaylists();
-        refreshList();
-        return;
-      }
-      if (!playlists.length) { showToast("Сначала создай плейлист"); return; }
+    menu.querySelector('[data-action="fromPlaylist"]')?.addEventListener("click", async () => {
+      await removeFromPlaylist(activePlaylist.id, id);
+      showToast("Убрано из плейлиста");
+      await refreshPlaylists();
+      refreshList();
+    });
 
+    menu.querySelector('[data-action="toPlaylist"]')?.addEventListener("click", async () => {
+      if (!playlists.length) { showToast("Сначала создай плейлист"); return; }
       const name = await askText("В какой плейлист?", {
         hint: "Впиши название: " + playlists.map(p => p.name).join(", "),
         maxlength: 40
@@ -194,7 +195,6 @@ function wireExtraActions(container, tracks) {
       if (!name?.trim()) return;
       const target = playlists.find(p => p.name.toLowerCase() === name.trim().toLowerCase());
       if (!target) { showToast("Не нашла такой плейлист"); return; }
-
       const added = await addToPlaylist(target.id, id);
       showToast(added ? "Добавлено ♡" : "Уже там");
       await refreshPlaylists();

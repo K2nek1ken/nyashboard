@@ -572,6 +572,13 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 .shapeOption.selected { border-color: var(--accent); background: var(--card-hover); }
 
+/* Кнопки выбора формы показывают саму форму. Классы форм объявлены через
+   .avatar-shaped, чтобы их не перебивали общие правила, — поэтому здесь
+   нужны отдельные строки, иначе кнопки остаются квадратными. */
+.shapeOption.shape-circle { border-radius: 50%; }
+.shapeOption.shape-rounded { border-radius: 26%; }
+.shapeOption.shape-squircle { border-radius: 42% 58% 43% 57% / 52% 44% 56% 48%; }
+
 /* ---------- эмодзи-статус на аватарке ---------- */
 .avatar-wrap { position: relative; display: inline-block; }
 .avatar-status {
@@ -1400,11 +1407,14 @@ html[data-theme="quiet"] .searchBox {
 /* ---------- плеер ----------
    Полоса не накрывает содержимое, а сдвигает его: иначе в чате под ней
    пряталось бы первое сообщение, а в ленте — первая запись. */
+/* Плеер со скруглением со всех сторон и отступом от краёв: так он читается
+   как отдельный элемент, а не как приклеенная к шапке полоса. */
 .player-bar {
-  position: fixed; top: 56px; left: 0; right: 0; z-index: 25;
+  position: fixed; top: 62px; left: 10px; right: 10px; z-index: 25;
   display: flex; align-items: center; gap: 10px;
-  background: var(--bg-soft); border-bottom: 1px solid #3a2f47;
-  padding: 8px 12px;
+  background: var(--bg-soft); border: 1px solid #3a2f47; border-radius: 16px;
+  padding: 8px 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
 body.player-open { padding-top: 116px; }
 body.player-open .chat-floating-bar { /* поле ввода остаётся на месте */ }
@@ -1792,7 +1802,15 @@ body.np-open .player-bar { transform: translateY(-120%); transition: transform .
 .playlist-count { font-size: 11px; color: var(--muted); }
 .music-actions { display: flex; gap: 10px; margin: 14px 0 4px; flex-wrap: wrap; }
 
-/* правка записи прямо в карточке (ПК) */
+/* правка записи в отдельном окне */
+.edit-post-area {
+  width: 100%; min-height: 180px; background: var(--bg-soft);
+  border: 1px solid #3a2f47; border-radius: 12px; padding: 12px;
+  color: var(--text); font: inherit; font-size: 15px; line-height: 1.5;
+  resize: vertical; outline: none;
+}
+.edit-post-area:focus { border-color: var(--accent); }
+
 .inline-edit-box { margin: 6px 0; }
 .inline-edit-area {
   width: 100%; background: var(--bg-soft); border: 1px solid var(--accent-2);
@@ -1821,3 +1839,67 @@ body.np-open .player-bar { transform: translateY(-120%); transition: transform .
 }
 .art-actions { display: flex; gap: 8px; }
 .art-actions .liked { color: var(--accent); border-color: var(--accent); }
+
+
+/* ---------- обложка с кнопкой и разворот ---------- */
+.player-cover-wrap { position: relative; flex-shrink: 0; width: 42px; height: 42px; }
+.player-cover { width: 100%; height: 100%; border-radius: 10px; object-fit: cover; display: block; }
+.player-cover-btn {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.42); border: none; color: #fff; cursor: pointer;
+  border-radius: 10px; font-size: 15px;
+}
+.player-cover-btn:hover { background: rgba(0,0,0,0.62); }
+
+/* Разворот — отдельным кружком, отделённым от остальных кнопок */
+.player-expand {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--card); border: 1px solid #3a2f47; color: var(--accent);
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+}
+.player-expand:hover { border-color: var(--accent); background: var(--card-hover); }
+.player-btn.active { color: var(--accent); }
+
+/* Плеер уезжает ПОД шапку, а не наезжает на неё */
+.player-bar { z-index: 15; }
+#navHost { z-index: 30; }
+body.np-open .player-bar { transform: translateY(-160%); }
+
+/* Плеер не должен закрывать шапку личного чата: она сдвигается под него */
+body.player-open #dmHeader { top: 124px; }
+@media (min-width: 900px) { body.player-open #dmHeader { top: 0; } }
+
+/* строка очереди с действиями */
+.queue-row {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--card); border-radius: 10px; padding-right: 4px;
+}
+.queue-row.current { outline: 1px solid var(--accent); }
+.queue-row .queue-item { flex: 1; background: none; }
+.queue-act {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  width: 30px; height: 30px; border-radius: 8px; font-size: 12px; flex-shrink: 0;
+}
+.queue-act:hover { color: var(--accent); background: var(--card-hover); }
+
+/* разделы человека в карточке предпросмотра */
+.preview-sections {
+  display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;
+}
+.preview-section {
+  flex: 1 1 auto; min-width: 74px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--card); border-radius: 12px; padding: 10px 6px;
+  color: var(--muted); text-decoration: none; font-size: 11px;
+}
+.preview-section:hover { background: var(--card-hover); color: var(--accent); }
+.preview-section .nf { font-size: 17px; }
+
+/* окно работы */
+.art-form { display: flex; gap: 12px; align-items: flex-start; }
+.art-form-preview {
+  width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
+  background: var(--card); flex-shrink: 0;
+}
+.art-form-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.art-form-desc { min-height: 76px; resize: vertical; margin-top: 8px; line-height: 1.4; }

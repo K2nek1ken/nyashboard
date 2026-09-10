@@ -25,9 +25,16 @@ export async function openPersonPreview(uid) {
   const isSelf = currentUser && currentUser.uid === uid;
 
   const online = await fetchOnline([uid]);
+  // Аватарка со всем оформлением: раньше сюда приходил профиль без полей
+  // украшения и рамки, потому они и не показывались.
+  const decorated = {
+    ...user,
+    accessory: user.accessory || "none",
+    avatarBorder: user.avatarBorder || "pink"
+  };
   body.innerHTML = `
     <div class="preview-head">
-      <span class="${online.has(uid) ? "online-wrap" : ""}">${avatarHtml(user, 64)}</span>
+      <span class="${online.has(uid) ? "online-wrap" : ""}">${avatarHtml(decorated, 64)}</span>
       <div style="min-width:0;">
         <div class="preview-name">${nameHtml(user, { clickable: false })} ${badgeHtml(badge)}</div>
         <div class="muted">@${escapeHtml(user.username || "???")}</div>
@@ -38,7 +45,28 @@ export async function openPersonPreview(uid) {
       ${isSelf ? "" : `<button class="secondaryBtn" data-friend style="width:auto;margin:0;"></button>`}
       ${isSelf ? "" : `<button class="secondaryBtn" data-rename style="width:auto;margin:0;" title="как называть этого человека"><span class="nf">${ICON.pencil}</span></button>`}
       <a class="primaryBtn" style="width:auto;margin:0;text-decoration:none;"
-         href="${isSelf ? "profile.html" : `user.html?uid=${uid}`}">Открыть профиль</a>
+         href="user.html?uid=${uid}">Открыть профиль</a>
+    </div>
+
+    <!-- Разделы человека: то же, что доступно на его странице.
+         Для себя ведут туда же — «профиль» это страница со стеной и лентой,
+         а не экран настроек. -->
+    <div class="preview-sections">
+      <a class="preview-section" href="user.html?uid=${uid}#feed">
+        <span class="nf">${ICON.home}</span><span>Лента</span>
+      </a>
+      <a class="preview-section" href="user.html?uid=${uid}#wall">
+        <span class="nf">${ICON.pencil}</span><span>Стена</span>
+      </a>
+      <a class="preview-section" href="user.html?uid=${uid}#music">
+        <span class="nf">${ICON.music}</span><span>Музыка</span>
+      </a>
+      ${isSelf ? `<a class="preview-section" href="friends.html">
+        <span class="nf">${ICON.users}</span><span>Друзья</span>
+      </a>` : ""}
+      ${isSelf ? `<a class="preview-section" href="profile.html">
+        <span class="nf">${ICON.gear}</span><span>Настройки</span>
+      </a>` : ""}
     </div>
     <div class="section-title" style="margin-bottom:6px;">Последние записи</div>
     <div id="previewPosts" class="feed-list"><div class="stub-note">Загружаю…</div></div>`;

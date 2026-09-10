@@ -24,7 +24,8 @@ import { loadFriends, isFriend } from "./friends.js";
 import { learnFromPost, markNotInterested, undoNotInterested, isSuppressed, loadInterests } from "./interests.js";
 import { observeSeen, loadSeen } from "./seen.js";
 
-const feedListEl = document.getElementById("feedList");
+// см. комментарий в chat.js: ссылку берём заново при каждом запуске
+let feedListEl = null;
 let feedUnsub = null;
 let lastRenderedPosts = null;
 
@@ -51,6 +52,8 @@ export async function loadRecentPosts(count = 50) {
 }
 
 export function subscribeFeed() {
+  feedListEl = document.getElementById("feedList");
+  if (!feedListEl) return;
   if (!feedListEl) return;
   if (feedUnsub) return;
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
@@ -291,48 +294,39 @@ function layoutPosts(container, posts, buildHtml) {
   container.classList.add("has-columns");
 }
 
-// Правка на месте: текст записи превращается в поле ввода, остальное
-// остаётся как есть — видно, как запись будет выглядеть после сохранения.
-function startInlineEdit(post, card) {
+// Правка записи отдельным окном: встроенное поле выглядело неровно и
+// сбивало разметку карточки, особенно рядом с фотографиями.
+async function startInlineEdit(post, card) {
   const textEl = card.querySelector(".post-text");
-  if (!textEl || card.dataset.editing) return;
-  card.dataset.editing = "1";
+  const original = textEl?.dataset.raw || post.text || "";
 
-  const original = textEl.dataset.raw || post.text || "";
-  const holder = document.createElement("div");
-  holder.className = "inline-edit-box";
-  holder.innerHTML = `
-    <textarea class="inline-edit-area">${escapeHtml(original)}</textarea>
-    <div class="inline-edit-actions">
-      <button class="secondaryBtn" data-cancel>Отмена</button>
-      <button class="primaryBtn" data-save>Сохранить</button>
+  const box = document.createElement("div");
+  box.className = "modal";
+  box.innerHTML = `
+    <div class="modal-content" style="max-width:520px;">
+      <button class="closeBtn modalClose" data-cancel><span class="nf">${ICON.close}</span></button>
+      <h2 style="margin-top:0;font-size:17px;">Изменить запись</h2>
+      <textarea class="edit-post-area">${escapeHtml(original)}</textarea>
+      <div class="dialog-buttons">
+        <button class="secondaryBtn" data-cancel>Отмена</button>
+        <button class="primaryBtn" data-save>Сохранить</button>
+      </div>
     </div>`;
-  textEl.replaceWith(holder);
+  document.body.appendChild(box);
 
-  const area = holder.querySelector(".inline-edit-area");
-  const grow = () => { area.style.height = "auto"; area.style.height = area.scrollHeight + "px"; };
-  grow();
-  area.addEventListener("input", grow);
+  const area = box.querySelector(".edit-post-area");
+  const close = () => box.remove();
+  box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
+  box.addEventListener("click", (e) => { if (e.target === box) close(); });
+
   area.focus();
   area.setSelectionRange(area.value.length, area.value.length);
 
-  const restore = (text) => {
-    const fresh = document.createElement("div");
-    fresh.className = "post-text";
-    fresh.dataset.raw = text;
-    fresh.innerHTML = linkifyMentions(escapeHtml(text.replace(/\s*#U3\d{6}/gi, "").trim()));
-    holder.replaceWith(fresh);
-    wireMentions(fresh);
-    delete card.dataset.editing;
-  };
-
-  holder.querySelector("[data-cancel]").addEventListener("click", () => restore(original));
-
-  holder.querySelector("[data-save]").addEventListener("click", async () => {
+  box.querySelector("[data-save]").addEventListener("click", async () => {
     const next = area.value.trim();
-    if (!next || next === original) { restore(original); return; }
+    if (!next || next === original) { close(); return; }
 
-    const saveBtn = holder.querySelector("[data-save]");
+    const saveBtn = box.querySelector("[data-save]");
     saveBtn.disabled = true;
     saveBtn.textContent = "Сохраняю…";
     try {
@@ -342,7 +336,14 @@ function startInlineEdit(post, card) {
         editedAt: serverTimestamp()
       });
       post.text = next;
-      restore(next);
+
+      // обновляем карточку на месте, чтобы правка была видна сразу
+      if (textEl) {
+        textEl.dataset.raw = next;
+        textEl.innerHTML = linkifyMentions(escapeHtml(next.replace(/\s*#U3\d{6}/gi, "").trim()));
+        wireMentions(textEl);
+      }
+      close();
       showToast("Изменено ♡");
     } catch (e) {
       console.error(e);
@@ -352,10 +353,9 @@ function startInlineEdit(post, card) {
     }
   });
 
-  // Escape отменяет, Ctrl+Enter сохраняет — привычнее, чем целиться в кнопки
   area.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") restore(original);
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) holder.querySelector("[data-save]").click();
+    if (e.key === "Escape") close();
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) box.querySelector("[data-save]").click();
   });
 }
 

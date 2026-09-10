@@ -9,11 +9,15 @@ import { loadFriends } from "./friends.js";
 import { resolveNuid } from "./nuid.js";
 import { defaultAvatar } from "./default-avatar.js";
 
-const listEl = document.getElementById("peopleList");
-const searchEl = document.getElementById("peopleSearch");
+// см. комментарий в chat.js
+let listEl = null;
+let searchEl = null;
 let allUsers = [];
 
 export async function loadPeopleTab() {
+  listEl = document.getElementById("peopleList");
+  searchEl = document.getElementById("peopleSearch");
+  if (!listEl) return;
   listEl.innerHTML = `<div class="stub-note">Загружаю людей...</div>`;
   allUsers = await listAllUsers();
   renderPeople(allUsers);
