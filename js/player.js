@@ -127,6 +127,7 @@ function ensureBar() {
         <button data-act="stop"><span class="nf">${ICON.close}</span> Стоп</button>
       </div>
     </div>
+    <button class="player-fav" data-fav title="в любимое"><span class="nf">${ICON.heart}</span></button>
     <button class="player-expand" data-expand title="развернуть"><span class="nf">${ICON.down}</span></button>`;
   document.body.appendChild(bar);
 
@@ -135,6 +136,19 @@ function ensureBar() {
     togglePlay();
   });
   bar.querySelector("[data-expand]").addEventListener("click", openNowPlaying);
+
+  // Добавить играющий трек в любимое, не уходя со страницы.
+  bar.querySelector("[data-fav]").addEventListener("click", async () => {
+    if (!current) return;
+    try {
+      const { toggleFavorite } = await import("./music.js");
+      const added = await toggleFavorite(current);
+      paintFavState(added);
+      showToast(added ? "В любимом ♡" : "Убрано из любимого");
+    } catch (e) {
+      showToast(e.message || "Войди, чтобы добавлять в любимое");
+    }
+  });
   bar.querySelector("[data-shuffle]").addEventListener("click", () => {
     shuffleQueue();
     showToast("Перемешала ♡");
@@ -243,7 +257,23 @@ function updateMediaPosition() {
   } catch { /* значения могли разъехаться при смене трека */ }
 }
 
+// Показывает, лежит ли играющий трек в любимом.
+function paintFavState(inFavorites) {
+  const btn = bar?.querySelector("[data-fav] .nf");
+  if (btn) btn.textContent = inFavorites ? ICON.heartFilled : ICON.heart;
+  bar?.querySelector("[data-fav]")?.classList.toggle("active", !!inFavorites);
+}
+
+async function refreshFavState(track) {
+  try {
+    const { loadFavorites } = await import("./music.js");
+    const favs = await loadFavorites();
+    paintFavState(favs.some(t => t.id === track.id));
+  } catch { paintFavState(false); }
+}
+
 function paintBar(track) {
+  refreshFavState(track);
   updateMediaSession(track);
   bar.classList.remove("hidden");
   document.body.classList.add("player-open");   // содержимое отъезжает вниз

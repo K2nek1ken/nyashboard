@@ -121,10 +121,22 @@ export async function openUserProfile(uid) {
   }
 }
 
+let viewProfileWired = false;
+
 export function initViewProfileModal() {
   const modal = document.getElementById("viewProfileModal");
-  // подписка на запрос от ленты/поста/тега — см. комментарий в feed.js
-  document.addEventListener("nyash:view-profile", (e) => openUserProfile(e.detail.uid));
-  document.getElementById("closeViewProfile").addEventListener("click", () => modal.classList.add("hidden"));
+  // Карточка есть не на каждой странице — без проверки функция падала,
+  // и вместе с ней не запускалась вся вкладка.
+  if (!modal) return;
+
+  // Подписка на событие ставится один раз: она живёт на всём документе и
+  // переживает переходы, а повторная вешала бы вторую такую же.
+  if (!viewProfileWired) {
+    viewProfileWired = true;
+    document.addEventListener("nyash:view-profile", (e) => openUserProfile(e.detail.uid));
+  }
+
+  document.getElementById("closeViewProfile")
+    ?.addEventListener("click", () => modal.classList.add("hidden"));
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
 }

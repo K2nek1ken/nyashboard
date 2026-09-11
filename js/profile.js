@@ -229,7 +229,7 @@ export function initProfilePageForm() {
     });
   });
 
-  document.getElementById("clearStatusBtn").addEventListener("click", () => {
+  document.getElementById("clearStatusBtn")?.addEventListener("click", () => {
     pendingStatus = "";
     pageStatus.textContent = "";
     statusPreview.textContent = "выбрать";

@@ -483,12 +483,16 @@ button, input, textarea { font-family: inherit; color: inherit; }
 
   /* Контент не должен липнуть к колонке навигации: даём воздух слева
      и центрируем содержимое в оставшейся области, а не прижимаем к краю. */
+  /* Содержимое центрируется независимо от того, как устроена разметка
+     конкретной вкладки: раньше правило ждало именно <section>, и всё, что
+     свёрстано иначе, прижималось к колонке навигации. */
   #app {
     max-width: none;
     margin-left: 320px;
     padding: 28px 40px 60px;
+    display: flex; flex-direction: column; align-items: center;
   }
-  #app > section, #app > .tab { max-width: 1080px; margin: 0 auto; }
+  #app > * { width: 100%; max-width: 1080px; }
   /* лента и стена канала — двухколоночная сетка, чтобы не было полосы
      контента посреди пустого экрана */
   /* Колонки собираются в разметке, а не средствами стилей.
@@ -1995,3 +1999,68 @@ body.player-open #dmHeader { top: 124px; }
   line-height: 1.4; outline: none; max-height: 160px;
 }
 .chat-input-area:focus { border-color: var(--accent); }
+
+
+/* ============================================================
+   Чат: переписка по центру на любом экране
+   ============================================================ */
+.chat-messages { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; }
+.chat-floating-bar > * { max-width: 760px; margin-left: auto; margin-right: auto; }
+
+@media (min-width: 900px) {
+  /* Панель ввода считается от колонки навигации, а не от всего окна */
+  .chat-floating-bar { left: 320px; right: 0; padding-left: 40px; padding-right: 40px; }
+}
+
+/* ============================================================
+   Плеер на компьютере: кнопки справа, разворот — карточкой над колонкой,
+   а не окном во весь экран (для этого он и живёт в колонке).
+   ============================================================ */
+@media (min-width: 900px) {
+  .player-bar { flex-wrap: nowrap; }
+  .player-bar .player-info { flex: 1 1 auto; order: 0; min-width: 0; }
+  .player-bar .player-time,
+  .player-bar .player-btn,
+  .player-bar .player-menu-wrap,
+  .player-bar .player-expand { margin-left: auto; }
+  .player-bar .player-btn + .player-btn,
+  .player-bar .player-menu-wrap,
+  .player-bar .player-expand { margin-left: 0; }
+
+  /* Раскрытый вид не занимает весь экран: он встаёт над колонкой,
+     содержимое остаётся видимым и продолжает читаться. */
+  .now-playing {
+    inset: auto auto 16px 16px;
+    width: 288px; height: auto;
+    border-radius: 18px; padding: 18px 16px 20px;
+    background: var(--bg-soft); border: 1px solid #3a2f47;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.5);
+    z-index: 40;
+  }
+  .np-cover { width: 100%; }
+  .np-progress, .np-times { width: 100%; }
+  .np-close { top: 10px; right: 10px; width: 30px; height: 30px; font-size: 14px; }
+  .np-controls { gap: 10px; }
+  .np-btn { width: 38px; height: 38px; font-size: 15px; }
+  .np-play { width: 48px; height: 48px; font-size: 17px; }
+}
+
+/* сердечко на плеере */
+.player-fav {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px;
+}
+.player-fav:hover { color: var(--accent); }
+.player-fav.active { color: var(--accent); }
+
+/* выбор плейлиста */
+.picker-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.picker-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: var(--card); border: none; border-radius: 12px; cursor: pointer;
+  color: var(--text); font: inherit; font-size: 14px; padding: 11px 12px; text-align: left;
+}
+.picker-item:hover { background: var(--card-hover); }
+.picker-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-new { display: flex; gap: 8px; margin-top: 14px; }
+.picker-new .inlineEdit { flex: 1; min-width: 0; }

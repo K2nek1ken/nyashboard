@@ -122,7 +122,7 @@ export async function initPage() {
   keepScrollPosition();
   render();
 
-  document.getElementById("hideAboutBtn").addEventListener("click", () => {
+  document.getElementById("hideAboutBtn")?.addEventListener("click", () => {
     setSetting("showAbout", "off");
     showToast("Вкладка скрыта — вернуть можно в настройках");
     setTimeout(() => { location.href = "index.html"; }, 900);

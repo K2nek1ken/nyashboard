@@ -156,7 +156,8 @@ async function swap(page, { push = true } = {}) {
 // иначе на новой вкладке их просто нет (а старые остаются от прошлой).
 const EXTRA_IDS = [
   "chatFloatingBar", "chatForm", "chatImagePreview", "replyComposeHost",
-  "accountToggleRow", "dmForm", "dmImagePreview", "dmReplyHost", "postEditor"
+  "accountToggleRow", "dmForm", "dmImagePreview", "dmReplyHost", "postEditor",
+  "viewProfileModal", "newPostFab"
 ];
 
 function swapPageExtras(freshDoc) {

@@ -158,7 +158,7 @@ async function init() {
       avatarBorder: u.avatarBorder || "pink"
     }, 44);
   }
-  document.getElementById("dmHeader").addEventListener("click", () => {
+  document.getElementById("dmHeader")?.addEventListener("click", () => {
     location.href = `user.html?uid=${otherUid}`;
   });
 
@@ -243,7 +243,7 @@ async function init() {
     });
   });
 
-  document.getElementById("dmEmojiBtn").addEventListener("click", (e) => {
+  document.getElementById("dmEmojiBtn")?.addEventListener("click", (e) => {
     e.stopPropagation();
     openEmojiPicker(form, (emoji) => { input.value += emoji; input.focus(); });
   });

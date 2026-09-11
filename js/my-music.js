@@ -33,7 +33,7 @@ export async function initMyMusic() {
     return;
   }
 
-  document.getElementById("newPlaylistBtn").addEventListener("click", async () => {
+  document.getElementById("newPlaylistBtn")?.addEventListener("click", async () => {
     const name = await askText("Название плейлиста", { maxlength: 40 });
     if (!name?.trim()) return;
     try {
@@ -43,7 +43,7 @@ export async function initMyMusic() {
     } catch (e) { showToast("Не вышло: " + e.message); }
   });
 
-  document.getElementById("shuffleAllBtn").addEventListener("click", async () => {
+  document.getElementById("shuffleAllBtn")?.addEventListener("click", async () => {
     const tracks = activePlaylist
       ? await loadPlaylistTracks(activePlaylist)
       : favorites;
@@ -168,9 +168,9 @@ function wireExtraActions(container, tracks) {
     if (!menu) return;
 
     const extra = activePlaylist
-      ? `<button data-action="fromPlaylist"><span class="nf">${ICON.close}</span> Убрать из плейлиста</button>`
-      : `<button data-action="toTop"><span class="nf">${ICON.up}</span> Поднять наверх</button>
-         <button data-action="toPlaylist"><span class="nf">${ICON.plus}</span> В плейлист</button>`;
+      ? `<button class="kebabItem" data-action="fromPlaylist"><span class="nf">${ICON.close}</span> Убрать из плейлиста</button>`
+      : `<button class="kebabItem" data-action="toTop"><span class="nf">${ICON.up}</span> Поднять наверх</button>
+         <button class="kebabItem" data-action="toPlaylist"><span class="nf">${ICON.plus}</span> В плейлист</button>`;
     menu.insertAdjacentHTML("afterbegin", extra);
 
     menu.querySelector('[data-action="toTop"]')?.addEventListener("click", async () => {
@@ -186,18 +186,68 @@ function wireExtraActions(container, tracks) {
       refreshList();
     });
 
-    menu.querySelector('[data-action="toPlaylist"]')?.addEventListener("click", async () => {
-      if (!playlists.length) { showToast("Сначала создай плейлист"); return; }
-      const name = await askText("В какой плейлист?", {
-        hint: "Впиши название: " + playlists.map(p => p.name).join(", "),
-        maxlength: 40
-      });
-      if (!name?.trim()) return;
-      const target = playlists.find(p => p.name.toLowerCase() === name.trim().toLowerCase());
-      if (!target) { showToast("Не нашла такой плейлист"); return; }
-      const added = await addToPlaylist(target.id, id);
-      showToast(added ? "Добавлено ♡" : "Уже там");
-      await refreshPlaylists();
+    menu.querySelector('[data-action="toPlaylist"]')?.addEventListener("click", () => {
+      openPlaylistPicker(id);
     });
   });
+}
+
+// Выбор плейлиста списком, а не вводом названия: печатать название вручную
+// и попадать в него символ в символ — так себе занятие.
+function openPlaylistPicker(trackId) {
+  const box = document.createElement("div");
+  box.className = "modal";
+  box.innerHTML = `
+    <div class="modal-content" style="max-width:340px;">
+      <button class="closeBtn modalClose" data-close><span class="nf">${ICON.close}</span></button>
+      <h2 style="margin-top:0;font-size:17px;">В какой плейлист?</h2>
+
+      <div class="picker-list">
+        ${playlists.length
+          ? playlists.map(p => `
+              <button class="picker-item" data-pick="${p.id}">
+                <span class="nf">${ICON.list}</span>
+                <span class="picker-name">${escapeHtml(p.name)}</span>
+                <span class="playlist-count">${(p.trackIds || []).length}</span>
+              </button>`).join("")
+          : `<div class="stub-note" style="padding:10px;">Плейлистов пока нет</div>`}
+      </div>
+
+      <div class="picker-new">
+        <input class="inlineEdit" data-new-name placeholder="Название нового плейлиста" maxlength="40">
+        <button class="primaryBtn" data-create style="width:auto;margin:0;">Создать</button>
+      </div>
+    </div>`;
+  document.body.appendChild(box);
+
+  const close = () => box.remove();
+  box.querySelector("[data-close]").addEventListener("click", close);
+  box.addEventListener("click", (e) => { if (e.target === box) close(); });
+
+  box.querySelectorAll("[data-pick]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      try {
+        const added = await addToPlaylist(btn.dataset.pick, trackId);
+        showToast(added ? "Добавлено ♡" : "Уже там");
+        close();
+        await refreshPlaylists();
+      } catch (e) { showToast("Не вышло: " + e.message); }
+    });
+  });
+
+  const nameInput = box.querySelector("[data-new-name]");
+  const create = async () => {
+    const name = nameInput.value.trim();
+    if (!name) { showToast("Нужно название"); return; }
+    try {
+      // создаём и сразу кладём туда трек — за этим сюда и пришли
+      const id = await createPlaylist(name);
+      await addToPlaylist(id, trackId);
+      showToast(`Плейлист «${name}» создан ♡`);
+      close();
+      await refreshPlaylists();
+    } catch (e) { showToast("Не вышло: " + e.message); }
+  };
+  box.querySelector("[data-create]").addEventListener("click", create);
+  nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") create(); });
 }

@@ -208,7 +208,7 @@ function wirePeopleModal(channelId) {
   closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
 
-  document.getElementById("addPeopleBtn").addEventListener("click", async () => {
+  document.getElementById("addPeopleBtn")?.addEventListener("click", async () => {
     const handle = await askText("Добавить человека", { placeholder: "@юзернейм или U1xxxxxx", hint: "Человек появится в списке подписчиков канала." });
     if (!handle) return;
     try {
@@ -221,7 +221,7 @@ function wirePeopleModal(channelId) {
     }
   });
 
-  document.getElementById("assignAdminBtn").addEventListener("click", async () => {
+  document.getElementById("assignAdminBtn")?.addEventListener("click", async () => {
     const handle = await askText("Назначить управляющего", { placeholder: "@юзернейм или U1xxxxxx", hint: "Сможет публиковать от имени канала, но не менять его настройки." });
     if (!handle) return;
     try {
