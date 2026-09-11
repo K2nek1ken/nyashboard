@@ -20,7 +20,6 @@ export function initInlineComposer(onPublished) {
   const fileInput = document.getElementById("icImages");
   const publishBtn = document.getElementById("icPublish");
   const anonToggle = document.getElementById("icAnon");
-  const wallToggle = document.getElementById("icWall");
   const hint = document.getElementById("icHint");
   let images = [];
 
@@ -99,7 +98,7 @@ export function initInlineComposer(onPublished) {
         authorAccessory: (!isAnon && currentUserDoc) ? (currentUserDoc.accessory || "none") : null,
         authorBorder: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarBorder || "pink") : null,
         authorNickColor: (!isAnon && currentUserDoc) ? (currentUserDoc.nickColor || "") : null,
-        place: wallToggle?.checked ? "wall" : "feed",
+        place: "feed",   // из ленты пишем в ленту; на стену — со своей страницы
         wallInFeed: currentUserDoc?.wallInFeed !== false,
         channelId: null,
         isAnonymous: isAnon,

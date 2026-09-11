@@ -1928,11 +1928,18 @@ body.player-open #dmHeader { top: 124px; }
     left: auto;
   }
 
-  /* Профиль внизу колонки, плеер прямо над ним */
-  #navHost { display: flex; flex-direction: column; }
+  /* Положение закреплено заранее, а не пересчитывается от содержимого:
+     появление плеера раньше сдвигало профиль вверх, а строки поиска — вниз.
+     Профиль и плеер стоят на своих местах всегда, независимо друг от друга. */
+  #navHost { display: flex; flex-direction: column; padding-bottom: 84px; }
   #navTabs { flex: 0 0 auto; }
-  #profileIcon { margin-top: auto; order: 99; }
-  body.player-open #profileIcon { margin-bottom: 8px; }
+  #profileIcon {
+    position: absolute; left: 16px; bottom: 16px;
+    margin: 0;
+  }
+  body.player-open #navHost { padding-bottom: 84px; }
+  body.player-open .player-bar { bottom: 76px; }
+  body.player-open #app { padding-top: 28px; }
 }
 
 /* ---------- настройки профиля в один столбец ----------
@@ -1953,3 +1960,38 @@ body.player-open #dmHeader { top: 124px; }
   justify-self: start; text-align: left;
 }
 .profile-settings-grid .setting-row > *:last-child { justify-self: end; }
+
+/* кнопка записи на стену: плавающая на телефоне, обычная на компьютере */
+.wall-write-btn {
+  position: fixed; right: 16px; bottom: 84px; z-index: 20;
+  width: 52px; height: 52px; border-radius: 50%; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 19px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+.wall-write-label { display: none; }
+@media (min-width: 900px) {
+  .wall-write-btn {
+    position: static; width: auto; height: auto; border-radius: 999px;
+    padding: 10px 20px; margin: 0 0 14px; font-size: 14px; gap: 8px;
+    box-shadow: none;
+  }
+  .wall-write-label { display: inline; }
+}
+
+/* описание работы должно отличаться от служебных подписей */
+.art-desc { font-size: 14px; color: var(--text); opacity: 0.85; }
+
+/* предупреждение в переписке, где дружба разорвана */
+.dm-broken {
+  color: var(--danger); text-align: center; font-size: 13px;
+  padding: 12px; line-height: 1.45;
+}
+
+/* многострочное поле ввода в личке */
+.chat-input-area {
+  flex: 1; min-width: 0; resize: none; overflow: hidden;
+  background: var(--card); border: 1px solid #3a2f47; border-radius: 14px;
+  padding: 10px 12px; color: var(--text); font: inherit; font-size: 15px;
+  line-height: 1.4; outline: none; max-height: 160px;
+}
+.chat-input-area:focus { border-color: var(--accent); }

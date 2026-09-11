@@ -33,10 +33,7 @@
 <main id="app">
   <section class="tab active">
     <div id="dmHeader" class="profile-page-head" style="text-align:left; display:flex; gap:12px; align-items:center; padding:10px 0;">
-      <span class="avatar-wrap" style="width:44px;height:44px;">
-        <img id="dmAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-shaped shape-circle" style="width:44px;height:44px;">
-        <span class="avatar-status" id="dmStatus"></span>
-      </span>
+      <span id="dmAvatarHost"></span>
       <div>
         <div style="display:flex; align-items:center; gap:8px;">
           <div id="dmNickname" class="nick-lg" style="font-size:16px;"></div>
@@ -58,7 +55,7 @@
     <form id="dmForm" class="chat-input-row" style="position:relative;">
       <label class="attachBtn nf" for="dmImageInput" title="фото">&#xf0c6;</label>
       <input type="file" id="dmImageInput" accept="image/*" style="display:none;">
-      <input type="text" id="dmInput" placeholder="Сообщение..." autocomplete="off">
+      <textarea id="dmInput" rows="1" placeholder="Сообщение..." class="chat-input-area"></textarea>
       <button type="button" id="dmEmojiBtn" class="sendBtn nf" title="эмодзи">&#xf118;</button>
       <button type="submit" class="sendBtn nf" title="отправить">&#xf1d8;</button>
     </form>
@@ -103,6 +100,7 @@
     </div>
     <a href="user.html?uid=me" class="dropdownBtn"><span class="nf">&#xf007;</span> Моя стена</a>
     <a href="my-music.html" class="dropdownBtn"><span class="nf">&#xf001;</span> Моя музыка</a>
+    <a href="profile.html" class="dropdownBtn"><span class="nf">&#xf2c2;</span> Мой профиль</a>
     <a href="my-channels.html" class="dropdownBtn"><span class="nf">&#xf292;</span> Мои каналы</a>
     <a href="settings.html" class="dropdownBtn"><span class="nf">&#xf013;</span> Настройки</a>
     <hr>

@@ -7,7 +7,7 @@ import { subscribeMessages, sendMessage, editMessage, deleteMessage, otherPartic
 import { db, doc, getDoc } from "./firebase.js";
 import { getUserDoc } from "./data.js";
 import { uploadImage } from "./storage.js";
-import { shapeClass } from "./avatar.js";
+import { avatarHtml } from "./avatar.js";
 import { escapeHtml, timeAgo, showToast } from "./ui.js";
 import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
@@ -17,6 +17,7 @@ import { initChatNav } from "./chat-nav.js";
 import { parseCommand } from "./bot.js";
 import { getSettings } from "./settings.js";
 import { getAlias, setAlias } from "./aliases.js";
+import { isMutualFriend } from "./friends.js";
 import { currentUserDoc } from "./auth.js";
 import { defaultAvatar } from "./default-avatar.js";
 
@@ -147,10 +148,16 @@ async function init() {
   otherUser = u;
   document.getElementById("dmNickname").textContent = getAlias(otherUid) || u.nickname || "???";
   document.getElementById("dmUsername").textContent = u.username || "???";
-  document.getElementById("dmStatus").textContent = u.statusEmoji || "";
-  const av = document.getElementById("dmAvatar");
-  av.src = u.avatarUrl || defaultAvatar();
-  av.className = `avatar-shaped ${shapeClass(u.avatarShape)}`;
+  // Аватарка со всем оформлением: своя вёрстка здесь теряла и рамку,
+  // и украшение — как это было на странице человека.
+  const avHost = document.getElementById("dmAvatarHost");
+  if (avHost) {
+    avHost.innerHTML = avatarHtml({
+      ...u,
+      accessory: u.accessory || "none",
+      avatarBorder: u.avatarBorder || "pink"
+    }, 44);
+  }
   document.getElementById("dmHeader").addEventListener("click", () => {
     location.href = `user.html?uid=${otherUid}`;
   });
@@ -173,6 +180,38 @@ async function init() {
   document.title = `NyashBoard ♡ — ${u.nickname || "чат"}`;
 
   initChatNav(el);
+
+  // Поле растёт по мере набора: длинное сообщение не должно набираться
+  // в одну строку вслепую.
+  const dmInput = document.getElementById("dmInput");
+  if (dmInput) {
+    const grow = () => {
+      dmInput.style.height = "auto";
+      dmInput.style.height = Math.min(dmInput.scrollHeight, 160) + "px";
+    };
+    dmInput.addEventListener("input", grow);
+    // Enter отправляет, Shift+Enter переносит строку — как принято в мессенджерах
+    dmInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById("dmForm")?.requestSubmit();
+      }
+    });
+    grow();
+  }
+
+  // Переписка доступна только взаимным друзьям. Если дружбы больше нет,
+  // историю оставляем, а поле ввода убираем и объясняем причину — иначе
+  // человек упирался бы в молчаливый отказ при отправке.
+  (async () => {
+    const mutual = await isMutualFriend(otherUid).catch(() => false);
+    if (mutual) return;
+    const bar = document.querySelector(".chat-floating-bar");
+    if (!bar) return;
+    bar.innerHTML = `<div class="dm-broken">
+      Вы больше не друзья. Чтобы продолжить общаться, добавьте друг друга снова.
+    </div>`;
+  })();
 
   // см. комментарий в chat.js: снимаем фокус, чтобы экранная клавиатура
   // не оставалась открытой после возврата в браузер

@@ -121,7 +121,7 @@ function ensureBar() {
     <button class="player-btn" data-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
     <button class="player-btn" data-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
     <div class="player-menu-wrap">
-      <button class="player-btn" data-menu title="ещё"><span class="nf">${ICON.kebab}</span></button>
+      <button class="player-btn" data-menu title="ещё"><span class="nf">${ICON.more}</span></button>
       <div class="player-menu hidden" data-menu-list>
         <button data-act="queue"><span class="nf">${ICON.list}</span> Очередь</button>
         <button data-act="stop"><span class="nf">${ICON.close}</span> Стоп</button>

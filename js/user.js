@@ -101,9 +101,11 @@ export async function initUserPage() {
       const host = document.getElementById("userPostBox");
       if (host) {
         host.classList.remove("hidden");
+        // Плавающая кнопка, как в ленте: на телефоне тянуться вверх неудобно,
+        // а на компьютере она встаёт обычной кнопкой над списком.
         host.innerHTML = `
-          <button class="primaryBtn" id="writeWallBtn" style="width:auto;margin:0 0 14px;">
-            <span class="nf">${ICON.pencil}</span> Написать на стену
+          <button class="primaryBtn wall-write-btn" id="writeWallBtn">
+            <span class="nf">${ICON.pencil}</span><span class="wall-write-label">Написать на стену</span>
           </button>`;
         host.querySelector("#writeWallBtn").addEventListener("click", async () => {
           const { openWallComposer } = await import("./wall-composer.js");
@@ -116,8 +118,10 @@ export async function initUserPage() {
     const feedBtn = tabs?.querySelector('[data-usub="feed"]');
     if (feedBtn) feedBtn.classList.toggle("hidden", !canSeeFeed);
 
-    // если ленту смотреть нельзя, сразу открываем стену
-    let active = canSeeFeed ? "feed" : "wall";
+    // Стена открывается первой: это личная страница человека, а лента —
+    // то, что он и так пишет у всех на виду. Плюс адрес может указать вкладку.
+    const wanted = location.hash.replace("#", "");
+    let active = wanted === "feed" && canSeeFeed ? "feed" : "wall";
 
     function paint() {
       const list = active === "wall" ? wallPosts : feedPosts;

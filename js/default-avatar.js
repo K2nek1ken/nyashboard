@@ -103,7 +103,7 @@ function botSvg({ accent, light }) {
 const BUILDERS = { neko: nekoSvg, hidden: hiddenSvg, anon: nekoSvg, bot: botSvg };
 const cache = new Map();
 
-export function defaultAvatar(variant = "neko") {
+export function defaultAvatar(variant = "neko", seed = null) {
   const theme = readTheme();
   // Аватарка анонима красится в его личный оттенок, а не в акцент темы:
   // так участники общего чата отличаются друг от друга.
@@ -114,11 +114,13 @@ export function defaultAvatar(variant = "neko") {
     theme.light = "#eef2ff";
   }
   if (variant === "anon") {
-    const base = anonColor();
+    // Свой оттенок, если он задан: так старые сообщения тоже раскрашиваются,
+    // и один и тот же человек всегда одного цвета.
+    const base = seed ? anonColorFor(seed) : anonColor();
     theme.accent = base;
     theme.light = lightenHex(base, 0.62);
   }
-  const key = `${variant}|${theme.accent}|${theme.light}|${theme.dark}`;
+  const key = `${variant}|${seed || ""}|${theme.accent}|${theme.light}|${theme.dark}`;
   if (cache.has(key)) return cache.get(key);
   const svg = (BUILDERS[variant] || nekoSvg)(theme);
   const uri = "data:image/svg+xml," + encodeURIComponent(svg.replace(/\s+/g, " "));
@@ -154,21 +156,42 @@ const COVER_PALETTE = [
 ];
 
 export function defaultCover(seed = "") {
-  // простая свёртка строки в число: одинаковый трек — одинаковый цвет
+  // Цвет по идентификатору трека: у каждого свой, но всегда один и тот же.
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   const [from, to] = COVER_PALETTE[hash % COVER_PALETTE.length];
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>
-    </linearGradient></defs>
-    <rect width="100" height="100" fill="url(#g)"/>
-    <circle cx="38" cy="66" r="11" fill="#fff" opacity="0.92"/>
-    <circle cx="70" cy="58" r="9" fill="#fff" opacity="0.92"/>
-    <rect x="46" y="26" width="5" height="42" rx="2.5" fill="#fff" opacity="0.92"/>
-    <rect x="77" y="20" width="5" height="40" rx="2.5" fill="#fff" opacity="0.92"/>
-    <path d="M46,26 L82,18 L82,30 L46,38 Z" fill="#fff" opacity="0.92"/>
+  // Мордочка с нотой по эскизу Неко: та же, что у анонимной аватарки,
+  // плюс нотный знак в углу — сразу понятно, что это музыка.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>
+      </linearGradient>
+      <clipPath id="c"><rect width="1080" height="1080"/></clipPath>
+    </defs>
+    <rect width="1080" height="1080" fill="url(#g)"/>
+    <g clip-path="url(#c)">
+      <polygon points="284.41,796.69 540,353.99 795.59,796.69" fill="#fff"
+               transform="matrix(0.81,0.39,-0.39,0.81,607,13.5)"/>
+      <polygon points="284.41,796.69 540,353.99 795.59,796.69" fill="#fff"
+               transform="matrix(-0.81,0.39,0.39,0.81,546.6,28.9)"/>
+      <ellipse cx="531.7" cy="1217.5" rx="520.57" ry="520.57" fill="#fff"/>
+      <ellipse cx="302.4" cy="927.1" rx="86.44" ry="86.44" fill="${from}"/>
+      <ellipse cx="707.4" cy="950.9" rx="86.44" ry="86.44" fill="${from}"/>
+      <rect x="806" y="180" width="26" height="240" rx="13" fill="#fff"/>
+      <rect x="806" y="180" width="150" height="26" rx="13" fill="#fff"/>
+      <ellipse cx="760" cy="410.9" rx="73.47" ry="58" fill="#fff"/>
+    </g>
   </svg>`;
   return "data:image/svg+xml," + encodeURIComponent(svg.replace(/\s+/g, " "));
+}
+
+// Оттенок анонима можно задать извне: у старых сообщений он берётся по имени
+// автора, чтобы один и тот же человек всегда был одного цвета.
+export function anonColorFor(seed) {
+  if (!seed) return anonColor();
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return ANON_PALETTE[hash % ANON_PALETTE.length];
 }

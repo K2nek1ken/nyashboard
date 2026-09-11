@@ -360,8 +360,11 @@ function renderChat(msgs, { keepScroll = false } = {}) {
              ${nameHtml({ nickname: m.nickname, nickColor: m.nickColor })}
              ${badgeHtml(badges.get(m.authorUid))}
            </span>`
+        // Аноним получает свой оттенок по имени: у сообщений, написанных до
+        // появления этой раскраски, оттенок тоже будет — устойчивый, а не
+        // случайный при каждой отрисовке.
         : `<span class="person-chip">
-             ${avatarHtml({}, 20, "", "anon")}
+             ${avatarHtml({}, 22, "", "anon", m.guestId || m.nickname || "")}
              ${escapeHtml(m.nickname)}
            </span>`;
 

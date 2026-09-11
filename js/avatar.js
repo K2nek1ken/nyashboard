@@ -18,10 +18,10 @@ export function shapeClass(shape) {
 }
 
 // Единый рендер аватарки со статусом-эмодзи в углу.
-export function avatarHtml(user, size = 34, extraAttrs = "", variant = "neko") {
+export function avatarHtml(user, size = 34, extraAttrs = "", variant = "neko", seed = null) {
   const shape = shapeClass(user?.avatarShape);
   const custom = user?.avatarUrl && user.avatarUrl !== "assets/anon.svg";
-  const src = custom ? user.avatarUrl : defaultAvatar(variant);
+  const src = custom ? user.avatarUrl : defaultAvatar(variant, seed);
   // data-default-avatar помечает сгенерированные аватарки, чтобы перекрасить их
   // на месте при смене темы
   const mark = custom ? "" : `data-default-avatar="${variant}"`;

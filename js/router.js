@@ -101,12 +101,24 @@ async function swap(page, { push = true } = {}) {
     // ссылаются на элементы, которых сейчас не станет.
     try { currentModule?.destroyPage?.(); } catch (e) { console.warn("Не свернулось:", e); }
 
+    // Открытые окна и меню относятся к покидаемой вкладке: они висят в общем
+    // слое поверх страницы, поэтому сами бы не закрылись и остались бы
+    // поверх новой.
+    document.querySelectorAll(".modal, .now-playing, .lightbox").forEach(el => {
+      if (el.id === "settingsModal") return;   // настройки открываются поверх любой вкладки
+      el.remove();
+    });
+    document.querySelectorAll(".kebabMenu:not(.hidden), .cselect-menu:not(.hidden), .player-menu:not(.hidden)")
+      .forEach(el => el.classList.add("hidden"));
+    document.body.classList.remove("np-open");
+
     const app = document.getElementById("app");
     const fresh = new DOMParser().parseFromString(html, "text/html");
     const freshApp = fresh.getElementById("app");
     if (!freshApp) throw new Error("на странице нет содержимого");
 
     app.innerHTML = freshApp.innerHTML;
+    swapPageExtras(fresh);
     document.title = fresh.title || document.title;
     currentPath = page;
     window.scrollTo({ top: 0 });
@@ -136,6 +148,37 @@ async function swap(page, { push = true } = {}) {
     document.body.classList.remove("page-leaving");
     navigating = false;
   }
+}
+
+// Не всё содержимое страницы лежит внутри #app: закреплённые панели —
+// поле ввода чата, панель ответа, выбор личности — стоят рядом с ним, потому
+// что должны прилипать к низу экрана. При переходе их тоже нужно заменить,
+// иначе на новой вкладке их просто нет (а старые остаются от прошлой).
+const EXTRA_IDS = [
+  "chatFloatingBar", "chatForm", "chatImagePreview", "replyComposeHost",
+  "accountToggleRow", "dmForm", "dmImagePreview", "dmReplyHost", "postEditor"
+];
+
+function swapPageExtras(freshDoc) {
+  // убираем то, что осталось от прошлой вкладки
+  EXTRA_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.closest("#app")) el.remove();
+  });
+  document.querySelector(".chat-floating-bar:not(#app .chat-floating-bar)")?.remove();
+
+  const app = document.getElementById("app");
+
+  // и переносим то, что есть на новой
+  const bar = freshDoc.querySelector(".chat-floating-bar");
+  if (bar) app.after(bar.cloneNode(true));
+
+  EXTRA_IDS.forEach(id => {
+    const fresh = freshDoc.getElementById(id);
+    if (!fresh || fresh.closest("#app") || document.getElementById(id)) return;
+    if (fresh.closest(".chat-floating-bar")) return;   // уже перенесён вместе с панелью
+    app.after(fresh.cloneNode(true));
+  });
 }
 
 async function loadPage(page) {

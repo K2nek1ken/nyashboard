@@ -54,6 +54,13 @@ export async function loadRecentPosts(count = 50) {
 export function subscribeFeed() {
   feedListEl = document.getElementById("feedList");
   if (!feedListEl) return;
+
+  // Свои каналы нужны, чтобы их записями можно было распоряжаться.
+  // Раньше список объявлялся, но никогда не заполнялся.
+  import("./channels.js")
+    .then(({ fetchManagedChannelIds }) => fetchManagedChannelIds())
+    .then(ids => setManagedChannels(ids || []))
+    .catch(() => {});
   if (!feedListEl) return;
   if (feedUnsub) return;
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
@@ -69,7 +76,9 @@ export function subscribeFeed() {
       .filter(p => {
         if (p.place !== "wall") return true;
         if (!currentUser) return false;
-        if (p.authorUid === currentUser.uid) return true;
+        // Свои записи со стены в собственной ленте не показываем: они живут
+        // на странице профиля, и дублировать их здесь незачем.
+        if (p.authorUid === currentUser.uid) return false;
         return isFriend(p.authorUid) && p.wallInFeed !== false;
       });
 
@@ -242,8 +251,14 @@ function updatePostCard(post) {
 const MIN_COLUMN = 330;   // уже этого запись читается плохо
 
 function columnCount(container) {
-  const width = container?.clientWidth || 0;
-  if (!width) return 1;                       // ещё не отрисован
+  // Ширина берётся у самого списка, но в момент первой отрисовки он может быть
+  // ещё нулевым — тогда опираемся на окно за вычетом колонки навигации.
+  let width = container?.clientWidth || 0;
+  if (!width) {
+    const sidebar = window.innerWidth >= 900 ? 320 : 0;
+    width = Math.max(0, window.innerWidth - sidebar - 80);
+  }
+  if (!width) return 1;
   return Math.max(1, Math.min(3, Math.floor(width / MIN_COLUMN)));
 }
 
@@ -368,6 +383,14 @@ function renderFeed(posts) {
   posts.forEach(p => wirePostCard(p, feedListEl));
   revealSequentially(feedListEl);
   balanceColumns(feedListEl);
+
+  // Если при раскладке ширина ещё не была известна, число колонок могло
+  // выйти неверным — проверяем на следующем кадре, когда список уже на месте.
+  requestAnimationFrame(() => {
+    const shouldBe = columnCount(feedListEl);
+    const actual = feedListEl.querySelectorAll(".feed-column").length || 1;
+    if (shouldBe !== actual && lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+  });
 }
 
 // Оценка высоты приблизительная, поэтому после отрисовки смотрим, что вышло
@@ -429,7 +452,10 @@ export function postToHtml(p, maskAuthor = false) {
   const liked = currentUser && (p.likedBy || []).includes(currentUser.uid);
   const disliked = currentUser && (p.dislikedBy || []).includes(currentUser.uid);
   const canManage = canManagePost(p);
-  const hasEditor = !!document.getElementById("postEditor");
+  // Правка идёт отдельным окном, поэтому наличие редактора на странице больше
+  // ни при чём. Раньше кнопка пропадала везде, где его нет, — и свои записи
+  // нельзя было изменить, например со страницы человека.
+  const hasEditor = true;
   const onPostPage = location.pathname.endsWith("post.html");
   const suppressed = isSuppressed(p.id);
   const kebabItems = [
@@ -782,7 +808,6 @@ export function openPostEditor(post = null) {
   const editor = document.getElementById("postEditor");
   const textarea = document.getElementById("postTextArea");
   const anonToggle = document.getElementById("postAnonToggle");
-  const wallToggle = document.getElementById("postWallToggle");
   const anonRow = document.getElementById("anonToggleRow");
   const title = document.getElementById("editorTitle");
   const publishBtn = document.getElementById("publishPostBtn");
@@ -821,7 +846,6 @@ export function initPostEditor() {
   const closeBtn = document.getElementById("closeEditorBtn");
   const textarea = document.getElementById("postTextArea");
   const anonToggle = document.getElementById("postAnonToggle");
-  const wallToggle = document.getElementById("postWallToggle");
   const imageInput = document.getElementById("postImageInput");
   const publishBtn = document.getElementById("publishPostBtn");
 
@@ -882,7 +906,7 @@ export function initPostEditor() {
           // Где опубликовано: в ленте или на стене профиля. Это разные места,
           // а не уровни доступа — записи стены живут у тебя на странице и
           // попадают в чужую ленту только к друзьям, и то по твоей настройке.
-          place: wallToggle?.checked ? "wall" : "feed",
+          place: "feed",   // из ленты пишем в ленту; на стену — со своей страницы
           // копия настройки автора: лента не должна запрашивать профиль
           // ради каждой записи
           wallInFeed: currentUserDoc?.wallInFeed !== false,
