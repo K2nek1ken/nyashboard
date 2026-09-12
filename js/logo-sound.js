@@ -5,6 +5,7 @@ const DB_NAME = "nyash_media";
 const STORE = "sounds";
 const KEY = "logo";
 const PARTICLE_KEY = "particle";
+const QUOTE_KEY = "quote";
 
 function withStore(mode) {
   return new Promise((resolve, reject) => {
@@ -151,4 +152,42 @@ export async function saveParticleImageBlob(blob, name = "particle") {
     r.onsuccess = () => resolve(name);
     r.onerror = () => reject(r.error);
   });
+}
+
+
+// ---------- своя картинка для узора на цитатах ----------
+// Хранится тем же способом, что и картинка частиц: это тоже личный файл.
+
+export async function saveQuoteImage(file) {
+  if (!file.size) throw new Error("файл не читается — скопируй его на устройство");
+  if (file.size > MAX_PARTICLE_SOURCE) throw new Error("картинка больше 3 МБ — возьми полегче");
+
+  const isVector = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
+  const blob = isVector ? file : await shrinkImage(file, PARTICLE_SIZE);
+  return saveQuoteImageBlob(blob, file.name);
+}
+
+export async function saveQuoteImageBlob(blob, name = "quote") {
+  const { store } = await withStore("readwrite");
+  return new Promise((resolve, reject) => {
+    const r = store.put({ blob, name }, QUOTE_KEY);
+    r.onsuccess = () => resolve(name);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function getQuoteImage() {
+  try {
+    const { store } = await withStore("readonly");
+    return new Promise((resolve) => {
+      const r = store.get(QUOTE_KEY);
+      r.onsuccess = () => resolve(r.result || null);
+      r.onerror = () => resolve(null);
+    });
+  } catch { return null; }
+}
+
+export async function clearQuoteImage() {
+  const { store } = await withStore("readwrite");
+  store.delete(QUOTE_KEY);
 }

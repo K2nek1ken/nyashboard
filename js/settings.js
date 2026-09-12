@@ -18,7 +18,8 @@ export const DEFAULTS = {
   chatIdentity: "both",  // both | anon | account — что доступно в чате
   meowReaction: "on",    // отзываться на команду «мяукнуть» звуком
   webNotify: "off",      // уведомления браузера, пока вкладка открыта
-  particleTint: "on",    // перекрашивать свою картинку под акцент
+  particleTint: "silhouette",  // off | silhouette | duotone — как красить частицы
+  quoteTint: "silhouette",     // то же для узора на цитатах
   hourlyDigest: "on",    // сводка о лайках раз в час
   dmNaming: "nickname",  // как подписывать собеседника в личке
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
@@ -41,7 +42,8 @@ export const QUOTE_DECOR = {
   petals:  "Лепестки",
   stars:   "Звёздочки",
   leaves:  "Листья",
-  none:    "Без узора"
+  none:    "Без узора",
+  custom:  "Своя картинка"
 };
 
 // Акценты — та же палитра, что у рамок аватарок: один список оттенков на всё
@@ -111,6 +113,13 @@ export const DM_NAMING = {
   nickname: "Ником",
   neutral:  "«Собеседник»",
   custom:   "Своим словом"
+};
+
+// Способы перекрашивания своих картинок.
+export const TINT_MODES = {
+  silhouette: "Силуэтом",
+  duotone:    "С деталями",
+  off:        "Как есть"
 };
 
 export const EMOJI_SOURCES = {

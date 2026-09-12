@@ -1,6 +1,9 @@
 import { createZip, readZip } from "./zip.js";
 import { getSettings, setSetting, DEFAULTS } from "./settings.js";
-import { getLogoSound, saveLogoSoundBlob, getParticleImage, saveParticleImageBlob } from "./logo-sound.js";
+import {
+  getLogoSound, saveLogoSoundBlob, getParticleImage, saveParticleImageBlob,
+  getQuoteImage, saveQuoteImageBlob
+} from "./logo-sound.js";
 import { showToast } from "./ui.js";
 
 // ============================================================
@@ -72,6 +75,9 @@ export async function exportBackup() {
   const particle = await getParticleImage().catch(() => null);
   if (particle?.blob) files["particle" + extOf(particle.name)] = particle.blob;
 
+  const quote = await getQuoteImage().catch(() => null);
+  if (quote?.blob) files["quote" + extOf(quote.name)] = quote.blob;
+
   const zip = await createZip(files);
   const url = URL.createObjectURL(zip);
   const a = document.createElement("a");
@@ -122,6 +128,10 @@ async function importFromZip(file) {
         if (bytes.length > MAX_SOUND) throw new Error("слишком большой");
         if (!looksLike("audio", bytes)) throw new Error("не похоже на звук");
         await saveLogoSoundBlob(new Blob([bytes]), name);
+      } else if (name.startsWith("quote")) {
+        if (bytes.length > MAX_IMAGE) throw new Error("слишком большая");
+        if (!looksLike("image", bytes)) throw new Error("не похоже на картинку");
+        await saveQuoteImageBlob(new Blob([bytes]), name);
       } else if (name.startsWith("particle")) {
         if (bytes.length > MAX_IMAGE) throw new Error("слишком большая");
         if (!looksLike("image", bytes)) throw new Error("не похоже на картинку");

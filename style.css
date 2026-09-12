@@ -2209,3 +2209,9 @@ body.no-select, body.no-select * {
 .player-btn.repeat-off, .np-btn.repeat-off { color: var(--muted); opacity: 0.55; }
 .player-btn.repeat-off:hover, .np-btn.repeat-off:hover { opacity: 0.85; }
 .mention.nuid-post { color: #a5c9a0; }
+
+/* своя картинка в узоре цитаты */
+.quote-image {
+  position: absolute; width: 22px; height: 22px;
+  object-fit: contain; opacity: 0.5; pointer-events: none;
+}

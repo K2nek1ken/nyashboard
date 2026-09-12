@@ -166,11 +166,42 @@ const DECOR_GLYPHS = {
 };
 const SHAPE_DECOR = new Set(["petals"]);
 
+// Своя картинка для узора: подготавливается один раз и дальше берётся готовой.
+// Подготовка нужна потому, что картинку надо перекрасить, а это делается
+// на холсте — каждый раз для каждой цитаты было бы расточительно.
+let quoteImageUrl = null;
+
+export async function prepareQuoteImage() {
+  if (getSettings().quoteDecor !== "custom") { quoteImageUrl = null; return; }
+
+  try {
+    const { getQuoteImage } = await import("./logo-sound.js");
+    const rec = await getQuoteImage();
+    if (!rec?.blob) { quoteImageUrl = null; return; }
+
+    const accent = getComputedStyle(document.documentElement)
+      .getPropertyValue("--accent").trim() || "#e88fd0";
+    const mode = getSettings().quoteTint || "silhouette";
+
+    const img = new Image();
+    img.src = URL.createObjectURL(rec.blob);
+    await img.decode().catch(() => {});
+
+    const { tintImage } = await import("./tint.js");
+    quoteImageUrl = tintImage(img, accent, mode).src;
+  } catch (e) {
+    console.warn("Картинка для цитат не подготовилась:", e.message);
+    quoteImageUrl = null;
+  }
+}
+
 function decorHtml() {
   const kind = getSettings().quoteDecor || "flowers";
   const isShape = SHAPE_DECOR.has(kind);
+  const isImage = kind === "custom";
   const glyph = DECOR_GLYPHS[kind];
-  if (!glyph && !isShape) return "";        // выбран вариант «без узора»
+  if (!glyph && !isShape && !isImage) return "";        // выбран вариант «без узора»
+  if (isImage && !quoteImageUrl) return "";             // картинка ещё не готова
 
   const cols = 6, rows = 2;
   const out = [];
@@ -183,7 +214,9 @@ function decorHtml() {
       const scale = (0.7 + Math.random()).toFixed(2);   // не больше двух минимумов
       const style = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
                     `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})`;
-      out.push(isShape
+      out.push(isImage
+        ? `<img class="quote-image" src="${quoteImageUrl}" style="${style}" alt="">`
+        : isShape
         ? `<span class="petal-shape" style="${style}"></span>`
         : `<span style="${style}">${glyph}</span>`);
     }

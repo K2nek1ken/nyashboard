@@ -1,4 +1,4 @@
-import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, CHAT_IDENTITY, DM_NAMING, DEFAULTS,
+import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, CHAT_IDENTITY, DM_NAMING, TINT_MODES, DEFAULTS,
   exportSettings, importSettings } from "./settings.js";
 import { showToast } from "./ui.js";
 import { goTo } from "./router.js";
@@ -89,13 +89,23 @@ export function initSettingsPage() {
              ${select("particles", PARTICLES, s.particles)}
              <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
            </div>`)}
-        ${s.particles === "custom" ? row("Перекрашивать картинку", "чёрный силуэт станет акцентным цветом",
-          toggle("particleTint", s.particleTint !== "off")) : ""}
+        ${s.particles === "custom" ? row("Как красить картинку",
+          "силуэтом — одним цветом; с деталями — светотень в оттенках акцента",
+          select("particleTint", TINT_MODES, s.particleTint || "silhouette")) : ""}
         ${s.particles === "custom" ? row("Картинка для частиц", "png или svg без фона, до 3 МБ — картинка уменьшится сама",
           `<div style="display:flex; gap:6px; align-items:center;">
              <button id="particlePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
              <input type="file" id="particleInput" accept="image/*" style="display:none;">
              <button class="linkBtn" id="particleClear" style="width:auto;">убрать</button>
+           </div>`) : ""}
+        ${s.quoteDecor === "custom" ? row("Как красить узор",
+          "силуэтом — одним цветом; с деталями — светотень в оттенках акцента",
+          select("quoteTint", TINT_MODES, s.quoteTint || "silhouette")) : ""}
+        ${s.quoteDecor === "custom" ? row("Картинка для узора", "png или svg без фона, до 3 МБ",
+          `<div style="display:flex; gap:6px; align-items:center;">
+             <button id="quotePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
+             <input type="file" id="quoteInput" accept="image/*" style="display:none;">
+             <button class="linkBtn" id="quoteClear" style="width:auto;">убрать</button>
            </div>`) : ""}
         ${row("Узор на цитатах", "фон у ответа на сообщение в чате",
           `<div style="display:flex; align-items:center;">
@@ -205,6 +215,7 @@ export function initSettingsPage() {
       if (key === "quoteDecor") {
         const prev = host.querySelector("#decorPreview");
         if (prev) prev.innerHTML = decorGlyphPreview(value);
+        if (value === "custom") render();
       }
       // при смене способа обращения появляется или исчезает поле своего слова
       if (key === "dmNaming") render();
@@ -230,8 +241,8 @@ export function initSettingsPage() {
         const isOn = btn.classList.contains("on");
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
                          showAbout: ["on", "off"], recommendations: ["on", "off"],
-                         meowReaction: ["on", "off"], hourlyDigest: ["on", "off"],
-                         particleTint: ["on", "off"] };
+                         meowReaction: ["on", "off"], hourlyDigest: ["on", "off"] };
+
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);
         render();
@@ -262,6 +273,27 @@ export function initSettingsPage() {
       showToast("Картинка убрана");
       render();
       initStarfield();
+    });
+
+    // своя картинка для узора на цитатах
+    const quoteInput = host.querySelector("#quoteInput");
+    host.querySelector("#quotePick")?.addEventListener("click", () => quoteInput.click());
+    quoteInput?.addEventListener("change", async () => {
+      const file = quoteInput.files[0];
+      quoteInput.value = "";
+      if (!file) return;
+      try {
+        const { saveQuoteImage } = await import("./logo-sound.js");
+        await saveQuoteImage(file);
+        showToast("Картинка сохранена ♡");
+        render();
+      } catch (e) { showToast("Не вышло: " + e.message); }
+    });
+    host.querySelector("#quoteClear")?.addEventListener("click", async () => {
+      const { clearQuoteImage } = await import("./logo-sound.js");
+      await clearQuoteImage();
+      showToast("Картинка убрана");
+      render();
     });
 
     const soundInput = host.querySelector("#logoSoundInput");
