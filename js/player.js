@@ -401,6 +401,10 @@ export function getRepeatMode() { return repeatMode; }
 function paintRepeat() {
   const label = { off: "повтор выключен", all: "повтор списка", one: "повтор трека" }[repeatMode];
   document.querySelectorAll("[data-np-repeat], [data-repeat]").forEach(btn => {
+    // Три состояния — три вида: выключенный приглушён, повтор списка
+    // подсвечен, повтор трека подсвечен и со своим значком. Иначе первые
+    // два выглядели одинаково, и было непонятно, включено ли что-то.
+    btn.classList.toggle("repeat-off", repeatMode === "off");
     btn.classList.toggle("active", repeatMode !== "off");
     btn.title = label;
     const glyph = btn.querySelector(".nf");

@@ -2201,3 +2201,8 @@ body.no-select, body.no-select * {
 @media (min-width: 900px) {
   .np-card { border: none; background: none; box-shadow: none; padding: 0; max-width: none; }
 }
+
+/* Выключенный повтор приглушён — так он отличается от повтора списка,
+   который подсвечен акцентом. */
+.player-btn.repeat-off, .np-btn.repeat-off { color: var(--muted); opacity: 0.55; }
+.player-btn.repeat-off:hover, .np-btn.repeat-off:hover { opacity: 0.85; }
