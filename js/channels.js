@@ -3,6 +3,7 @@ import {
   query, orderBy, limit, where, writeBatch, serverTimestamp
 } from "./firebase.js";
 import { currentUser } from "./auth.js";
+import { registerPostNuid } from "./nuid.js";
 import { resolveUserHandle } from "./data.js";
 import { generateUniqueNuid } from "./nuid.js";
 import { markOwned } from "./ownership.js";
@@ -232,6 +233,10 @@ export async function createChannelPost(channelId, text, imageUrls) {
   });
   await setDoc(doc(db, "postSecrets", ref.id), { ownerUid: auth.currentUser.uid });
   markOwned("post", ref.id);
+
+      registerPostNuid(ref.id)
+        .then(nuid => updateDoc(doc(db, "posts", ref.id), { publicUid: nuid }))
+        .catch(e => console.warn("Идентификатор записи не записался:", e.message));
   return ref.id;
 }
 

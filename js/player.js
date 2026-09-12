@@ -51,6 +51,14 @@ function clearState() {
 }
 
 // Вызывается при запуске каждой страницы: если что-то играло — продолжаем.
+// Вход мог произойти после запуска плеера — тогда состояние сердечка
+// нужно запросить заново.
+if (typeof window !== "undefined") {
+  import("./auth.js").then(({ onAuthChange }) => {
+    onAuthChange(() => { if (current) refreshFavState(current); });
+  }).catch(() => {});
+}
+
 export function restorePlayback() {
   let saved;
   try { saved = JSON.parse(localStorage.getItem(RESUME_KEY)); } catch { return; }
@@ -293,6 +301,13 @@ function paintFavState(inFavorites) {
 
 async function refreshFavState(track) {
   try {
+    // Ждём подтверждения входа: при восстановлении плеера состояние
+    // запрашивалось раньше него, список любимого приходил пустым — и
+    // сердечко оставалось незакрашенным, хотя трек там был.
+    const { authReady, currentUser } = await import("./auth.js");
+    await authReady;
+    if (!currentUser) { paintFavState(false); return; }
+
     const { loadFavorites } = await import("./music.js");
     const favs = await loadFavorites();
     paintFavState(favs.some(t => t.id === track.id));

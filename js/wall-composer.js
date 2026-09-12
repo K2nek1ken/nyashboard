@@ -1,4 +1,5 @@
-import { db, auth, collection, addDoc, doc, setDoc, serverTimestamp } from "./firebase.js";
+import { db, auth, collection, addDoc, doc, setDoc, serverTimestamp, updateDoc } from "./firebase.js";
+import { registerPostNuid } from "./nuid.js";
 import { currentUser, currentUserDoc } from "./auth.js";
 import { uploadImages } from "./storage.js";
 import { extractHashtags } from "./hashtags.js";
@@ -93,6 +94,10 @@ export function openWallComposer(onDone) {
       });
       await setDoc(doc(db, "postSecrets", ref.id), { ownerUid: auth.currentUser.uid });
       markOwned("post", ref.id);
+
+      registerPostNuid(ref.id)
+        .then(nuid => updateDoc(doc(db, "posts", ref.id), { publicUid: nuid }))
+        .catch(e => console.warn("Идентификатор записи не записался:", e.message));
 
       close();
       showToast("Опубликовано на стене ♡");

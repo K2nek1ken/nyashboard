@@ -1,6 +1,7 @@
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
+import { registerPostNuid } from "./nuid.js";
 import { uploadImages } from "./storage.js";
-import { db, auth, collection, addDoc, doc, setDoc, serverTimestamp } from "./firebase.js";
+import { db, auth, collection, addDoc, doc, setDoc, serverTimestamp, updateDoc } from "./firebase.js";
 import { extractHashtags } from "./hashtags.js";
 import { markOwned } from "./ownership.js";
 import { openEmojiPicker } from "./emoji.js";
@@ -120,6 +121,10 @@ export function initInlineComposer(onPublished) {
         }).catch(() => {});
       }
       markOwned("post", ref.id);
+
+      registerPostNuid(ref.id)
+        .then(nuid => updateDoc(doc(db, "posts", ref.id), { publicUid: nuid }))
+        .catch(e => console.warn("Идентификатор записи не записался:", e.message));
 
       showToast("Опубликовано ♡");
       onPublished?.();

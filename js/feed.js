@@ -4,6 +4,7 @@ import {
   arrayUnion, arrayRemove, increment, where
 } from "./firebase.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
+import { registerPostNuid } from "./nuid.js";
 import { goTo } from "./router.js";
 import { wireImageZoom } from "./lightbox.js";
 import { askText, askConfirm } from "./dialog.js";
@@ -496,6 +497,7 @@ export function postToHtml(p, maskAuthor = false) {
         <span ${authorAttrs} style="cursor:pointer;">${avatarHtml(authorForAvatar, 34, "", avatarVariant)}</span>
         <span class="post-author ${(!isChannelPost && p.isAnonymous) ? "anon" : ""} ${masked ? "author-masked" : ""}" ${authorAttrs}${nameStyle}>${authorName}</span>
         <div class="post-meta-right">
+          ${p.publicUid ? `<span class="track-nuid" data-copy-nuid="${p.publicUid}" title="нажми, чтобы скопировать">${p.publicUid}</span>` : ""}
           ${p.place === "wall" ? `<span class="wall-badge" title="запись со стены"><span class="nf">${ICON.users}</span></span>` : ""}
           <span class="post-time">${timeAgo(p.createdAt)}${p.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
           ${kebabHtml(kebabItems, p.id)}
@@ -959,6 +961,11 @@ export function initPostEditor() {
           }).catch(() => {});
         }
         markOwned("post", ref.id);
+
+        // Идентификатор записи: по нему на неё можно сослаться откуда угодно.
+        registerPostNuid(ref.id)
+          .then(nuid => updateDoc(doc(db, "posts", ref.id), { publicUid: nuid }))
+          .catch(e => console.warn("Идентификатор записи не записался:", e.message));
         showToast("Опубликовано ♡");
       }
       editor.classList.add("hidden");

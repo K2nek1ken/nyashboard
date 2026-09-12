@@ -23,10 +23,10 @@ export function linkifyMentions(escapedText) {
     )
     .replace(
       /#([A-Za-zА-Яа-яЁё0-9_]{2,30})/g,
-      (m, tag) => /^U[1-5]\d{6}$/i.test(tag)
+      (m, tag) => /^U[0-5]\d{6}$/i.test(tag)
         // Цвет по типу: человек, сообщение, трек, канал — видно сразу,
         // не открывая карточку
-        ? `<span class="mention nuid-${{ "1": "user", "2": "message", "3": "track", "4": "channel", "5": "art" }[tag[1]] || "user"}"
+        ? `<span class="mention nuid-${{ "0": "post", "1": "user", "2": "message", "3": "track", "4": "channel", "5": "art" }[tag[1]] || "user"}"
                  data-nuid="${tag.toUpperCase()}">#${tag}</span>`
         : `<span class="hashtag" data-hashtag="${tag}">#${tag}</span>`
     );
@@ -50,6 +50,10 @@ export function wireMentions(container) {
           const { playTrack } = await import("./player.js");
           const track = await getTrack(hit.uid);
           if (track) playTrack(track); else showToast("Трек не найден");
+        }
+        else if (hit.type === "post") {
+          // Запись открывается своей страницей — там она целиком, с ответами.
+          goTo(`post.html?id=${hit.uid}`);
         }
         else if (hit.type === "art") {
           // Работа открывается карточкой — как и всё остальное по номеру.
