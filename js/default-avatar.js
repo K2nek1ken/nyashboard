@@ -85,18 +85,18 @@ function hiddenSvg({ accent, light, dark }) {
 // Мордочка бота по эскизу Неко: крупный силуэт снизу, ушки-треугольники,
 // глаза. Отличается от обычной анонимной пропорциями, поэтому узнаётся сразу.
 function botSvg({ accent, light }) {
+  // Эскиз Неко без изменений: мордочка и рожки-четырёхугольники.
+  // Меняются только цвета — тёмный фон и светлый силуэт.
+  const horn = "586.08,439.64 480.39,433.72 478.12,523.45 670.24,635.42";
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
-  <defs><clipPath id="b"><circle cx="540" cy="540" r="536"/></clipPath></defs>
-  <circle cx="540" cy="540" r="536" fill="${accent}"/>
-  <g clip-path="url(#b)">
-    <polygon points="723.5,1203.5 723.5,703.5 963.5,983.5" fill="${light}"
-             transform="rotate(-123.5 723.5 1203.5)"/>
-    <polygon points="355.3,1203.5 355.3,703.5 115.3,983.5" fill="${light}"
-             transform="rotate(-56.5 355.3 1203.5)"/>
-    <circle cx="539.4" cy="921.2" r="449.1" fill="${light}"/>
-    <circle cx="379.2" cy="716.4" r="102" fill="${accent}"/>
-    <circle cx="706.4" cy="716.4" r="102" fill="${accent}"/>
-  </g>
+  <ellipse cx="540" cy="540" rx="536.07" ry="536.07" fill="${accent}"/>
+  <polygon points="${horn}" fill="${light}"
+           transform="matrix(-0.6,0,0,-0.6,723.6,1203.5)"/>
+  <polygon points="${horn}" fill="${light}"
+           transform="matrix(0.6,0,0,-0.6,355.3,1203.5)"/>
+  <ellipse cx="539.42" cy="921.17" rx="449.09" ry="449.09" fill="${light}"/>
+  <ellipse cx="379.18" cy="716.39" rx="102.05" ry="102.05" fill="${accent}"/>
+  <ellipse cx="706.39" cy="716.39" rx="102.05" ry="102.05" fill="${accent}"/>
 </svg>`;
 }
 
@@ -159,30 +159,26 @@ export function defaultCover(seed = "") {
   // Цвет по идентификатору трека: у каждого свой, но всегда один и тот же.
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  const [from, to] = COVER_PALETTE[hash % COVER_PALETTE.length];
+  const [tint] = COVER_PALETTE[hash % COVER_PALETTE.length];
 
-  // Мордочка с нотой по эскизу Неко: та же, что у анонимной аватарки,
-  // плюс нотный знак в углу — сразу понятно, что это музыка.
+  // Эскиз Неко без изменений: тёмный фон, силуэт и нота. Меняется только
+  // цвет светлых частей — чтобы обложки не были одинаковыми.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
-    <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>
-      </linearGradient>
-      <clipPath id="c"><rect width="1080" height="1080"/></clipPath>
-    </defs>
-    <rect width="1080" height="1080" fill="url(#g)"/>
-    <g clip-path="url(#c)">
-      <polygon points="284.41,796.69 540,353.99 795.59,796.69" fill="#fff"
-               transform="matrix(0.81,0.39,-0.39,0.81,607,13.5)"/>
-      <polygon points="284.41,796.69 540,353.99 795.59,796.69" fill="#fff"
-               transform="matrix(-0.81,0.39,0.39,0.81,546.6,28.9)"/>
-      <ellipse cx="531.7" cy="1217.5" rx="520.57" ry="520.57" fill="#fff"/>
-      <ellipse cx="302.4" cy="927.1" rx="86.44" ry="86.44" fill="${from}"/>
-      <ellipse cx="707.4" cy="950.9" rx="86.44" ry="86.44" fill="${from}"/>
-      <rect x="806" y="180" width="26" height="240" rx="13" fill="#fff"/>
-      <rect x="806" y="180" width="150" height="26" rx="13" fill="#fff"/>
-      <ellipse cx="760" cy="410.9" rx="73.47" ry="58" fill="#fff"/>
-    </g>
+    <rect x="-3.42" y="-3.42" width="1086.84" height="1086.84" fill="#17131c"/>
+    <ellipse transform="matrix(0.9982692,0.0588099,-0.0588099,0.9982692,531.6587,1217.4765)"
+             cx="0" cy="0" rx="520.57" ry="520.57" fill="${tint}"/>
+    <polygon transform="matrix(0.9035287,0.4285275,-0.4285275,0.9035287,607.0199,13.5111)"
+             points="284.41,796.69 540,353.99 795.59,796.69" fill="${tint}"/>
+    <polygon transform="matrix(-0.947595,0.3194743,0.3194743,0.9475950,546.6423,28.9278)"
+             points="284.41,796.69 540,353.99 795.59,796.69" fill="${tint}"/>
+    <ellipse transform="matrix(0.9982692,0.0588099,-0.0588099,0.9982692,302.4332,927.0722)"
+             cx="0" cy="0" rx="86.44" ry="86.44" fill="#17131c"/>
+    <ellipse transform="matrix(0.9982692,0.0588099,-0.0588099,0.9982692,707.412,950.9303)"
+             cx="0" cy="0" rx="86.44" ry="86.44" fill="#17131c"/>
+    <rect x="847.66" y="186.57" width="101.64" height="46.54" fill="${tint}"/>
+    <rect transform="matrix(0,-1,1,0,870.9349,298.7300)"
+          x="-112.16" y="-23.27" width="224.33" height="46.54" fill="${tint}"/>
+    <ellipse cx="820.2" cy="410.89" rx="73.47" ry="73.47" fill="${tint}"/>
   </svg>`;
   return "data:image/svg+xml," + encodeURIComponent(svg.replace(/\s+/g, " "));
 }

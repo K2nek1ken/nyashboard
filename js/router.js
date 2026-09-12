@@ -190,3 +190,13 @@ async function loadPage(page) {
   htmlCache.set(page, html);
   return html;
 }
+
+
+// Переход из кода — для случаев, где нет ссылки: нажатие по строке списка,
+// переход после действия. Раньше такие места вызывали location.href напрямую,
+// и страница перезагружалась целиком со сбросом плеера.
+export function goTo(target) {
+  const page = target.split("?")[0].split("#")[0];
+  if (!ROUTES[page]) { location.href = target; return; }   // страница без поддержки
+  navigate(target);
+}

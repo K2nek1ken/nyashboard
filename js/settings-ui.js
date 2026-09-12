@@ -1,12 +1,15 @@
 import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, CHAT_IDENTITY, DM_NAMING, DEFAULTS,
   exportSettings, importSettings } from "./settings.js";
 import { showToast } from "./ui.js";
+import { goTo } from "./router.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
 import { applyFavicon } from "./favicon.js";
 import { clearInterests, interestsSummary } from "./interests.js";
 import { clearSeen } from "./seen.js";
 import { paletteEntries } from "./palette.js";
 import { customSelect, wireSelects } from "./select.js";
+import { makeSortable } from "./drag-sort.js";
+import { initLayout } from "./layout.js";
 import { notificationsSupported, notificationsAllowed, requestNotifications } from "./web-notify.js";
 import { BUILD } from "./version.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
@@ -170,13 +173,14 @@ export function initSettingsPage() {
       <div class="settings-transfer">
         <div class="settings-transfer-title">Перенос настроек</div>
         <p class="muted" style="font-size:12px; margin-top:0;">
-          Сохрани оформление в файл, чтобы вернуть его после чистки браузера или
-          перенести на другое устройство. Данные аккаунта в файл не попадают.
+          Сохрани оформление вместе со звуком логотипа и картинкой частиц —
+          всё уедет одним архивом. Данные аккаунта в него не попадают.
+          Старые файлы настроек тоже открываются.
         </p>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button id="exportSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Сохранить в файл</button>
           <button id="importSettingsBtn" class="secondaryBtn" style="width:auto; margin:0;">Восстановить из файла</button>
-          <input type="file" id="importSettingsInput" style="display:none;">
+          <input type="file" id="importSettingsInput" accept=".zip,.json,application/zip,application/json" style="display:none;">
         </div>
       </div>
 
@@ -254,7 +258,7 @@ export function initSettingsPage() {
     const soundInput = host.querySelector("#logoSoundInput");
     host.querySelector("#logoSoundPick")?.addEventListener("click", () => soundInput.click());
     const soundInfo = host.querySelector("#logoSoundInfo");
-    getLogoSound().then(rec => {
+    getLogoSound().catch(() => null).then(rec => {
       soundInfo.textContent = rec ? `Выбран файл: ${rec.name}` : "Звук не выбран — логотип просто пишет сообщение.";
     });
     soundInput?.addEventListener("change", async () => {
@@ -313,7 +317,19 @@ export function initSettingsPage() {
       });
     }
 
-    host.querySelector("#exportSettingsBtn")?.addEventListener("click", () => {
+    host.querySelector("#exportSettingsBtn")?.addEventListener("click", async () => {
+      try {
+        const { exportBackup } = await import("./backup.js");
+        await exportBackup();
+        showToast("Сохранено ♡");
+      } catch (e) {
+        console.error(e);
+        showToast("Не вышло: " + e.message);
+      }
+      return;
+    });
+
+    host.querySelector("#exportSettingsBtnOld")?.addEventListener("click", () => {
       exportSettings();
       showToast("Файл настроек сохранён ♡");
     });
@@ -342,8 +358,16 @@ export function initSettingsPage() {
         if (!file) { showToast("Файл не выбран"); return; }
 
         try {
-          const count = await importSettings(file);
-          showToast(`Восстановлено настроек: ${count}`);
+          const { importBackup } = await import("./backup.js");
+          const { applied, skipped } = await importBackup(file);
+
+          // О пропущенных файлах говорим прямо: настройки применились,
+          // но часть оформления могла не восстановиться.
+          if (skipped.length) {
+            showToast(`Восстановлено настроек: ${applied}. Часть файлов повреждена или отсутствует: ${skipped.join(", ")}`);
+          } else {
+            showToast(`Восстановлено настроек: ${applied}`);
+          }
           render();
           refreshDefaultAvatars();
           applyFavicon();
@@ -392,7 +416,7 @@ export function initSettingsPage() {
       try {
         await deleteMyAccount();
         showToast("Аккаунт удалён");
-        setTimeout(() => { location.href = "index.html"; }, 900);
+        setTimeout(() => { goTo("index.html"); }, 900);
       } catch (e) {
         showToast("Не вышло: " + e.message);
       }
@@ -419,12 +443,24 @@ export function initSettingsPage() {
     ];
 
     listEl.innerHTML = order.map((key, i) => `
-      <div class="tab-order-row">
+      <div class="tab-order-row" data-sort-id="${key}">
+        <span class="drag-handle nf" title="перетащи, чтобы переставить">&#xf0c9;</span>
         <span class="tab-order-name">${TAB_LABELS[key]}</span>
         ${key === "friends" && s.showFriends !== "on" ? '<span class="muted" style="font-size:11px;">скрыта</span>' : ""}
         <button class="tabMoveBtn" data-move="${key}" data-dir="-1" ${i === 0 ? "disabled" : ""}>↑</button>
         <button class="tabMoveBtn" data-move="${key}" data-dir="1" ${i === order.length - 1 ? "disabled" : ""}>↓</button>
       </div>`).join("");
+
+    // Перетаскивание за ручку слева — быстрее, чем жать стрелки по одной.
+    // Стрелки при этом остаются: ими удобнее без мыши и точнее на шаг.
+    makeSortable(listEl, {
+      handle: ".drag-handle",
+      onReorder: (next) => {
+        setSetting("tabOrder", next);
+        renderTabOrder();
+        initLayout();          // шапка перерисовывается сразу
+      }
+    });
 
     listEl.querySelectorAll("[data-move]").forEach(btn => {
       btn.addEventListener("click", () => {

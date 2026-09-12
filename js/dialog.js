@@ -1,4 +1,5 @@
 import { ICON } from "./icons.js";
+import { escapeHtml } from "./ui.js";
 
 // Свои окна вместо системных prompt/confirm: те выглядят чужеродно, по-разному
 // в каждом браузере, а на телефоне ещё и обрезают длинный текст.
@@ -11,7 +12,7 @@ function build(title, bodyHtml, buttons) {
     modal.innerHTML = `
       <div class="modal-content dialog-content">
         <button class="closeBtn modalClose" data-cancel><span class="nf">${ICON.close}</span></button>
-        <h2 style="margin-top:0; font-size:18px;">${title}</h2>
+        <h2 style="margin-top:0; font-size:18px;">${escapeHtml(title)}</h2>
         ${bodyHtml}
         <div class="dialog-buttons">${buttons}</div>
       </div>`;

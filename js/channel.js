@@ -15,7 +15,7 @@ import { CHANNEL_COLOR, paletteColor, paletteEntries } from "./palette.js";
 import { CHANNEL_ACCESSORIES, accessoryHtml } from "./accessories.js";
 import { avatarHtml } from "./avatar.js";
 import { uploadImage, uploadImages } from "./storage.js";
-import { showToast, escapeHtml, gendered } from "./ui.js";
+import { showToast, escapeHtml, gendered, setText } from "./ui.js";
 import { ICON } from "./icons.js";
 import { defaultAvatar } from "./default-avatar.js";
 
@@ -51,19 +51,19 @@ export async function initChannelPage() {
   const chNameEl = document.getElementById("chName");
   chNameEl.textContent = channel.name;
   chNameEl.style.color = CHANNEL_COLOR;   // тот же оттенок, что и в ленте
-  document.getElementById("chUsername").textContent = channel.username;
-  document.getElementById("chNuid").textContent = channel.publicUid || "";
-  document.getElementById("chDescription").textContent = channel.description || "";
+  setText("chUsername", channel.username);
+  setText("chNuid", channel.publicUid || "");
+  setText("chDescription", channel.description || "");
 
   isAdmin = currentUser && (channel.adminUids || []).includes(currentUser.uid);
   isCreator = await isChannelCreator(channelId);
 
   if (isCreator || isAdmin) {
-    document.getElementById("chManagePanel").classList.remove("hidden");
-    if (isCreator) document.getElementById("chSettingsBtn").classList.remove("hidden");
+    document.getElementById("chManagePanel")?.classList.remove("hidden");
+    if (isCreator) document.getElementById("chSettingsBtn")?.classList.remove("hidden");
     wireManagePanel(channelId);
   } else {
-    document.getElementById("chSubscribeRow").classList.remove("hidden");
+    document.getElementById("chSubscribeRow")?.classList.remove("hidden");
     await renderSubscribeRow(channelId);
   }
 
@@ -169,7 +169,7 @@ function wireComposer(channelId) {
       textArea.value = "";
       composerImages = [];
       renderComposerStrip();
-      document.getElementById("chComposer").classList.add("hidden");
+      document.getElementById("chComposer")?.classList.add("hidden");
       showToast("Опубликовано от имени канала ♡");
       await reloadWall(channelId);
     } catch (e) {
@@ -400,8 +400,8 @@ function wireSettingsModal(channelId) {
       const chNameEl = document.getElementById("chName");
   chNameEl.textContent = channel.name;
   chNameEl.style.color = CHANNEL_COLOR;   // тот же оттенок, что и в ленте
-      document.getElementById("chUsername").textContent = channel.username;
-      document.getElementById("chDescription").textContent = channel.description || "";
+      setText("chUsername", channel.username);
+      setText("chDescription", channel.description || "");
       showToast("Сохранено ♡");
       modal.classList.add("hidden");
     } catch (e) {

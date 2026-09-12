@@ -79,6 +79,7 @@ export async function ensureUserDoc(fbUser) {
     avatarBorder: "pink",          // цвет рамки и украшения
     nickColor: "",                 // цвет ника в чате; пусто — обычный
     hiddenFromList: false,         // не показывать во вкладке «Люди»
+    termsAcceptedAt: Date.now(),   // когда человек принял правила
     musicVisibility: "everyone",   // everyone | friends | nobody — кто видит фонотеку
     wallInFeed: true,              // показывать записи стены в ленте друзей
     feedTabVisibility: "everyone", // кто видит вкладку «лента» на моей странице

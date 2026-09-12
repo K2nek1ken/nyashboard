@@ -1,4 +1,5 @@
 import { ICON } from "./icons.js";
+import { goTo } from "./router.js";
 import { getSettings } from "./settings.js";
 import { defaultAvatar } from "./default-avatar.js";
 import { brandIconUri } from "./favicon.js";
@@ -93,9 +94,9 @@ export function initLayout() {
     showToast(getSettings().logoMessage || "мяу!");
     playLogoSound();   // если человек выбрал свой звук
   });
-  brand.addEventListener("dblclick", () => { location.href = "index.html"; });
+  brand.addEventListener("dblclick", () => { goTo("index.html"); });
   brand.addEventListener("pointerdown", () => {
-    held = setTimeout(() => { held = null; location.href = "index.html"; }, 550);
+    held = setTimeout(() => { held = null; goTo("index.html"); }, 550);
   });
   const cancelHold = () => { if (held) { clearTimeout(held); held = null; } };
   brand.addEventListener("pointerup", cancelHold);

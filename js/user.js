@@ -1,7 +1,8 @@
 import { getUserDoc } from "./data.js";
+import { goTo } from "./router.js";
 import { loadUserFeed, renderPostsInto } from "./feed.js";
 import { authReady, currentUser } from "./auth.js";
-import { escapeHtml } from "./ui.js";
+import { escapeHtml, setText, setHtml } from "./ui.js";
 import { avatarHtml } from "./avatar.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
 import { fetchOnline } from "./presence.js";
@@ -45,10 +46,9 @@ export async function initUserPage() {
     head.innerHTML = avatarHtml(user, 72);
   }
 
-  document.getElementById("uNickname").innerHTML =
-    nameHtml(user, { clickable: false }) + badgeHtml(badge);
-  document.getElementById("uUsername").textContent = user.username;
-  document.getElementById("uBio").textContent = user.bio || "";
+  setHtml("uNickname", nameHtml(user, { clickable: false }) + badgeHtml(badge));
+  setText("uUsername", user.username);
+  setText("uBio", user.bio || "");
   document.title = `NyashBoard ♡ — ${user.nickname}`;
 
   // NUID запрашивается отдельно, как и просил Неко: сначала на экране маска,
@@ -186,7 +186,7 @@ async function renderFriendActions(uid) {
       e.target.disabled = true;
       try {
         const chatId = await openOrCreateChat(uid);
-        location.href = `dm.html?chat=${chatId}`;
+        goTo(`dm.html?chat=${chatId}`);
       } catch (err) { showToast(err.message); e.target.disabled = false; }
     });
   }

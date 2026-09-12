@@ -198,6 +198,7 @@ export function playTrack(track) {
 
   paintBar(track);
   saveState();
+  refreshFavState(track);
 }
 
 // ============================================================
@@ -273,7 +274,9 @@ async function refreshFavState(track) {
 }
 
 function paintBar(track) {
-  refreshFavState(track);
+  // Состояние сердечка узнаём после отрисовки полосы: до неё кнопки ещё нет,
+  // и отметка просто некуда было ставить.
+  setTimeout(() => refreshFavState(track), 0);
   updateMediaSession(track);
   bar.classList.remove("hidden");
   document.body.classList.add("player-open");   // содержимое отъезжает вниз
@@ -489,12 +492,18 @@ function showQueue() {
       <h2 style="margin-top:0;font-size:17px;">Очередь</h2>
       <div class="queue-list">
         ${queue.map((t, i) => `
-          <div class="queue-row ${i === queueIndex ? "current" : ""}">
+          <div class="queue-row ${i === queueIndex ? "current" : ""}" data-sort-id="${t.id}">
+            <span class="drag-handle nf" title="перетащи, чтобы переставить">&#xf0c9;</span>
             <button class="queue-item" data-jump="${i}">
               <span class="nf">${i === queueIndex ? ICON.play : ""}</span>
               <span class="queue-title">${escapeHtml(t.title || "Без названия")}</span>
             </button>
-            <button class="queue-act" data-up="${i}" title="выше"><span class="nf">${ICON.up}</span></button>
+            <button class="queue-act" data-up="${i}" title="выше" ${i === 0 ? "disabled" : ""}>
+              <span class="nf">${ICON.up}</span>
+            </button>
+            <button class="queue-act" data-down="${i}" title="ниже" ${i === queue.length - 1 ? "disabled" : ""}>
+              <span class="nf">${ICON.down}</span>
+            </button>
             <button class="queue-act" data-remove="${i}" title="убрать"><span class="nf">${ICON.close}</span></button>
           </div>`).join("")}
       </div>
@@ -504,6 +513,19 @@ function showQueue() {
   const close = () => box.remove();
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
+  // Перетаскивание за ручку: порядок в очереди меняется одним движением.
+  import("./drag-sort.js").then(({ makeSortable }) => {
+    makeSortable(box.querySelector(".queue-list"), {
+      handle: ".drag-handle",
+      onReorder: (ids) => {
+        const playingId = queue[queueIndex]?.id;
+        queue = ids.map(id => queue.find(t => t.id === id)).filter(Boolean);
+        queueIndex = Math.max(0, queue.findIndex(t => t.id === playingId));
+        saveState();
+      }
+    });
+  }).catch(() => {});
+
   box.querySelectorAll("[data-jump]").forEach(btn => {
     btn.addEventListener("click", () => {
       queueIndex = Number(btn.dataset.jump);
@@ -522,6 +544,19 @@ function showQueue() {
       // текущий трек не должен «потеряться» при перестановке
       if (queueIndex === i) queueIndex = i - 1;
       else if (queueIndex === i - 1) queueIndex = i;
+      saveState();
+      close(); showQueue();
+    });
+  });
+
+  box.querySelectorAll("[data-down]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.down);
+      if (i >= queue.length - 1) return;
+      [queue[i], queue[i + 1]] = [queue[i + 1], queue[i]];
+      // следим за тем, чтобы играющий трек не потерялся при перестановке
+      if (queueIndex === i) queueIndex = i + 1;
+      else if (queueIndex === i + 1) queueIndex = i;
       saveState();
       close(); showQueue();
     });

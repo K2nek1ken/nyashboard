@@ -3,10 +3,11 @@ import {
   unsubscribeFromChannel, suggestChannels, fetchManagedChannelIds
 } from "./channels.js";
 import { loadSubscriptions, getSubscriptionsSync } from "./subscriptions.js";
+import { goTo } from "./router.js";
 import { loadFriends, getFriendsSync } from "./friends.js";
 import { remember, recall } from "./session-state.js";
 import { currentUser, authReady } from "./auth.js";
-import { showToast, escapeHtml, gendered } from "./ui.js";
+import { showToast, escapeHtml, gendered, setHtml } from "./ui.js";
 import { ICON } from "./icons.js";
 import { avatarHtml } from "./avatar.js";
 import { CHANNEL_COLOR } from "./palette.js";
@@ -129,13 +130,12 @@ export async function initContentTab() {
 }
 
 async function reload() {
-  document.getElementById("allChannelsList").innerHTML = `<div class="stub-note">Загружаю каналы...</div>`;
+  setHtml("allChannelsList", `<div class="stub-note">Загружаю каналы...</div>`);
   try {
     allChannels = await listChannels();
   } catch (e) {
     console.error(e);
-    document.getElementById("allChannelsList").innerHTML =
-      `<div class="stub-note">Не смогла загрузить каналы: ${escapeHtml(e.message)}</div>`;
+    setHtml("allChannelsList", `<div class="stub-note">Не смогла загрузить каналы: ${escapeHtml(e.message)}</div>`);
     return;
   }
   renderMine();
@@ -266,7 +266,7 @@ function wireCreateModal() {
       const channelId = await createChannel(name, description);
       modal.classList.add("hidden");
       showToast("Канал создан ♡ (анонимно)");
-      location.href = `channel.html?id=${channelId}`;
+      goTo(`channel.html?id=${channelId}`);
     } catch (e) {
       console.error(e);
       showToast("Ошибка: " + e.message);

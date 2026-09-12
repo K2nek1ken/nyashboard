@@ -89,7 +89,9 @@ export function subscribeChat() {
   if (!messagesEl) return;
   nickLabel.textContent = getGuestIdentity().nickname;
   // подтягиваем ник из аккаунта: локальный мог слететь или отличаться
-  syncChatNickname().then(n => { if (n) nickLabel.textContent = n; });
+  syncChatNickname()
+    .then(n => { if (n) nickLabel.textContent = n; })
+    .catch(e => console.warn("Ник не подтянулся:", e.message));
   if (chatUnsub) return;
   // Живая подписка только на последние сообщения: грузить всю переписку разом
   // и долго, и дорого по обращениям к базе. Остальное подтягивается порциями
@@ -101,7 +103,10 @@ export function subscribeChat() {
     // склеиваем с ранее подгруженной историей, без повторов
     const seenIds = new Set(fresh.map(m => m.id));
     lastMessages = [...olderMessages.filter(m => !seenIds.has(m.id)), ...fresh];
-    refreshBadges(lastMessages).then(() => {
+    // Метки — тоже украшение: их отсутствие не должно мешать показать чат.
+    refreshBadges(lastMessages)
+      .catch(e => console.warn("Метки собеседников:", e.message))
+      .then(() => {
       renderChat(lastMessages);
       reactToMeow(fresh);
 
@@ -139,6 +144,7 @@ export function subscribeChat() {
   document.addEventListener("visibilitychange", blurInput);
   window.addEventListener("pagehide", blurInput);
   initChatNav(messagesEl);
+  keepInputClearance();
   openLinkedMessage();
 }
 
@@ -278,6 +284,25 @@ async function renderChatTracks(container, msgs) {
   }
 }
 
+// Панель ввода бывает разной высоты: появляется цитата, миниатюры фото,
+// выбор личности. Отступ снизу подгоняем под её настоящий размер, иначе
+// последние сообщения то прячутся под ней, то висит лишняя пустота.
+function keepInputClearance() {
+  const bar = document.querySelector(".chat-floating-bar");
+  if (!bar || !messagesEl) return;
+
+  const apply = () => {
+    messagesEl.style.paddingBottom = (bar.offsetHeight + 24) + "px";
+  };
+  apply();
+
+  if ("ResizeObserver" in window) {
+    new ResizeObserver(apply).observe(bar);
+  } else {
+    window.addEventListener("resize", apply);
+  }
+}
+
 function playMeow() {
   showToast("мяу!");
   try {
@@ -326,20 +351,20 @@ function renderChat(msgs, { keepScroll = false } = {}) {
     // Своим считается и сообщение от аккаунта, отправленное с другого
     // устройства: раньше владение определялось только локальной отметкой,
     // и на втором устройстве своих сообщений будто не существовало.
-    const canManage = !m.isBot && (
-      isOwned("chatMessage", m.id) ||
-      (currentUser && m.authorUid === currentUser.uid)
-    );
+    // Своим считается и сообщение бота, вызванное тобой: удалить его можно,
+    // а вот изменить — нет, иначе легко подделать выданную ботом фразу.
+    const owned = isOwned("chatMessage", m.id)
+      || (currentUser && m.authorUid === currentUser.uid);
+    const canManage = owned && !m.isBot;    // правка
+    const canDelete = owned;                // удаление
     const kebabItems = [
       { action: "replyMsg", label: "Ответить", icon: ICON.reply },
       ...(m.publicUid ? [
         { action: "copyLink", label: "Скопировать ссылку", icon: ICON.open },
         { action: "copyNuid", label: "Скопировать NUID", icon: ICON.hash }
       ] : []),
-      ...(canManage ? [
-        { action: "editMsg", label: "Изменить", icon: ICON.pencil },
-        { action: "deleteMsg", label: "Удалить", icon: ICON.close, danger: true }
-      ] : [])
+      ...(canManage ? [{ action: "editMsg", label: "Изменить", icon: ICON.pencil }] : []),
+      ...(canDelete ? [{ action: "deleteMsg", label: "Удалить", icon: ICON.close, danger: true }] : [])
     ];
     // Сообщение либо анонимное (просто ник), либо от аккаунта — тогда рядом
     // миниатюра аватарки, имя своим цветом, метка и переход к профилю.
@@ -368,8 +393,19 @@ function renderChat(msgs, { keepScroll = false } = {}) {
              ${escapeHtml(m.nickname)}
            </span>`;
 
+    // Своё сообщение — справа, чужое слева: так переписка читается как
+    // разговор, а не как список, прижатый к одному краю.
+    // Сообщения бота всегда слева: их пишет не человек, и ставить их
+    // на свою сторону странно. Но удалять их автор команды по-прежнему может —
+    // это решается отдельно, ниже.
+    const isMine = !m.isBot && (
+      isOwned("chatMessage", m.id)
+      || (currentUser && m.authorUid === currentUser.uid)
+      || (!m.authorUid && m.guestId === getGuestIdentity().id)
+    );
+
     return `
-    <div class="chat-msg ${m.isBot ? "is-bot" : ""}" data-id="${m.id}">
+    <div class="chat-msg ${m.isBot ? "is-bot" : ""} ${isMine ? "is-mine" : ""}" data-id="${m.id}">
       <div class="chat-msg-head">
         <b>${authorHtml}</b>
         <span class="muted">· ${timeAgo(m.createdAt)}${m.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>

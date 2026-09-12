@@ -1,4 +1,5 @@
 import { resolveHandle } from "./data.js";
+import { goTo } from "./router.js";
 import { currentUser } from "./auth.js";
 import { showToast } from "./ui.js";
 import { openPersonPreview, openChannelPreview, openMessagePreview } from "./person-preview.js";
@@ -50,6 +51,11 @@ export function wireMentions(container) {
           const track = await getTrack(hit.uid);
           if (track) playTrack(track); else showToast("Трек не найден");
         }
+        else if (hit.type === "art") {
+          // Работа открывается карточкой — как и всё остальное по номеру.
+          const { openArtPreview } = await import("./art-ui.js");
+          openArtPreview(hit.uid);
+        }
         else openPersonPreview(hit.uid);
         return;
       }
@@ -72,7 +78,7 @@ export function wireMentions(container) {
   container.querySelectorAll(".hashtag").forEach(el => {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
-      location.href = `tag.html?tag=${encodeURIComponent(el.dataset.hashtag)}`;
+      goTo(`tag.html?tag=${encodeURIComponent(el.dataset.hashtag)}`);
     });
   });
 }

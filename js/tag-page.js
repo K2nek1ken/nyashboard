@@ -4,12 +4,12 @@ import { initProfileDropdown, authReady } from "./auth.js";
 import { initViewProfileModal } from "./people.js";
 import { db, collection, query, where, getDocs } from "./firebase.js";
 import { renderPostsInto } from "./feed.js";
-import { escapeHtml } from "./ui.js";
+import { escapeHtml, setText } from "./ui.js";
 
 async function initTagPage() {
   const tag = (new URLSearchParams(location.search).get("tag") || "").toLowerCase();
   const postsEl = document.getElementById("tagPosts");
-  document.getElementById("tagTitle").textContent = tag || "не указан";
+  setText("tagTitle", tag || "не указан");
   document.title = `NyashBoard ♡ — #${tag}`;
   if (!tag) { postsEl.innerHTML = `<div class="stub-note">Тег не указан</div>`; return; }
 

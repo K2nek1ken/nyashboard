@@ -183,3 +183,32 @@ export function openArtForm({ file = null, art = null, onDone } = {}) {
     }
   });
 }
+
+
+// Карточка работы по её номеру — открывается из текста записи или сообщения.
+export async function openArtPreview(artId) {
+  const { getArtwork } = await import("./art.js");
+  const art = await getArtwork(artId).catch(() => null);
+
+  const box = document.createElement("div");
+  box.className = "modal";
+  box.innerHTML = `
+    <div class="modal-content" style="max-width:420px;max-height:86vh;display:flex;flex-direction:column;">
+      <button class="closeBtn modalClose" data-close><span class="nf">${ICON.close}</span></button>
+      <div style="overflow-y:auto;min-height:0;">
+        ${art
+          ? `<img src="${art.imageUrl}" alt="" style="width:100%;border-radius:12px;display:block;">
+             <h2 style="font-size:17px;margin:12px 0 4px;">${escapeHtml(art.title)}</h2>
+             ${art.description ? `<p class="art-desc">${escapeHtml(art.description)}</p>` : ""}
+             <p class="muted" style="font-size:12px;">
+               ${escapeHtml(art.authorName || "аноним")} · ${art.publicUid || ""}
+             </p>`
+          : `<div class="stub-note">Работа не найдена — возможно, удалена</div>`}
+      </div>
+    </div>`;
+  document.body.appendChild(box);
+
+  const close = () => box.remove();
+  box.querySelector("[data-close]").addEventListener("click", close);
+  box.addEventListener("click", (e) => { if (e.target === box) close(); });
+}

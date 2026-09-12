@@ -89,3 +89,24 @@ export async function clearParticleImage() {
   const { store } = await withStore("readwrite");
   store.delete(PARTICLE_KEY);
 }
+
+
+// Сохранение из готового содержимого — для восстановления из архива, где
+// файл уже проверен и приходит не от выбора в диалоге.
+export async function saveLogoSoundBlob(blob, name = "logo") {
+  const { store } = await withStore("readwrite");
+  return new Promise((resolve, reject) => {
+    const r = store.put({ blob, name }, KEY);
+    r.onsuccess = () => resolve(name);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function saveParticleImageBlob(blob, name = "particle") {
+  const { store } = await withStore("readwrite");
+  return new Promise((resolve, reject) => {
+    const r = store.put({ blob, name }, PARTICLE_KEY);
+    r.onsuccess = () => resolve(name);
+    r.onerror = () => reject(r.error);
+  });
+}

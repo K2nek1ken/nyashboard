@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NyashBoard ♡ — Профиль</title>
+<title>NyashBoard ♡ — Правила</title>
   <script>
     // Тема применяется до отрисовки, иначе при каждом переходе между вкладками
     // страница мигает оформлением по умолчанию, пока подгружаются модули.
@@ -32,29 +32,31 @@
 
 <main id="app">
   <section class="tab active">
-    <div class="profile-page-head" style="text-align:left; display:flex; gap:14px; align-items:center; padding:14px 0;">
-      <span id="uAvatarHost"></span>
-      <div>
-        <div id="uNickname" class="nick-lg"></div>
-        <div class="muted">@<span id="uUsername"></span></div>
-        <div class="muted" style="font-size:11px;" id="uNuidRow">NUID: <code id="uNuid"></code></div>
-        <div class="profile-bio" id="uBio"></div>
-      </div>
-    </div>
-    <div id="friendActions" style="display:flex; gap:8px; margin-bottom:14px;"></div>
-    <div id="musicBlock"></div>
-
-    <div class="section-title">Посты и репосты</div>
-    <div id="userPostBox" class="hidden"></div>
-    <div class="subtabs" id="userSubtabs">
-      <button class="subtab active" data-usub="feed">Лента</button>
-      <button class="subtab" data-usub="wall">Стена</button>
-    </div>
-    <div id="uPosts" class="feed-list"><div class="stub-note">Загружаю...</div></div>
+    <div id="termsContent" class="terms"></div>
   </section>
 </main>
 
-<!-- ВЫПАДАШКА ПРОФИЛЯ -->
+<!-- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ -->
+<div id="viewProfileModal" class="modal hidden">
+  <div class="modal-content">
+    <button class="closeBtn modalClose" id="closeViewProfile"><span class="nf">&#xf00d;</span></button>
+    <div class="profile-head">
+      <span class="avatar-wrap" style="width:64px;height:64px;">
+        <img id="vpAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-shaped shape-circle" style="width:64px;height:64px;">
+        <span class="avatar-status" id="vpStatus"></span>
+      </span>
+      <div>
+        <div id="vpNickname" class="nick-lg"></div>
+        <div class="muted">@<span id="vpUsername"></span></div>
+        <div class="profile-bio" id="vpBio" style="font-size:13px;"></div>
+      </div>
+    </div>
+    <a id="vpFullProfileLink" href="#" class="viewFullProfileLink">Открыть профиль полностью &#8594;</a>
+    <div id="vpPosts" class="feed-list"></div>
+  </div>
+</div>
+
+<!-- ВЫПАДАШКА ПРОФИЛЯ (не модалка — открывается прямо у иконки) -->
 <div id="profileDropdown" class="profile-dropdown hidden">
   <div id="ddLoggedOut">
     <p class="muted" style="margin-top:0;">Ты пока не в аккаунте</p>
@@ -82,28 +84,8 @@
   </div>
 </div>
 
-<!-- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ -->
-<div id="viewProfileModal" class="modal hidden">
-  <div class="modal-content">
-    <button class="closeBtn modalClose" id="closeViewProfile"><span class="nf"></span></button>
-    <div class="profile-head">
-      <span class="avatar-wrap" style="width:64px;height:64px;">
-        <img id="vpAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-shaped shape-circle" style="width:64px;height:64px;">
-        <span class="avatar-status" id="vpStatus"></span>
-      </span>
-      <div>
-        <div id="vpNickname" class="nick-lg"></div>
-        <div class="muted">@<span id="vpUsername"></span></div>
-        <div class="profile-bio" id="vpBio" style="font-size:13px;"></div>
-      </div>
-    </div>
-    <a id="vpFullProfileLink" href="#" class="viewFullProfileLink">Открыть профиль полностью &#8594;</a>
-    <div id="vpPosts" class="feed-list"></div>
-  </div>
-</div>
-
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/user-page.js?v=202609121612"></script>
+<script type="module" src="js/terms-page.js?v=202609121612"></script>
 </body>
 </html>

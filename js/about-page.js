@@ -1,8 +1,9 @@
 import { initShell } from "./shell.js";
+import { goTo } from "./router.js";
 import { applySettings, setSetting } from "./settings.js";
 
 import { keepScrollPosition } from "./session-state.js";
-import { showToast } from "./ui.js";
+import { showToast, setHtml } from "./ui.js";
 import { ICON } from "./icons.js";
 
 // Порядок здесь не случайный. Сначала то, что цепляет и хочется попробовать
@@ -103,11 +104,11 @@ const SECTIONS = [
 ];
 
 function render() {
-  document.getElementById("aboutList").innerHTML = SECTIONS.map(s => `
+  setHtml("aboutList", SECTIONS.map(s => `
     <div class="about-card">
       <div class="about-card-title"><span class="nf">${s.icon}</span> ${s.title}</div>
       <ul>${s.items.map(i => `<li>${i}</li>`).join("")}</ul>
-    </div>`).join("");
+    </div>`).join(""));
 }
 
 // ============================================================
@@ -125,7 +126,7 @@ export async function initPage() {
   document.getElementById("hideAboutBtn")?.addEventListener("click", () => {
     setSetting("showAbout", "off");
     showToast("Вкладка скрыта — вернуть можно в настройках");
-    setTimeout(() => { location.href = "index.html"; }, 900);
+    setTimeout(() => { goTo("index.html"); }, 900);
   });
 }
 

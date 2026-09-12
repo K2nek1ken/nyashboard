@@ -4,6 +4,7 @@ import {
   arrayUnion, arrayRemove, increment, where
 } from "./firebase.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
+import { goTo } from "./router.js";
 import { wireImageZoom } from "./lightbox.js";
 import { askText, askConfirm } from "./dialog.js";
 import { uploadImages } from "./storage.js";
@@ -109,7 +110,11 @@ export function subscribeFeed() {
     }
 
     lastRenderedPosts = posts;
-    enrichAuthors(posts).then(() => renderFeed(rankPosts(posts)));
+    // Оформление авторов — украшение: если оно не подгрузилось, ленту всё
+    // равно показываем, иначе сбой мелочи оставил бы пустой экран.
+    enrichAuthors(posts)
+      .catch(e => console.warn("Оформление авторов:", e.message))
+      .then(() => renderFeed(rankPosts(posts)));
   }, (err) => {
     console.error(err);
     feedListEl.innerHTML = `<div class="stub-note">Не смогла загрузить ленту: ${escapeHtml(err.message)}</div>`;
@@ -463,6 +468,7 @@ export function postToHtml(p, maskAuthor = false) {
     suppressed
       ? { action: "undoNotInterested", label: "Вернуть в рекомендации", icon: ICON.up }
       : { action: "notInterested", label: "Не рекомендовать", icon: ICON.down },
+    { action: "report", label: "Пожаловаться", icon: ICON.warning },
     ...(canManage
       ? [
           ...(hasEditor ? [{ action: "editPost", label: "Изменить", icon: ICON.pencil }] : []),
@@ -540,7 +546,7 @@ export function wirePostCard(p, container = document) {
     });
   });
   card.querySelectorAll('[data-action="viewChannel"]').forEach(el => {
-    el.addEventListener("click", () => { location.href = `channel.html?id=${el.dataset.channelId}`; });
+    el.addEventListener("click", () => { goTo(`channel.html?id=${el.dataset.channelId}`); });
   });
 
   card.querySelector('[data-action="like"]').addEventListener("click", () => toggleLike(p));
@@ -548,7 +554,7 @@ export function wirePostCard(p, container = document) {
   card.querySelector('[data-action="repost"]').addEventListener("click", () => repost(p));
 
   wireKebab(card, {
-    openPost: () => { location.href = `post.html?id=${p.id}`; },
+    openPost: () => { goTo(`post.html?id=${p.id}`); },
     notInterested: () => {
       // Только локально: понижаем вес темы и автора в своём профиле интересов,
       // на сервер ничего не уходит. Запись при этом не исчезает — просто
@@ -563,6 +569,10 @@ export function wirePostCard(p, container = document) {
       undoNotInterested(p);
       card.style.opacity = "";
       showToast("Вернула в рекомендации");
+    },
+    report: async () => {
+      const { openReportDialog } = await import("./reports.js");
+      openReportDialog({ kind: "post", id: p.id, preview: p.text || "" });
     },
     editPost: () => {
       // На широком экране правим прямо в карточке: отдельный экран ради
@@ -982,7 +992,9 @@ export async function loadChannelWall(channelId) {
 
 export function renderPostsInto(container, posts, ownerNickname) {
   // тот же приём для чужих страниц и карточек профиля
-  enrichAuthors(posts).then(() => paintPostsInto(container, posts, ownerNickname));
+  enrichAuthors(posts)
+    .catch(e => console.warn("Оформление авторов:", e.message))
+    .then(() => paintPostsInto(container, posts, ownerNickname));
 }
 
 function paintPostsInto(container, posts, ownerNickname) {

@@ -2064,3 +2064,79 @@ body.player-open #dmHeader { top: 124px; }
 .picker-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .picker-new { display: flex; gap: 8px; margin-top: 14px; }
 .picker-new .inlineEdit { flex: 1; min-width: 0; }
+
+/* ============================================================
+   Общий чат: разговор, а не список у края
+   ============================================================ */
+.chat-msg { max-width: 86%; }
+.chat-msg.is-mine {
+  margin-left: auto;
+  background: color-mix(in oklab, var(--accent) 14%, var(--card));
+}
+.chat-msg.is-bot { margin-left: auto; margin-right: auto; }
+
+/* Панель ввода перекрывала последние сообщения: отодвигаем переписку
+   на её высоту, а не поверх неё. */
+.chat-messages { padding-bottom: 150px; }
+@media (min-width: 900px) {
+  .chat-messages { padding-bottom: 170px; }
+  .chat-msg { max-width: 72%; }
+}
+
+/* ---------- личные переписки по центру ---------- */
+#dmMessages, .dm-messages {
+  width: 100%; max-width: 760px; margin-left: auto; margin-right: auto;
+  padding-bottom: 150px;
+}
+
+/* ---------- раскрытый плеер не должен закрывать профиль ---------- */
+@media (min-width: 900px) {
+  .now-playing {
+    inset: auto auto 84px 16px;   /* выше кнопки профиля, а не поверх неё */
+    max-height: calc(100vh - 120px); overflow-y: auto;
+  }
+}
+
+/* ---------- правила сайта ---------- */
+.terms { max-width: 680px; margin: 0 auto; line-height: 1.6; }
+.terms-title { font-size: 22px; margin-bottom: 4px; }
+.terms-date { font-size: 12px; margin-top: 0; }
+.terms-section {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px 18px; margin-bottom: 12px;
+}
+.terms-section h2 { font-size: 16px; margin: 0 0 8px; color: var(--accent); }
+.terms-section ul { margin: 0; padding-left: 18px; }
+.terms-section li { margin-bottom: 8px; font-size: 14px; }
+
+/* ---------- жалобы ---------- */
+.report-reasons { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.report-reason {
+  width: 100%; text-align: left; background: var(--card); border: none;
+  border-radius: 10px; padding: 12px 14px; color: var(--text);
+  font: inherit; font-size: 14px; cursor: pointer;
+}
+.report-reason:hover { background: var(--card-hover); }
+.report-reason.urgent { color: var(--danger); font-weight: 600; }
+
+/* ---------- перетаскивание в списках ---------- */
+.sorting { cursor: grabbing; }
+.sorting * { user-select: none; }
+.dragging {
+  opacity: 0.9; transform: scale(1.02);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+  position: relative; z-index: 5; pointer-events: none;
+}
+.drag-placeholder {
+  border: 2px dashed var(--accent); border-radius: 12px;
+  margin: 4px 0; background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+.drag-handle { cursor: grab; color: var(--muted); touch-action: none; }
+.drag-handle:active { cursor: grabbing; }
+
+/* ручка перетаскивания в списках */
+.tab-order-row, .queue-row { display: flex; align-items: center; gap: 8px; }
+.tab-order-row .drag-handle, .queue-row .drag-handle {
+  font-size: 13px; padding: 4px 2px; flex-shrink: 0;
+}
+.queue-act[disabled] { opacity: 0.35; cursor: default; }

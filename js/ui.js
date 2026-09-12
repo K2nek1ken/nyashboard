@@ -89,3 +89,35 @@ export function gendered(male, female, neutral) {
   if (g === "f") return female;
   return neutral ?? `${male}(${female.slice(male.length - 1) || female})`;
 }
+
+
+// ============================================================
+//  Безопасная работа с элементами
+//
+//  Обращение к отсутствующему элементу роняет запуск всей вкладки: одна
+//  строка — и страница остаётся пустой. Раньше так падали «Люди», «Лента»
+//  и «Друзья».
+//
+//  Эти помощники молча пропускают отсутствующее. Пропущенная подпись лучше
+//  мёртвой страницы, а в консоли всё равно видно, чего не хватило.
+// ============================================================
+
+export function setText(id, value) {
+  const el = typeof id === "string" ? document.getElementById(id) : id;
+  if (el) el.textContent = value;
+  else console.debug("Нет элемента для текста:", id);
+  return el;
+}
+
+export function setHtml(id, value) {
+  const el = typeof id === "string" ? document.getElementById(id) : id;
+  if (el) el.innerHTML = value;
+  else console.debug("Нет элемента для разметки:", id);
+  return el;
+}
+
+export function toggleClass(id, name, on) {
+  const el = typeof id === "string" ? document.getElementById(id) : id;
+  el?.classList.toggle(name, on);
+  return el;
+}

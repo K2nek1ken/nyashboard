@@ -34,6 +34,12 @@ export function initShell() {
   startTabPolling();
   startPresence();
 
+  // Отметку присутствия прекращаем при уходе: продолжать отмечаться
+  // с закрытой страницы незачем.
+  window.addEventListener("pagehide", () => {
+    import("./presence.js").then(({ stopPresence }) => stopPresence()).catch(() => {});
+  });
+
   // Остальное — после того, как разметка страницы разобрана
   const rest = () => {
     initSettingsModal();

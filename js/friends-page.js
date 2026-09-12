@@ -1,4 +1,5 @@
 import { initShell } from "./shell.js";
+import { goTo } from "./router.js";
 import { keepScrollPosition } from "./session-state.js";
 import { askText, askConfirm } from "./dialog.js";
 import { markTabSeen, keepTabSeen, stopKeepingSeen } from "./notifications.js";
@@ -51,7 +52,7 @@ async function renderChats() {
     }));
     el.innerHTML = rows.join("");
     el.querySelectorAll("[data-chat]").forEach(row => {
-      row.addEventListener("click", () => { location.href = `dm.html?chat=${row.dataset.chat}`; });
+      row.addEventListener("click", () => { goTo(`dm.html?chat=${row.dataset.chat}`); });
     });
   } catch (e) {
     console.error(e);
@@ -84,7 +85,7 @@ async function renderFriends() {
   el.querySelectorAll("[data-open]").forEach(row => {
     row.addEventListener("click", (e) => {
       if (e.target.closest("[data-dm],[data-remove]")) return;
-      location.href = `user.html?uid=${row.dataset.open}`;
+      goTo(`user.html?uid=${row.dataset.open}`);
     });
   });
   el.querySelectorAll("[data-dm]").forEach(btn => {
@@ -93,7 +94,7 @@ async function renderFriends() {
       btn.disabled = true;
       try {
         const chatId = await openOrCreateChat(btn.dataset.dm);
-        location.href = `dm.html?chat=${chatId}`;
+        goTo(`dm.html?chat=${chatId}`);
       } catch (err) {
         showToast(err.message);
         btn.disabled = false;
@@ -149,7 +150,7 @@ async function renderRequests() {
   el.querySelectorAll("[data-open]").forEach(row => {
     row.addEventListener("click", (e) => {
       if (e.target.closest("[data-accept]")) return;
-      location.href = `user.html?uid=${row.dataset.open}`;
+      goTo(`user.html?uid=${row.dataset.open}`);
     });
   });
 }

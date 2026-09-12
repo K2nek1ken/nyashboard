@@ -1,4 +1,5 @@
 import { currentUser, currentUserDoc, authPending, onAuthChange, patchCurrentUserDoc, logout, loginWithGoogle } from "./auth.js";
+import { goTo } from "./router.js";
 import { updateUserDoc, isUsernameTaken, changeUsername, getUserDoc } from "./data.js";
 import { uploadImage } from "./storage.js";
 import { showToast } from "./ui.js";
@@ -321,6 +322,6 @@ export function initProfilePageForm() {
 
   logoutBtn.addEventListener("click", async () => {
     await logout();
-    location.href = "index.html";
+    goTo("index.html");
   });
 }

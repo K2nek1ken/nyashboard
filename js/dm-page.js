@@ -1,4 +1,5 @@
 import { initShell } from "./shell.js";
+import { goTo } from "./router.js";
 import { askText, askConfirm } from "./dialog.js";
 
 import { keepScrollPosition } from "./session-state.js";
@@ -8,7 +9,7 @@ import { db, doc, getDoc } from "./firebase.js";
 import { getUserDoc } from "./data.js";
 import { uploadImage } from "./storage.js";
 import { avatarHtml } from "./avatar.js";
-import { escapeHtml, timeAgo, showToast } from "./ui.js";
+import { escapeHtml, timeAgo, showToast, setText } from "./ui.js";
 import { linkifyMentions, wireMentions } from "./mentions.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
 import { openEmojiPicker } from "./emoji.js";
@@ -146,8 +147,8 @@ async function init() {
   otherUid = otherParticipant({ id: chatId, ...chatSnap.data() });
   const u = (await getUserDoc(otherUid)) || {};
   otherUser = u;
-  document.getElementById("dmNickname").textContent = getAlias(otherUid) || u.nickname || "???";
-  document.getElementById("dmUsername").textContent = u.username || "???";
+  setText("dmNickname", getAlias(otherUid) || u.nickname || "???");
+  setText("dmUsername", u.username || "???");
   // Аватарка со всем оформлением: своя вёрстка здесь теряла и рамку,
   // и украшение — как это было на странице человека.
   const avHost = document.getElementById("dmAvatarHost");
@@ -159,7 +160,7 @@ async function init() {
     }, 44);
   }
   document.getElementById("dmHeader")?.addEventListener("click", () => {
-    location.href = `user.html?uid=${otherUid}`;
+    goTo(`user.html?uid=${otherUid}`);
   });
 
   // Переименование для себя — как в записанных контактах: имя видно только тебе.
@@ -174,12 +175,21 @@ async function init() {
     if (next === null) return;
     setAlias(otherUid, next);
     showToast(next ? "Переименован ♡" : "Имя возвращено");
-    document.getElementById("dmNickname").textContent = next || u.nickname || "???";
+    setText("dmNickname", next || u.nickname || "???");
     render(lastMessages);
   });
   document.title = `NyashBoard ♡ — ${u.nickname || "чат"}`;
 
   initChatNav(el);
+
+  // см. keepInputClearance в chat.js: панель ввода растёт вместе с текстом,
+  // и переписка должна отодвигаться, а не прятаться под ней
+  const bar = document.querySelector(".chat-floating-bar");
+  if (bar && "ResizeObserver" in window) {
+    const apply = () => { el.style.paddingBottom = (bar.offsetHeight + 24) + "px"; };
+    apply();
+    new ResizeObserver(apply).observe(bar);
+  }
 
   // Поле растёт по мере набора: длинное сообщение не должно набираться
   // в одну строку вслепую.
