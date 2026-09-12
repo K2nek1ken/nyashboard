@@ -138,6 +138,13 @@ export function subscribeChat() {
     messagesEl.innerHTML = `<div class="stub-note">Не смогла загрузить чат — проверь конфиг Firebase</div>`;
   });
 
+  // Картинка для узора готовится заранее: перекрашивание идёт на холсте,
+  // и делать его для каждой цитаты было бы расточительно. Когда готова —
+  // перерисовываем, иначе цитаты, нарисованные раньше, остались бы без узора.
+  prepareQuoteImage()
+    .then(() => { if (lastMessages.length) renderChat(lastMessages, { keepScroll: true }); })
+    .catch(e => console.warn("Узор для цитат:", e.message));
+
   wireHistoryLoader();
 
   // Возврат в браузер иногда оставляет экранную клавиатуру открытой, а поле
@@ -206,7 +213,9 @@ function decorHtml() {
   const isImage = kind === "custom";
   const glyph = DECOR_GLYPHS[kind];
   if (!glyph && !isShape && !isImage) return "";        // выбран вариант «без узора»
-  if (isImage && !quoteImageUrl) return "";             // картинка ещё не готова
+  // Пока своя картинка не готова, рисуем цветочки: пустая цитата выглядит
+  // как поломка, а так узор просто сменится, когда картинка подгрузится.
+  const fallbackGlyph = isImage && !quoteImageUrl ? DECOR_GLYPHS.flowers : null;
 
   // Цитата стала выше, поэтому узоров больше и лежат они свободнее:
   // прежняя сетка рассчитывалась на полоску в пару строк.
@@ -221,7 +230,9 @@ function decorHtml() {
       const scale = (0.6 + Math.random() * 0.8).toFixed(2);
       const style = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
                     `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})`;
-      out.push(isImage
+      out.push(fallbackGlyph
+        ? `<span style="${style}">${fallbackGlyph}</span>`
+        : isImage
         ? `<img class="quote-image" src="${quoteImageUrl}" style="${style}" alt="">`
         : isShape
         ? `<span class="petal-shape" style="${style}"></span>`

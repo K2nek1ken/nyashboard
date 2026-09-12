@@ -212,6 +212,9 @@ export function initSettingsPage() {
         showToast("Обновится после перезагрузки страницы");
         if (value === "custom") render();
       }
+      if (key === "quoteTint") {
+        import("./chat.js").then(({ prepareQuoteImage }) => prepareQuoteImage()).catch(() => {});
+      }
       if (key === "quoteDecor") {
         const prev = host.querySelector("#decorPreview");
         if (prev) prev.innerHTML = decorGlyphPreview(value);
@@ -287,6 +290,8 @@ export function initSettingsPage() {
         await saveQuoteImage(file);
         showToast("Картинка сохранена ♡");
         render();
+        // узор в открытом чате обновляем сразу
+        import("./chat.js").then(({ prepareQuoteImage }) => prepareQuoteImage()).catch(() => {});
       } catch (e) { showToast("Не вышло: " + e.message); }
     });
     host.querySelector("#quoteClear")?.addEventListener("click", async () => {
@@ -294,6 +299,7 @@ export function initSettingsPage() {
       await clearQuoteImage();
       showToast("Картинка убрана");
       render();
+      import("./chat.js").then(({ prepareQuoteImage }) => prepareQuoteImage()).catch(() => {});
     });
 
     const soundInput = host.querySelector("#logoSoundInput");
