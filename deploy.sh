@@ -11,7 +11,9 @@
 set -euo pipefail
 
 # $HOME в Termux = /data/data/com.termux/files/home
-REPO_DIR="${NYASH_REPO:-$HOME/nyashboard}"
+# Папку определяем по расположению скрипта: репозиторий может лежать
+# не только в $HOME, но и на общей памяти телефона.
+REPO_DIR="${NYASH_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 ZIP_GLOB="NyashBoard*.zip"
 MSG="${1:-update $(date '+%Y-%m-%d %H:%M')}"
 
@@ -20,6 +22,15 @@ die() { echo "✗ $1" >&2; exit 1; }
 # ---------- проверки окружения ----------
 command -v git >/dev/null 2>&1 || die "git не установлен. Выполни: pkg install git"
 command -v unzip >/dev/null 2>&1 || die "unzip не установлен. Выполни: pkg install unzip"
+
+# Git отказывается делать запись, пока не знает автора. Проверяем заранее:
+# иначе ошибка вылезает в самом конце, после распаковки и всех правок.
+git config user.name >/dev/null 2>&1 || die "Git не знает, кто ты. Выполни один раз:
+    git config --global user.name \"твой-логин\"
+    git config --global user.email \"твоя@почта\"
+  Почта — та же, что на GitHub."
+git config user.email >/dev/null 2>&1 || die "Не задана почта для Git. Выполни:
+    git config --global user.email \"твоя@почта\""
 
 [ -d "$REPO_DIR" ] || die "Нет папки $REPO_DIR
   Сначала склонируй репозиторий:
@@ -129,4 +140,12 @@ if command -v firebase >/dev/null 2>&1; then
     echo "→ firestore.rules изменились, деплою..."
     firebase deploy --only firestore:rules || echo "  (не вышло — задеплой вручную)"
   fi
+fi
+
+# Правила базы отправляются отдельно: git их только хранит, применяет Firebase.
+# Напоминаем, если они изменились в этой выкладке.
+if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "firestore.rules"; then
+  echo
+  echo "⚠ Правила базы изменились. Их нужно применить отдельно:"
+  echo "    bash "$REPO_DIR/deploy-rules.sh""
 fi
