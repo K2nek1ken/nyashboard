@@ -91,74 +91,7 @@ function withAlpha(hex, alpha) {
 }
 
 
-// ============================================================
-//  Перекрашивание анимированных картинок
-//
-//  Обычное перекрашивание делается один раз и возвращает готовую картинку —
-//  для гифки это означало бы, что от неё останется первый кадр.
-//
-//  Поэтому здесь иначе: заводится общий холст, куда несколько раз в секунду
-//  перерисовывается текущий кадр — уже перекрашенный. Все частицы берут
-//  изображение с него, поэтому перекрашивание идёт один раз на кадр, а не
-//  по разу на каждую частицу.
-// ============================================================
 
-export function isAnimated(blobOrName = "") {
-  // Принимаем и имя файла, и сам файл, и его тип: в разных местах под рукой
-  // оказывается разное, а промах здесь означает замершую картинку.
-  const source = typeof blobOrName === "string"
-    ? blobOrName
-    : `${blobOrName?.name || ""} ${blobOrName?.type || ""}`;
-  return /\.gif\b|image\/gif|\.webp\b|image\/webp/i.test(source);
-}
-
-export function createAnimatedTint(img, color, mode = "silhouette", fps = 12) {
-  // Гифка вне страницы может не проигрываться: часть браузеров крутит кадры
-  // только у картинок, которые есть в документе. Держим её невидимой рядом —
-  // тогда кадры точно меняются, и холст берёт актуальный.
-  if (!img.isConnected) {
-    img.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;";
-    document.body.appendChild(img);
-  }
-
-  const side = Math.min(Math.max(img.naturalWidth || 64, img.naturalHeight || 64, 16), 256);
-  const scale = side / Math.max(img.naturalWidth || side, img.naturalHeight || side);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round((img.naturalWidth || side) * scale));
-  canvas.height = Math.max(1, Math.round((img.naturalHeight || side) * scale));
-  const ctx = canvas.getContext("2d");
-
-  let timer = null;
-
-  const paint = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = "source-over";
-
-    if (mode === "off") {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      return;
-    }
-    if (mode === "duotone") {
-      drawDuotone(ctx, canvas, img, color);
-      return;
-    }
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = "source-in";
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  };
-
-  paint();
-  // Двенадцать раз в секунду: этого хватает, чтобы движение читалось,
-  // и заметно дешевле, чем перерисовывать каждый кадр экрана.
-  timer = setInterval(paint, Math.round(1000 / fps));
-
-  return {
-    canvas,
-    stop: () => {
-      if (timer) { clearInterval(timer); timer = null; }
-      if (img.isConnected) img.remove();   // убираем за собой
-    }
-  };
-}
+// Анимированные картинки (gif, webp) показываются первым кадром: холст
+// забирает кадр в момент отрисовки, и поддерживать движение пришлось бы
+// перерисовкой десятки раз в секунду — на десятках частиц это не окупается.

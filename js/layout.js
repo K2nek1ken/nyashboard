@@ -1,5 +1,5 @@
 import { ICON } from "./icons.js";
-import { tintImage, createAnimatedTint, isAnimated } from "./tint.js";
+import { tintImage } from "./tint.js";
 import { goTo } from "./router.js";
 import { getSettings } from "./settings.js";
 import { defaultAvatar } from "./default-avatar.js";
@@ -109,14 +109,10 @@ export function initLayout() {
 // по диагонали и крутящихся вокруг своей оси. Рисуем в фоновый слой под всем
 // контентом; при prefers-reduced-motion не запускаем вообще.
 
-let runningTint = null;
-
 export function initStarfield() {
   // Прошлый холст убираем: настройки могут вызвать перерисовку, и без этого
   // частицы наслаивались бы друг на друга с каждым изменением.
   document.getElementById("starfield")?.remove();
-  runningTint?.stop();       // и прошлую анимацию картинки тоже
-  runningTint = null;
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (document.documentElement.dataset.particles === "off") return;
@@ -188,7 +184,6 @@ export function initStarfield() {
   // характерную форму с выемкой. Рисуем через картинку, потому что повторять
   // это построение на холсте вручную было бы заметно многословнее.
   let petalImage = null;
-  let animatedTint = null;
 
   // Готов ли источник к отрисовке. У картинки это «загружена», у холста —
   // ненулевой размер: признака загрузки у него нет вовсе.
@@ -205,22 +200,11 @@ export function initStarfield() {
       if (!rec?.blob) return;
       const img = new Image();
       img.onload = () => {
-        const mode = getSettings().particleTint || "silhouette";
-
-        // У гифки нельзя взять один кадр и перекрасить его раз навсегда —
-        // от анимации ничего не останется. Для таких заводим холст, который
-        // сам обновляется, и рисуем частицы с него.
-        // Анимированную ведём через обновляемый холст в любом режиме,
-        // включая «как есть»: обычная картинка на холсте замирает на первом
-        // кадре, каким бы ни было перекрашивание.
-        if (isAnimated(rec.name || rec.blob?.type || "")) {
-          animatedTint?.stop();
-          animatedTint = createAnimatedTint(img, starColor, mode);
-          runningTint = animatedTint;
-          petalImage = animatedTint.canvas;
-          return;
-        }
-        petalImage = tintImage(img, starColor, mode);
+        // Гифки показываются первым кадром. Частицы рисуются на холсте, а он
+        // забирает кадр в момент отрисовки: заставить их двигаться можно
+        // только перерисовывая картинку десятки раз в секунду, и на сорока
+        // частицах это не стоит результата. Зато работает предсказуемо.
+        petalImage = tintImage(img, starColor, getSettings().particleTint || "silhouette");
       };
       img.src = URL.createObjectURL(rec.blob);
     }).catch(() => {});
