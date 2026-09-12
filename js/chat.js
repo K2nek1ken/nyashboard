@@ -119,8 +119,13 @@ export function subscribeChat() {
       const others = fresh.filter(m => !m.isBot && !isOwned("chatMessage", m.id));
       if (others.length) {
         const last = others[others.length - 1];
-        notify("Новое в чате", `${last.nickname}: ${(last.text || "фото").slice(0, 80)}`,
-               { tag: "nyash-chat" });
+        // Одна метка на весь чат: новое уведомление заменяет прошлое,
+        // а не копит их стопкой.
+        notify(
+          others.length === 1 ? "Новое в чате" : `Новое в чате (${others.length})`,
+          `${last.nickname}: ${(last.text || "фото").slice(0, 80)}`,
+          { tag: "nyash-chat" }
+        );
       }
 
       trackMentions(fresh, {

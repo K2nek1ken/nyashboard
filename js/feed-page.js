@@ -1,4 +1,5 @@
 import { initShell } from "./shell.js";
+import { clearPending } from "./notify-feed.js";
 import { markTabSeen, keepTabSeen } from "./notifications.js";
 import { keepScrollPosition } from "./session-state.js";
 import { initRefreshButton } from "./refresh-button.js";
@@ -15,6 +16,7 @@ import { initViewProfileModal } from "./people.js";
 //  всё больше.
 // ============================================================
 export async function initPage() {
+  clearPending("replies");   // всё увиденное больше не копится
   markTabSeen("feed");
   keepTabSeen("feed");
   keepScrollPosition();

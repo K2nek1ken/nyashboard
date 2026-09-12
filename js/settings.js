@@ -18,6 +18,7 @@ export const DEFAULTS = {
   chatIdentity: "both",  // both | anon | account — что доступно в чате
   meowReaction: "on",    // отзываться на команду «мяукнуть» звуком
   webNotify: "off",      // уведомления браузера, пока вкладка открыта
+  hourlyDigest: "on",    // сводка о лайках раз в час
   dmNaming: "nickname",  // как подписывать собеседника в личке
   timeFormat: "relative",// relative = «5 мин назад»; exact = дата и время
   showFriends: "on",     // показывать вкладку «Друзья»

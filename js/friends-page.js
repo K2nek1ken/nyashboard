@@ -1,4 +1,5 @@
 import { initShell } from "./shell.js";
+import { clearPending } from "./notify-feed.js";
 import { goTo } from "./router.js";
 import { keepScrollPosition } from "./session-state.js";
 import { askText, askConfirm } from "./dialog.js";
@@ -164,6 +165,7 @@ async function renderRequests() {
 //  всё больше.
 // ============================================================
 export async function initPage() {
+  clearPending("requests");   // всё увиденное больше не копится
   markTabSeen("friends");
   keepTabSeen("friends");
   keepScrollPosition();

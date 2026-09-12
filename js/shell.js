@@ -7,6 +7,7 @@ import { startPresence } from "./presence.js";
 import { restorePlayback } from "./player.js";
 import { initProfileDropdown } from "./auth.js";
 import { initNuidCopy } from "./copy-nuid.js";
+import { startPersonalWatch } from "./notify-feed.js";
 
 // ============================================================
 //  Оболочка сайта
@@ -34,11 +35,13 @@ export function initShell() {
   paintTabDots();
   startTabPolling();
   startPresence();
+  startPersonalWatch();   // лайки, ответы, заявки, личка
 
   // Отметку присутствия прекращаем при уходе: продолжать отмечаться
   // с закрытой страницы незачем.
   window.addEventListener("pagehide", () => {
     import("./presence.js").then(({ stopPresence }) => stopPresence()).catch(() => {});
+    import("./notify-feed.js").then(({ stopPersonalWatch }) => stopPersonalWatch()).catch(() => {});
   });
 
   // Остальное — после того, как разметка страницы разобрана

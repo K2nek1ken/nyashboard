@@ -1,4 +1,5 @@
 import { initShell } from "./shell.js";
+import { clearPending } from "./notify-feed.js";
 import { goTo } from "./router.js";
 import { askText, askConfirm } from "./dialog.js";
 
@@ -297,6 +298,7 @@ initShell();   // шапка, оформление и плеер — общие 
 // Запуск и сворачивание вкладки — см. router.js: страница подгружается
 // без перезагрузки, поэтому её содержимое нужно уметь включать заново.
 export async function initPage() {
+  clearPending("dm");
   keepScrollPosition();
   init();
 }

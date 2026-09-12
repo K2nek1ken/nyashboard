@@ -132,8 +132,10 @@ export function initSettingsPage() {
         ${s.dmNaming === "custom" ? row("Своё слово", "чем заменить имя собеседника",
           `<input class="settingSelect" id="dmCustomInput" maxlength="30"
                   value="${(s.dmCustomName || "").replace(/"/g, "&quot;")}" style="width:150px;">`) : ""}
-        ${row("Уведомления браузера", "о новых сообщениях, пока сайт открыт в другой вкладке",
+        ${row("Уведомления браузера", "о сообщениях, ответах и заявках, пока сайт открыт",
           `<button class="secondaryBtn" id="notifyBtn" style="width:auto; margin:0;"></button>`)}
+        ${row("Сводка раз в час", "сколько отметок собрали твои записи — одним сообщением",
+          toggle("hourlyDigest", s.hourlyDigest === "on"))}
       `)}
 
       ${group("feed", "Лента", "порядок записей и рекомендации", `
@@ -226,7 +228,7 @@ export function initSettingsPage() {
         const isOn = btn.classList.contains("on");
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
                          showAbout: ["on", "off"], recommendations: ["on", "off"],
-                         meowReaction: ["on", "off"] };
+                         meowReaction: ["on", "off"], hourlyDigest: ["on", "off"] };
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);
         render();
