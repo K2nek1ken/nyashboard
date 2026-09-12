@@ -24,8 +24,19 @@ export function makeSortable(container, { onReorder, handle = null, itemSelector
   let startPoint = null;
   let placeholder = null;
 
-  const itemOf = (target) =>
-    itemSelector ? target.closest(itemSelector) : target.closest(":scope > *");
+  // Ищем прямого потомка контейнера, поднимаясь от места нажатия.
+  // Через closest(":scope > *") это не работает: :scope там указывает
+  // на документ, а не на контейнер, и элемент никогда не находился —
+  // из-за чего перетаскивание не начиналось вовсе.
+  const itemOf = (target) => {
+    if (itemSelector) {
+      const found = target.closest(itemSelector);
+      return found?.parentElement === container ? found : null;
+    }
+    let node = target;
+    while (node && node.parentElement !== container) node = node.parentElement;
+    return node && node.parentElement === container ? node : null;
+  };
 
   container.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
@@ -36,7 +47,7 @@ export function makeSortable(container, { onReorder, handle = null, itemSelector
     if (!handle && e.target.closest("button, a, input, textarea, select")) return;
 
     const item = itemOf(e.target);
-    if (!item || item.parentElement !== container) return;
+    if (!item) return;
 
     // Без этого нажатие начинает выделение текста, и вместо переноса
     // получается выделенная подпись кнопки.

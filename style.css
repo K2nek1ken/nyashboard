@@ -1689,7 +1689,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   font: inherit; font-size: 13px; padding: 9px 11px; border-radius: 8px; text-align: left;
 }
 .player-menu button:hover { background: var(--card); }
-.queue-list { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.queue-list {
+  max-height: 52vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 2px;   /* чтобы ничего не срезалось краем прокрутки */
+}
 .queue-item {
   display: flex; align-items: center; gap: 9px; width: 100%;
   background: var(--card); border: none; border-radius: 10px; cursor: pointer;
@@ -1885,7 +1889,12 @@ body.player-open #dmHeader { top: 124px; }
   display: flex; align-items: center; gap: 4px;
   background: var(--card); border-radius: 10px; padding-right: 4px;
 }
-.queue-row.current { outline: 1px solid var(--accent); }
+/* Обводка рисуется снаружи элемента и обрезалась краями списка.
+   Показываем текущий трек полосой внутри — она никуда не денется. */
+.queue-row.current {
+  background: color-mix(in oklab, var(--accent) 12%, var(--card));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
 .queue-row .queue-item { flex: 1; background: none; }
 .queue-act {
   background: none; border: none; color: var(--muted); cursor: pointer;

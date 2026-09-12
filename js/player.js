@@ -192,6 +192,19 @@ export function playTrack(track) {
 
   if (current?.id === track.id) { togglePlay(); return; }
 
+  // Трек, которого нет в очереди, заменяет её собой: продолжать прежнюю
+  // после него было бы неожиданно — человек выбрал другое.
+  const inQueue = queue.findIndex(t => t.id === track.id);
+  if (inQueue >= 0) {
+    queueIndex = inQueue;
+  } else {
+    queue = [{
+      id: track.id, title: track.title || "Без названия",
+      artist: track.artist || "", url: track.url, coverUrl: track.coverUrl || null
+    }];
+    queueIndex = 0;
+  }
+
   current = { ...track, title: track.title || "Без названия", artist: track.artist || "" };
   audio.src = track.url;
   audio.play().catch(() => {});
@@ -199,6 +212,7 @@ export function playTrack(track) {
   paintBar(track);
   saveState();
   refreshFavState(track);
+  paintNowPlaying();          // если развёрнутый вид открыт — обновляем и его
 }
 
 // ============================================================
@@ -295,6 +309,8 @@ function paintBar(track) {
 // ---------- очередь ----------
 
 export function setQueue(tracks, startIndex = 0) {
+  // Очередь задаётся целиком: playTrack ниже увидит трек в ней и не станет
+  // заменять её одним элементом.
   // Пустые поля заменяем сразу: иначе после восстановления из памяти
   // на экране появлялось «undefined».
   queue = tracks.map(t => ({
@@ -428,9 +444,7 @@ function openNowPlaying() {
   box.innerHTML = `
     <button class="np-close" data-close><span class="nf">${ICON.close}</span></button>
     <div class="np-cover">
-      ${current.coverUrl
-        ? `<img src="${current.coverUrl}" alt="">`
-        : `<div class="np-cover-empty"><span class="nf">${ICON.music}</span></div>`}
+      <img src="${current.coverUrl || defaultCover(current.id || current.title)}" alt="">
     </div>
     <div class="np-title">${escapeHtml(current.title || "Без названия")}</div>
     <div class="np-artist">${escapeHtml(current.artist || "")}</div>
@@ -475,6 +489,23 @@ function openNowPlaying() {
 
   paintProgress();
   paintRepeat();
+}
+
+// Обновляет развёрнутый вид, если он открыт. Раньше он рисовался один раз
+// при открытии, и после переключения трека там оставались прежние обложка
+// и название.
+function paintNowPlaying() {
+  const box = document.getElementById("nowPlaying");
+  if (!box || !current) return;
+
+  const cover = box.querySelector(".np-cover");
+  if (cover) {
+    cover.innerHTML = `<img src="${current.coverUrl || defaultCover(current.id || current.title)}" alt="">`;
+  }
+  const title = box.querySelector(".np-title");
+  if (title) title.textContent = current.title || "Без названия";
+  const artist = box.querySelector(".np-artist");
+  if (artist) artist.textContent = current.artist || "";
 }
 
 // Показывает, что играет дальше. Текущий трек выделен — иначе в длинной
