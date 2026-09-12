@@ -89,3 +89,61 @@ function withAlpha(hex, alpha) {
   const [r, g, b] = [m[1], m[2], m[3]].map(c => parseInt(c, 16));
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+
+// ============================================================
+//  Перекрашивание анимированных картинок
+//
+//  Обычное перекрашивание делается один раз и возвращает готовую картинку —
+//  для гифки это означало бы, что от неё останется первый кадр.
+//
+//  Поэтому здесь иначе: заводится общий холст, куда несколько раз в секунду
+//  перерисовывается текущий кадр — уже перекрашенный. Все частицы берут
+//  изображение с него, поэтому перекрашивание идёт один раз на кадр, а не
+//  по разу на каждую частицу.
+// ============================================================
+
+export function isAnimated(blobOrName = "") {
+  const name = typeof blobOrName === "string" ? blobOrName : (blobOrName.name || blobOrName.type || "");
+  return /gif|webp/i.test(name);
+}
+
+export function createAnimatedTint(img, color, mode = "silhouette", fps = 12) {
+  const side = Math.min(Math.max(img.naturalWidth || 64, img.naturalHeight || 64, 16), 256);
+  const scale = side / Math.max(img.naturalWidth || side, img.naturalHeight || side);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round((img.naturalWidth || side) * scale));
+  canvas.height = Math.max(1, Math.round((img.naturalHeight || side) * scale));
+  const ctx = canvas.getContext("2d");
+
+  let timer = null;
+
+  const paint = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "source-over";
+
+    if (mode === "off") {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return;
+    }
+    if (mode === "duotone") {
+      drawDuotone(ctx, canvas, img, color);
+      return;
+    }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+
+  paint();
+  // Двенадцать раз в секунду: этого хватает, чтобы движение читалось,
+  // и заметно дешевле, чем перерисовывать каждый кадр экрана.
+  timer = setInterval(paint, Math.round(1000 / fps));
+
+  return {
+    canvas,
+    stop: () => { if (timer) { clearInterval(timer); timer = null; } }
+  };
+}

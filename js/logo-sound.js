@@ -69,17 +69,22 @@ export async function playLogoSound() {
 // Картинка при этом уменьшается перед сохранением: на экране частица занимает
 // пару десятков точек, и хранить ради неё снимок на четыре тысячи точек
 // незачем — это только память и торможение при отрисовке.
-const MAX_PARTICLE_SOURCE = 3 * 1024 * 1024;
+const MAX_PARTICLE_SOURCE = 8 * 1024 * 1024;   // гифки редко бывают лёгкими
 const PARTICLE_SIZE = 256;
+
+// Форматы, которые нельзя пересохранять: уменьшение идёт через холст, а он
+// берёт один кадр — от анимации осталась бы картинка, а от вектора чёткость.
+function keepAsIs(file) {
+  return file.type === "image/gif" || /\.gif$/i.test(file.name)
+      || file.type === "image/svg+xml" || /\.svg$/i.test(file.name)
+      || file.type === "image/webp" || /\.webp$/i.test(file.name);   // webp тоже бывает анимированным
+}
 
 export async function saveParticleImage(file) {
   if (!file.size) throw new Error("файл не читается — скопируй его на устройство");
-  if (file.size > MAX_PARTICLE_SOURCE) throw new Error("картинка больше 3 МБ — возьми полегче");
+  if (file.size > MAX_PARTICLE_SOURCE) throw new Error("картинка больше 8 МБ — возьми полегче");
 
-  // Векторные оставляем как есть: они и так лёгкие, а уменьшение их бы
-  // испортило — весь смысл в том, что они не теряют чёткости.
-  const isVector = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
-  const blob = isVector ? file : await shrinkImage(file, PARTICLE_SIZE);
+  const blob = keepAsIs(file) ? file : await shrinkImage(file, PARTICLE_SIZE);
   return saveParticleImageBlob(blob, file.name);
 }
 
@@ -160,10 +165,9 @@ export async function saveParticleImageBlob(blob, name = "particle") {
 
 export async function saveQuoteImage(file) {
   if (!file.size) throw new Error("файл не читается — скопируй его на устройство");
-  if (file.size > MAX_PARTICLE_SOURCE) throw new Error("картинка больше 3 МБ — возьми полегче");
+  if (file.size > MAX_PARTICLE_SOURCE) throw new Error("картинка больше 8 МБ — возьми полегче");
 
-  const isVector = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
-  const blob = isVector ? file : await shrinkImage(file, PARTICLE_SIZE);
+  const blob = keepAsIs(file) ? file : await shrinkImage(file, PARTICLE_SIZE);
   return saveQuoteImageBlob(blob, file.name);
 }
 

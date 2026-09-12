@@ -2215,3 +2215,17 @@ body.no-select, body.no-select * {
   position: absolute; width: 22px; height: 22px;
   object-fit: contain; opacity: 0.5; pointer-events: none;
 }
+
+/* Анимированный узор: силуэт делается маской, поэтому движение сохраняется. */
+.quote-image-mask {
+  background-color: var(--accent);
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+}
+/* Обесцвеченную картинку подкрашиваем наложением — поверх анимации это
+   работает, в отличие от перерисовки на холсте. */
+.quote-image-tinted {
+  mix-blend-mode: luminosity;
+  background-color: var(--accent);
+}

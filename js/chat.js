@@ -170,6 +170,9 @@ const SHAPE_DECOR = new Set(["petals"]);
 // Подготовка нужна потому, что картинку надо перекрасить, а это делается
 // на холсте — каждый раз для каждой цитаты было бы расточительно.
 let quoteImageUrl = null;
+let quoteImageFilter = "";
+let quoteImageMask = false;
+let quoteAnimated = false;
 
 export async function prepareQuoteImage() {
   if (getSettings().quoteDecor !== "custom") { quoteImageUrl = null; return; }
@@ -187,7 +190,28 @@ export async function prepareQuoteImage() {
     img.src = URL.createObjectURL(rec.blob);
     await img.decode().catch(() => {});
 
-    const { tintImage } = await import("./tint.js");
+    const { tintImage, isAnimated } = await import("./tint.js");
+
+    // Анимированную картинку через холст красить нельзя — останется один кадр.
+    // Её показываем как есть, а цвет накладываем стилями: они работают поверх
+    // движущегося изображения.
+    if (isAnimated(rec.name || rec.blob?.type)) {
+      quoteImageUrl = img.src;
+      quoteAnimated = true;
+      // Силуэт делаем маской: она повторяет форму движущейся картинки и
+      // заливается цветом, поэтому анимация сохраняется. Для «с деталями»
+      // хватает обесцвечивания с подкраской — это тоже работает поверх
+      // движущегося изображения.
+      quoteImageFilter = mode === "duotone"
+        ? "grayscale(1) contrast(1.05)"
+        : "";
+      quoteImageMask = mode === "silhouette";
+      return;
+    }
+
+    quoteAnimated = false;
+    quoteImageMask = false;
+    quoteImageFilter = "";
     quoteImageUrl = tintImage(img, accent, mode).src;
   } catch (e) {
     console.warn("Картинка для цитат не подготовилась:", e.message);
@@ -215,7 +239,10 @@ function decorHtml() {
       const style = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
                     `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})`;
       out.push(isImage
-        ? `<img class="quote-image" src="${quoteImageUrl}" style="${style}" alt="">`
+        ? (quoteImageMask
+            // маска: форма берётся у картинки, цвет — акцентный
+            ? `<span class="quote-image quote-image-mask" style="${style};-webkit-mask-image:url(${quoteImageUrl});mask-image:url(${quoteImageUrl})"></span>`
+            : `<img class="quote-image ${quoteAnimated && quoteImageFilter ? "quote-image-tinted" : ""}" src="${quoteImageUrl}" style="${style};${quoteImageFilter ? `filter:${quoteImageFilter}` : ""}" alt="">`)
         : isShape
         ? `<span class="petal-shape" style="${style}"></span>`
         : `<span style="${style}">${glyph}</span>`);

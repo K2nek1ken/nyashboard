@@ -92,7 +92,7 @@ export function initSettingsPage() {
         ${s.particles === "custom" ? row("Как красить картинку",
           "силуэтом — одним цветом; с деталями — светотень в оттенках акцента",
           select("particleTint", TINT_MODES, s.particleTint || "silhouette")) : ""}
-        ${s.particles === "custom" ? row("Картинка для частиц", "png или svg без фона, до 3 МБ — картинка уменьшится сама",
+        ${s.particles === "custom" ? row("Картинка для частиц", "png, svg или gif без фона, до 8 МБ. Гифки остаются живыми",
           `<div style="display:flex; gap:6px; align-items:center;">
              <button id="particlePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
              <input type="file" id="particleInput" accept="image/*" style="display:none;">
@@ -101,7 +101,7 @@ export function initSettingsPage() {
         ${s.quoteDecor === "custom" ? row("Как красить узор",
           "силуэтом — одним цветом; с деталями — светотень в оттенках акцента",
           select("quoteTint", TINT_MODES, s.quoteTint || "silhouette")) : ""}
-        ${s.quoteDecor === "custom" ? row("Картинка для узора", "png или svg без фона, до 3 МБ",
+        ${s.quoteDecor === "custom" ? row("Картинка для узора", "png, svg или gif без фона, до 8 МБ. Гифки остаются живыми",
           `<div style="display:flex; gap:6px; align-items:center;">
              <button id="quotePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
              <input type="file" id="quoteInput" accept="image/*" style="display:none;">

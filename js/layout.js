@@ -1,5 +1,5 @@
 import { ICON } from "./icons.js";
-import { tintImage } from "./tint.js";
+import { tintImage, createAnimatedTint, isAnimated } from "./tint.js";
 import { goTo } from "./router.js";
 import { getSettings } from "./settings.js";
 import { defaultAvatar } from "./default-avatar.js";
@@ -109,10 +109,14 @@ export function initLayout() {
 // по диагонали и крутящихся вокруг своей оси. Рисуем в фоновый слой под всем
 // контентом; при prefers-reduced-motion не запускаем вообще.
 
+let runningTint = null;
+
 export function initStarfield() {
   // Прошлый холст убираем: настройки могут вызвать перерисовку, и без этого
   // частицы наслаивались бы друг на друга с каждым изменением.
   document.getElementById("starfield")?.remove();
+  runningTint?.stop();       // и прошлую анимацию картинки тоже
+  runningTint = null;
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (document.documentElement.dataset.particles === "off") return;
@@ -184,6 +188,7 @@ export function initStarfield() {
   // характерную форму с выемкой. Рисуем через картинку, потому что повторять
   // это построение на холсте вручную было бы заметно многословнее.
   let petalImage = null;
+  let animatedTint = null;
 
   // Своя картинка: подгружается из браузера и рисуется вместо готовых форм.
   // Прозрачный PNG и SVG подходят лучше всего — у них нет лишнего фона.
@@ -192,11 +197,19 @@ export function initStarfield() {
       if (!rec?.blob) return;
       const img = new Image();
       img.onload = () => {
-        // Перекрашивание: картинка рисуется на отдельном холсте, а затем
-        // поверх заливается акцентным цветом «только там, где уже нарисовано».
-        // Так чёрный силуэт становится любого цвета, а прозрачный фон остаётся
-        // прозрачным. Работает и для png, и для svg — им это всё равно.
-        petalImage = tintImage(img, starColor, getSettings().particleTint || "silhouette");
+        const mode = getSettings().particleTint || "silhouette";
+
+        // У гифки нельзя взять один кадр и перекрасить его раз навсегда —
+        // от анимации ничего не останется. Для таких заводим холст, который
+        // сам обновляется, и рисуем частицы с него.
+        if (isAnimated(rec.name || rec.blob?.type)) {
+          animatedTint?.stop();
+          animatedTint = createAnimatedTint(img, starColor, mode);
+          runningTint = animatedTint;
+          petalImage = animatedTint.canvas;
+          return;
+        }
+        petalImage = tintImage(img, starColor, mode);
       };
       img.src = URL.createObjectURL(rec.blob);
     }).catch(() => {});
