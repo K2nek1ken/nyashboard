@@ -74,6 +74,25 @@ if [ -z "$ZIP" ]; then
   echo "→ Коммичу то, что уже лежит в репозитории."
 else
   echo "→ Архив: $ZIP"
+
+  # Показываем, что внутри: у файлов в загрузках похожие имена
+  # (NyashBoard-3, NyashBoard-6), и выложить старый по ошибке проще простого.
+  INCOMING=$(unzip -p "$ZIP" "*/js/version.js" 2>/dev/null | grep -oE 'name: "[^"]*"' || true)
+  [ -n "$INCOMING" ] && echo "→ Сборка: ${INCOMING#name: }"
+
+  # Сверяем с уже выложенной: совпадение почти всегда означает, что выбран
+  # не тот файл.
+  CURRENT=$(grep -oE 'name: "[^"]*"' "$REPO_DIR/js/version.js" 2>/dev/null || true)
+  if [ -n "$CURRENT" ] && [ "$CURRENT" = "$INCOMING" ]; then
+    echo
+    echo "⚠ Такая сборка уже выложена."
+    printf "  Всё равно продолжить? [y/N] "
+    read -r same_answer
+    case "$same_answer" in
+      [yY]*) ;;
+      *) echo "Отменено."; exit 0 ;;
+    esac
+  fi
   TMP=$(mktemp -d)
   trap 'rm -rf "$TMP"' EXIT
 

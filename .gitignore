@@ -4,3 +4,8 @@ CLAUDE.md
 # Служебное
 .DS_Store
 node_modules/
+
+# Секреты — на случай, если что-то из этого окажется в папке проекта
+.git-credentials
+*.token
+service-account*.json
