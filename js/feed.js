@@ -115,7 +115,10 @@ export function subscribeFeed() {
     // равно показываем, иначе сбой мелочи оставил бы пустой экран.
     enrichAuthors(posts)
       .catch(e => console.warn("Оформление авторов:", e.message))
-      .then(() => renderFeed(rankPosts(posts)));
+      .then(() => {
+        renderFeed(rankPosts(posts));
+        backfillNuid(posts);       // заодно достаём номер одной старой записи
+      });
   }, (err) => {
     console.error(err);
     feedListEl.innerHTML = `<div class="stub-note">Не смогла загрузить ленту: ${escapeHtml(err.message)}</div>`;
@@ -167,6 +170,29 @@ function revealSequentially(container) {
 // человек мог сменить украшение уже после публикации. Поэтому недостающее
 // дозагружаем: по одному запросу на автора, а не на запись.
 const authorCache = new Map();
+
+// Записи, опубликованные до появления номеров, получают их при первом показе.
+// По одной за раз и не чаще, чем раз в несколько секунд: разом присваивать
+// всей ленте — лишняя нагрузка, а спешить некуда.
+let lastBackfill = 0;
+
+async function backfillNuid(posts) {
+  if (!currentUser) return;                       // проставить может только вошедший
+  if (Date.now() - lastBackfill < 4000) return;
+
+  const target = posts.find(p => !p.publicUid);
+  if (!target) return;
+  lastBackfill = Date.now();
+
+  try {
+    const nuid = await registerPostNuid(target.id);
+    await updateDoc(doc(db, "posts", target.id), { publicUid: nuid });
+    target.publicUid = nuid;
+  } catch (e) {
+    // Отказ здесь не страшен: номер проставит кто-нибудь другой при просмотре.
+    console.debug("Номер записи не проставился:", e.message);
+  }
+}
 
 async function enrichAuthors(posts) {
   const uids = [...new Set(
@@ -469,6 +495,7 @@ export function postToHtml(p, maskAuthor = false) {
     suppressed
       ? { action: "undoNotInterested", label: "Вернуть в рекомендации", icon: ICON.up }
       : { action: "notInterested", label: "Не рекомендовать", icon: ICON.down },
+    ...(p.publicUid ? [{ action: "copyNuid", label: "Скопировать NUID", icon: ICON.hash }] : []),
     { action: "report", label: "Пожаловаться", icon: ICON.warning },
     ...(canManage
       ? [
@@ -571,6 +598,10 @@ export function wirePostCard(p, container = document) {
       undoNotInterested(p);
       card.style.opacity = "";
       showToast("Вернула в рекомендации");
+    },
+    copyNuid: async () => {
+      const { copyNuid } = await import("./copy-nuid.js");
+      copyNuid(p.publicUid);
     },
     report: async () => {
       const { openReportDialog } = await import("./reports.js");
@@ -1019,7 +1050,13 @@ export function renderPostsInto(container, posts, ownerNickname) {
   // тот же приём для чужих страниц и карточек профиля
   enrichAuthors(posts)
     .catch(e => console.warn("Оформление авторов:", e.message))
-    .then(() => paintPostsInto(container, posts, ownerNickname));
+    .then(() => {
+      paintPostsInto(container, posts, ownerNickname);
+      // Записи всюду одни и те же — просто показаны в разных местах.
+      // Значит и номера им проставляются одинаково: на стене, на странице
+      // канала, в подборках. Раньше это работало только в ленте.
+      backfillNuid(posts);
+    });
 }
 
 function paintPostsInto(container, posts, ownerNickname) {
