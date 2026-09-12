@@ -30,7 +30,7 @@ export function trackCardHtml(track, { favorite = false, canDelete = false } = {
         <div class="track-progress"><div class="track-progress-fill"></div></div>
       </div>
       <div class="track-tags">
-        ${track.publicUid ? `<span class="track-nuid">${track.publicUid}</span>` : ""}
+        ${track.publicUid ? `<span class="track-nuid" data-copy-nuid="${track.publicUid}">${track.publicUid}</span>` : ""}
       </div>
       <div class="track-actions">
         <button class="subBtn ${favorite ? "liked" : ""}" data-fav="${track.id}" title="в любимое">

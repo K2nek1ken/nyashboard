@@ -6,6 +6,7 @@ import { paintTabDots, startTabPolling } from "./notifications.js";
 import { startPresence } from "./presence.js";
 import { restorePlayback } from "./player.js";
 import { initProfileDropdown } from "./auth.js";
+import { initNuidCopy } from "./copy-nuid.js";
 
 // ============================================================
 //  Оболочка сайта
@@ -41,6 +42,8 @@ export function initShell() {
   });
 
   // Остальное — после того, как разметка страницы разобрана
+  initNuidCopy();     // нажатие по номеру копирует его — на любой странице
+
   const rest = () => {
     initSettingsModal();
     initStarfield();

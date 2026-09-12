@@ -236,21 +236,12 @@ export function initProfilePageForm() {
     statusPreview.textContent = "выбрать";
   });
 
-  // Нажатие на идентификатор или юзернейм копирует их: чаще всего именно это
-  // с ними и делают — отправляют кому-то.
-  async function copyValue(text, label) {
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast(label + " скопирован");
-    } catch {
-      showToast(label + ": " + text);
-    }
-  }
-  uidDisplay.style.cursor = "pointer";
-  uidDisplay.title = "нажми, чтобы скопировать";
-  uidDisplay.addEventListener("click", () => copyValue(uidDisplay.textContent, "NUID"));
-  usernameInput.addEventListener("dblclick", () => copyValue("@" + usernameInput.value, "Юзернейм"));
+  // Нажатие по идентификатору копирует его — это делает общий обработчик
+  // (см. copy-nuid.js), здесь остаётся только юзернейм.
+  usernameInput.addEventListener("dblclick", async () => {
+    const { copyNuid } = await import("./copy-nuid.js");
+    copyNuid("@" + usernameInput.value, "Юзернейм");
+  });
 
   saveBtn.addEventListener("click", async () => {
     if (!currentUser) return;

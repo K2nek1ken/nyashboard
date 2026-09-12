@@ -177,7 +177,7 @@ export async function openMessagePreview(msgId, nuid) {
     <div class="preview-head">
       <div style="min-width:0;">
         <div class="preview-name">${escapeHtml(m.nickname || "сообщение")}</div>
-        <div class="muted">${nuid || ""}</div>
+        <div class="muted track-nuid" data-copy-nuid="${nuid || ""}">${nuid || ""}</div>
       </div>
     </div>
     <div class="message-preview-body">

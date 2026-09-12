@@ -63,7 +63,7 @@ export async function initArtPanel() {
             ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
             <div class="art-meta">
               <span>${escapeHtml(a.authorName || "аноним")} · ${timeAgo(a.createdAt)}</span>
-              ${a.publicUid ? `<span class="track-nuid">${a.publicUid}</span>` : ""}
+              ${a.publicUid ? `<span class="track-nuid" data-copy-nuid="${a.publicUid}">${a.publicUid}</span>` : ""}
             </div>
             <div class="art-actions">
               <button class="subBtn ${liked ? "liked" : ""}" data-like="${a.id}">

@@ -38,6 +38,10 @@ export function makeSortable(container, { onReorder, handle = null, itemSelector
     const item = itemOf(e.target);
     if (!item || item.parentElement !== container) return;
 
+    // Без этого нажатие начинает выделение текста, и вместо переноса
+    // получается выделенная подпись кнопки.
+    e.preventDefault();
+
     startPoint = { x: e.clientX, y: e.clientY };
 
     const begin = () => {
@@ -53,6 +57,14 @@ export function makeSortable(container, { onReorder, handle = null, itemSelector
       item.after(placeholder);
 
       item.setPointerCapture?.(e.pointerId);
+
+      // На время переноса выделение выключаем у всей страницы: палец или
+      // мышь легко выходят за пределы списка, и там выделение снова
+      // перехватывало бы движение.
+      document.body.classList.add("no-select");
+
+      // Случайно выделившееся до захвата — снимаем.
+      window.getSelection?.()?.removeAllRanges();
     };
 
     // мышью тащим сразу, пальцем — после удержания
@@ -82,6 +94,7 @@ export function makeSortable(container, { onReorder, handle = null, itemSelector
   }, { passive: false });
 
   const finish = () => {
+    document.body.classList.remove("no-select");
     clearTimeout(holdTimer);
     holdTimer = null;
     startPoint = null;

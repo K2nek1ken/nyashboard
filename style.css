@@ -2140,3 +2140,28 @@ body.player-open #dmHeader { top: 124px; }
   font-size: 13px; padding: 4px 2px; flex-shrink: 0;
 }
 .queue-act[disabled] { opacity: 0.35; cursor: default; }
+
+/* ---------- перетаскивание: выделение не должно мешать ---------- */
+body.no-select, body.no-select * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* Ручка не должна ни выделяться, ни прокручивать страницу под пальцем:
+   touch-action отдаёт жест нам, а не браузеру. */
+.drag-handle {
+  touch-action: none;
+  user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Строки списков, которые переставляются, тоже не выделяются: иначе
+   долгое нажатие вызывает выделение вместо захвата. */
+.tab-order-row, .queue-row, .playlist-card {
+  user-select: none; -webkit-user-select: none;
+}
+.tab-order-row .tab-order-name, .queue-row .queue-title { pointer-events: none; }
+
+/* номер можно нажать и скопировать */
+.track-nuid, .uid-display, [data-copy-nuid] { cursor: pointer; }
+.track-nuid:hover, .uid-display:hover, [data-copy-nuid]:hover { color: var(--accent); }
