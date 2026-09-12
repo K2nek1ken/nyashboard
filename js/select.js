@@ -20,7 +20,7 @@ export function customSelect(name, options, current) {
         <span data-cselect-label>${label}</span>
         <span class="cselect-arrow">›</span>
       </button>
-      <div class="cselect-menu hidden" data-cselect-menu>
+      <div class="cselect-menu hidden" data-cselect-menu data-owner="${name}">
         ${Object.entries(options).map(([key, text]) => `
           <button type="button" class="cselect-option ${key === current ? "selected" : ""}"
                   data-value="${key}">${text}</button>`).join("")}
@@ -30,6 +30,10 @@ export function customSelect(name, options, current) {
 
 // Оживляет все списки внутри контейнера. onChange получает имя и новое значение.
 export function wireSelects(container, onChange) {
+  // Списки, оставшиеся от прошлой отрисовки: их владельцев уже нет в разметке,
+  // а сами они лежат в конце страницы. Убираем, иначе копились бы.
+  document.querySelectorAll("body > [data-cselect-menu]").forEach(m => m.remove());
+
   container.querySelectorAll("[data-cselect]").forEach(box => {
     const name = box.dataset.cselect;
     const field = box.querySelector(`[data-select="${name}"]`);
@@ -44,9 +48,15 @@ export function wireSelects(container, onChange) {
       if (wasOpen) return;
       menu.classList.remove("hidden");
 
-      // Список позиционируется относительно окна, а не своего места в разметке.
-      // Иначе его обрезает любой прокручиваемый контейнер выше по дереву —
-      // например, окно настроек на компьютере или сама группа настроек.
+      // Список переносим в конец страницы. Одного позиционирования по окну
+      // мало: любой предок со своим слоем (например, раскрытая группа
+      // настроек) замыкает список внутри себя, и он оказывается под соседней
+      // группой, как бы высоко ни был поднят. Снаружи сравнивать не с чем.
+      if (menu.parentElement !== document.body) {
+        menu.dataset.homeless = "1";
+        document.body.appendChild(menu);
+      }
+
       menu.style.minWidth = `${btn.offsetWidth}px`;
       positionNear(menu, btn, { prefer: "bottom", align: "left" });
     });
@@ -80,5 +90,12 @@ function closeAll() {
     m.classList.add("hidden");
     // сбрасываем вычисленное положение: при следующем открытии оно считается заново
     m.style.position = m.style.top = m.style.left = m.style.transform = "";
+
+    // и возвращаем на своё место в разметке — иначе при перерисовке настроек
+    // он остался бы висеть в конце страницы сиротой
+    if (m.dataset.homeless) {
+      delete m.dataset.homeless;
+      document.querySelector(`[data-cselect="${m.dataset.owner}"]`)?.appendChild(m);
+    }
   });
 }

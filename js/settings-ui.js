@@ -91,7 +91,7 @@ export function initSettingsPage() {
            </div>`)}
         ${s.particles === "custom" ? row("Перекрашивать картинку", "чёрный силуэт станет акцентным цветом",
           toggle("particleTint", s.particleTint !== "off")) : ""}
-        ${s.particles === "custom" ? row("Картинка для частиц", "png или svg без фона, до 512 КБ",
+        ${s.particles === "custom" ? row("Картинка для частиц", "png или svg без фона, до 3 МБ — картинка уменьшится сама",
           `<div style="display:flex; gap:6px; align-items:center;">
              <button id="particlePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
              <input type="file" id="particleInput" accept="image/*" style="display:none;">

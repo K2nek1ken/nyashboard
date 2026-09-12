@@ -1385,7 +1385,9 @@ html[data-theme="quiet"] .searchBox {
 
 /* Раскрытая группа лежит выше соседних: её список должен накрывать то,
    что под ним, а не прятаться за следующей группой. */
-.settings-group[open] { position: relative; z-index: 5; }
+/* Своего слоя у группы быть не должно: он замыкал внутри себя всё, что
+   в ней открывается, и выпадающий список оказывался под соседней группой.
+   Списки теперь выносятся наружу (см. select.js), а группе слой не нужен. */
 .settings-group summary {
   padding: 14px 16px; cursor: pointer; list-style: none;
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;

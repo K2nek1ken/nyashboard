@@ -58,19 +58,62 @@ export async function playLogoSound() {
   return true;
 }
 
-
 // ---------- своя картинка для частиц ----------
 // Хранится рядом со звуком логотипа: тоже личный файл, который незачем
 // отправлять на сервер.
 
+// До трёх мегабайт: обычные фотографии столько и весят, а прежний предел
+// в полмегабайта отсекал почти всё.
+//
+// Картинка при этом уменьшается перед сохранением: на экране частица занимает
+// пару десятков точек, и хранить ради неё снимок на четыре тысячи точек
+// незачем — это только память и торможение при отрисовке.
+const MAX_PARTICLE_SOURCE = 3 * 1024 * 1024;
+const PARTICLE_SIZE = 256;
+
 export async function saveParticleImage(file) {
   if (!file.size) throw new Error("файл не читается — скопируй его на устройство");
-  if (file.size > 512 * 1024) throw new Error("картинка больше 512 КБ — возьми полегче");
-  const { store } = await withStore("readwrite");
+  if (file.size > MAX_PARTICLE_SOURCE) throw new Error("картинка больше 3 МБ — возьми полегче");
+
+  // Векторные оставляем как есть: они и так лёгкие, а уменьшение их бы
+  // испортило — весь смысл в том, что они не теряют чёткости.
+  const isVector = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
+  const blob = isVector ? file : await shrinkImage(file, PARTICLE_SIZE);
+  return saveParticleImageBlob(blob, file.name);
+}
+
+// Уменьшает картинку, сохраняя пропорции и прозрачность.
+function shrinkImage(file, maxSide) {
   return new Promise((resolve, reject) => {
-    const r = store.put({ blob: file, name: file.name }, PARTICLE_KEY);
-    r.onsuccess = () => resolve(file.name);
-    r.onerror = () => reject(r.error);
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // png, а не jpeg: у него есть прозрачность, без которой частица
+      // превратилась бы в прямоугольник с фоном
+      canvas.toBlob(
+        (out) => out ? resolve(out) : reject(new Error("не вышло уменьшить картинку")),
+        "image/png"
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("это не картинка или формат не поддерживается"));
+    };
+    img.src = url;
   });
 }
 
@@ -89,7 +132,6 @@ export async function clearParticleImage() {
   const { store } = await withStore("readwrite");
   store.delete(PARTICLE_KEY);
 }
-
 
 // Сохранение из готового содержимого — для восстановления из архива, где
 // файл уже проверен и приходит не от выбора в диалоге.
