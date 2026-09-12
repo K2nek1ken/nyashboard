@@ -195,7 +195,7 @@ export async function prepareQuoteImage() {
     // Анимированную картинку через холст красить нельзя — останется один кадр.
     // Её показываем как есть, а цвет накладываем стилями: они работают поверх
     // движущегося изображения.
-    if (isAnimated(rec.name || rec.blob?.type)) {
+    if (isAnimated(rec.name || rec.blob?.type || "")) {
       quoteImageUrl = img.src;
       quoteAnimated = true;
       // Силуэт делаем маской: она повторяет форму движущейся картинки и
@@ -227,7 +227,9 @@ function decorHtml() {
   if (!glyph && !isShape && !isImage) return "";        // выбран вариант «без узора»
   if (isImage && !quoteImageUrl) return "";             // картинка ещё не готова
 
-  const cols = 6, rows = 2;
+  // Цитата стала выше, поэтому узоров больше и лежат они свободнее:
+  // прежняя сетка рассчитывалась на полоску в пару строк.
+  const cols = 7, rows = 2;
   const out = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -235,7 +237,7 @@ function decorHtml() {
       const x = (c + 0.5) / cols * 100 + (Math.random() - 0.5) * 9;
       const y = (r + 0.5) / rows * 100 + (Math.random() - 0.5) * 30;
       const rot = Math.floor(Math.random() * 360);
-      const scale = (0.7 + Math.random()).toFixed(2);   // не больше двух минимумов
+      const scale = (0.6 + Math.random() * 0.8).toFixed(2);
       const style = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
                     `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})`;
       out.push(isImage

@@ -604,18 +604,39 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 
 /* ---------- ответ на сообщение в чате (как в тг) ---------- */
+/* ---------- цитата в сообщении ----------
+   Была узкой полоской, где узор физически не помещался: четыре пикселя
+   отступа и значки по одиннадцать точек при почти полной прозрачности.
+   Менять его было бессмысленно — разницы не видно.
+
+   Стало просторнее: выше, с заметным фоном и крупным узором, который
+   и задумывался как украшение. */
 .chat-reply-quote {
-  border-left: 3px solid var(--accent-2); padding: 4px 8px; margin-bottom: 6px;
-  background: rgba(169,139,240,0.10); border-radius: 0 8px 8px 0;
-  font-size: 12px; cursor: pointer; position: relative; overflow: hidden;
+  border-left: 3px solid var(--accent-2);
+  padding: 9px 12px; margin-bottom: 8px;
+  background: color-mix(in oklab, var(--accent) 12%, var(--card));
+  border-radius: 0 12px 12px 0;
+  font-size: 12.5px; cursor: pointer; position: relative; overflow: hidden;
+  min-height: 40px;
 }
-.chat-reply-quote b { color: var(--accent-2); }
-.chat-reply-quote .quote-text { color: var(--muted); display: block; margin-top: 1px; }
+.chat-reply-quote:hover {
+  background: color-mix(in oklab, var(--accent) 18%, var(--card));
+}
+.chat-reply-quote b { color: var(--accent-2); position: relative; z-index: 1; }
+.chat-reply-quote .quote-text {
+  color: var(--text); opacity: 0.8; display: block; margin-top: 2px;
+  position: relative; z-index: 1;
+}
+
+/* Узор виден, но не спорит с текстом: он ярче прежнего втрое и крупнее вдвое,
+   при этом лежит под текстом и приглушён по краям. */
 .chat-reply-quote .petals {
   position: absolute; inset: 0; pointer-events: none; overflow: hidden;
-  color: var(--accent); opacity: 0.18;
+  color: var(--accent); opacity: 0.5; z-index: 0;
+  mask-image: linear-gradient(to right, #000 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 55%, transparent 100%);
 }
-.chat-reply-quote .petals span { position: absolute; font-size: 11px; line-height: 1; }
+.chat-reply-quote .petals span { position: absolute; font-size: 20px; line-height: 1; }
 /* Выделение найденного сообщения.
    Раньше анимация задавала конкретный фон (var(--card)) — и у сообщений бота,
    у которых фон свой, он на секунду подменялся обычным: получалось мигание.
@@ -1152,7 +1173,7 @@ html[data-theme="quiet"] .searchBox {
    Маска использует только прозрачность, поэтому цвет берётся из currentColor
    и остаётся адаптивным, как у обычных символов. */
 .chat-reply-quote .petals .petal-shape {
-  width: 13px; height: 13px; display: block;
+  width: 22px; height: 22px; display: block;
   background: currentColor;
   -webkit-mask: url("assets/petal.svg") center / contain no-repeat;
   mask: url("assets/petal.svg") center / contain no-repeat;
@@ -2212,8 +2233,8 @@ body.no-select, body.no-select * {
 
 /* своя картинка в узоре цитаты */
 .quote-image {
-  position: absolute; width: 22px; height: 22px;
-  object-fit: contain; opacity: 0.5; pointer-events: none;
+  position: absolute; width: 26px; height: 26px;
+  object-fit: contain; pointer-events: none;
 }
 
 /* Анимированный узор: силуэт делается маской, поэтому движение сохраняется. */

@@ -104,11 +104,23 @@ function withAlpha(hex, alpha) {
 // ============================================================
 
 export function isAnimated(blobOrName = "") {
-  const name = typeof blobOrName === "string" ? blobOrName : (blobOrName.name || blobOrName.type || "");
-  return /gif|webp/i.test(name);
+  // Принимаем и имя файла, и сам файл, и его тип: в разных местах под рукой
+  // оказывается разное, а промах здесь означает замершую картинку.
+  const source = typeof blobOrName === "string"
+    ? blobOrName
+    : `${blobOrName?.name || ""} ${blobOrName?.type || ""}`;
+  return /\.gif\b|image\/gif|\.webp\b|image\/webp/i.test(source);
 }
 
 export function createAnimatedTint(img, color, mode = "silhouette", fps = 12) {
+  // Гифка вне страницы может не проигрываться: часть браузеров крутит кадры
+  // только у картинок, которые есть в документе. Держим её невидимой рядом —
+  // тогда кадры точно меняются, и холст берёт актуальный.
+  if (!img.isConnected) {
+    img.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;";
+    document.body.appendChild(img);
+  }
+
   const side = Math.min(Math.max(img.naturalWidth || 64, img.naturalHeight || 64, 16), 256);
   const scale = side / Math.max(img.naturalWidth || side, img.naturalHeight || side);
 
@@ -144,6 +156,9 @@ export function createAnimatedTint(img, color, mode = "silhouette", fps = 12) {
 
   return {
     canvas,
-    stop: () => { if (timer) { clearInterval(timer); timer = null; } }
+    stop: () => {
+      if (timer) { clearInterval(timer); timer = null; }
+      if (img.isConnected) img.remove();   // убираем за собой
+    }
   };
 }

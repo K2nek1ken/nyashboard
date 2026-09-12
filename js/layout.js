@@ -190,6 +190,14 @@ export function initStarfield() {
   let petalImage = null;
   let animatedTint = null;
 
+  // Готов ли источник к отрисовке. У картинки это «загружена», у холста —
+  // ненулевой размер: признака загрузки у него нет вовсе.
+  function isDrawable(src) {
+    if (!src) return false;
+    if (src instanceof HTMLCanvasElement) return src.width > 0 && src.height > 0;
+    return src.complete && src.naturalWidth > 0;
+  }
+
   // Своя картинка: подгружается из браузера и рисуется вместо готовых форм.
   // Прозрачный PNG и SVG подходят лучше всего — у них нет лишнего фона.
   if (particleKind === "custom") {
@@ -202,7 +210,10 @@ export function initStarfield() {
         // У гифки нельзя взять один кадр и перекрасить его раз навсегда —
         // от анимации ничего не останется. Для таких заводим холст, который
         // сам обновляется, и рисуем частицы с него.
-        if (isAnimated(rec.name || rec.blob?.type)) {
+        // Анимированную ведём через обновляемый холст в любом режиме,
+        // включая «как есть»: обычная картинка на холсте замирает на первом
+        // кадре, каким бы ни было перекрашивание.
+        if (isAnimated(rec.name || rec.blob?.type || "")) {
           animatedTint?.stop();
           animatedTint = createAnimatedTint(img, starColor, mode);
           runningTint = animatedTint;
@@ -254,10 +265,17 @@ export function initStarfield() {
     ctx.globalAlpha = s.alpha;
     ctx.fillStyle = starColor;
     const glyph = GLYPHS[particleKind];
-    if ((particleKind === "petals" || particleKind === "custom") && petalImage?.complete) {
+    // Источником бывает и картинка, и холст (у гифок — он, потому что кадр
+    // обновляется). У холста нет признака «загружено», и проверка на него
+    // отбрасывала анимированные вовсе — вместо них рисовались звёздочки.
+    const usesImage = particleKind === "petals" || particleKind === "custom";
+    if (usesImage && isDrawable(petalImage)) {
       const sz = s.size * 3.4;
       ctx.drawImage(petalImage, -sz / 2, -sz / 2, sz, sz);
     }
+    // Пока своя картинка ещё грузится, ничего не подставляем: звёздочки
+    // вместо выбранной картинки выглядели как поломка.
+    else if (usesImage) { ctx.restore(); return; }
     else if (glyph) drawGlyph(s, glyph);
     else drawVectorStar(s);
     ctx.restore();
