@@ -107,7 +107,29 @@ export function initLayout() {
 // Лёгкий canvas: несколько десятков полупрозрачных звёздочек, медленно плывущих
 // по диагонали и крутящихся вокруг своей оси. Рисуем в фоновый слой под всем
 // контентом; при prefers-reduced-motion не запускаем вообще.
+// Перекрашивает картинку в один цвет, сохраняя прозрачность.
+// Рисунок становится трафаретом: важна только его форма.
+function tintImage(img, color) {
+  const size = Math.max(img.naturalWidth || 64, img.naturalHeight || 64, 16);
+  const c = document.createElement("canvas");
+  c.width = c.height = Math.min(size, 128);      // больше для частицы незачем
+  const ctx = c.getContext("2d");
+
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  ctx.globalCompositeOperation = "source-in";    // только по нарисованному
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  const tinted = new Image();
+  tinted.src = c.toDataURL();
+  return tinted;
+}
+
 export function initStarfield() {
+  // Прошлый холст убираем: настройки могут вызвать перерисовку, и без этого
+  // частицы наслаивались бы друг на друга с каждым изменением.
+  document.getElementById("starfield")?.remove();
+
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (document.documentElement.dataset.particles === "off") return;
 
@@ -185,7 +207,13 @@ export function initStarfield() {
     import("./logo-sound.js").then(({ getParticleImage }) => getParticleImage()).then(rec => {
       if (!rec?.blob) return;
       const img = new Image();
-      img.onload = () => { petalImage = img; };
+      img.onload = () => {
+        // Перекрашивание: картинка рисуется на отдельном холсте, а затем
+        // поверх заливается акцентным цветом «только там, где уже нарисовано».
+        // Так чёрный силуэт становится любого цвета, а прозрачный фон остаётся
+        // прозрачным. Работает и для png, и для svg — им это всё равно.
+        petalImage = getSettings().particleTint === "off" ? img : tintImage(img, starColor);
+      };
       img.src = URL.createObjectURL(rec.blob);
     }).catch(() => {});
   }

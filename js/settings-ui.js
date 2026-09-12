@@ -9,7 +9,7 @@ import { clearSeen } from "./seen.js";
 import { paletteEntries } from "./palette.js";
 import { customSelect, wireSelects } from "./select.js";
 import { makeSortable } from "./drag-sort.js";
-import { initLayout } from "./layout.js";
+import { initLayout, initStarfield } from "./layout.js";
 import { notificationsSupported, notificationsAllowed, requestNotifications } from "./web-notify.js";
 import { BUILD } from "./version.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
@@ -89,6 +89,8 @@ export function initSettingsPage() {
              ${select("particles", PARTICLES, s.particles)}
              <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
            </div>`)}
+        ${s.particles === "custom" ? row("Перекрашивать картинку", "чёрный силуэт станет акцентным цветом",
+          toggle("particleTint", s.particleTint !== "off")) : ""}
         ${s.particles === "custom" ? row("Картинка для частиц", "png или svg без фона, до 512 КБ",
           `<div style="display:flex; gap:6px; align-items:center;">
              <button id="particlePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
@@ -228,7 +230,8 @@ export function initSettingsPage() {
         const isOn = btn.classList.contains("on");
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
                          showAbout: ["on", "off"], recommendations: ["on", "off"],
-                         meowReaction: ["on", "off"], hourlyDigest: ["on", "off"] };
+                         meowReaction: ["on", "off"], hourlyDigest: ["on", "off"],
+                         particleTint: ["on", "off"] };
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);
         render();
@@ -248,13 +251,17 @@ export function initSettingsPage() {
       try {
         const { saveParticleImage } = await import("./logo-sound.js");
         await saveParticleImage(file);
-        showToast("Картинка сохранена — обновится после перезагрузки ♡");
+        showToast("Картинка сохранена ♡");
+        render();          // список и подпись обновляются сразу
+        initStarfield();   // и сами частицы — без перезагрузки
       } catch (e) { showToast("Не вышло: " + e.message); }
     });
     host.querySelector("#particleClear")?.addEventListener("click", async () => {
       const { clearParticleImage } = await import("./logo-sound.js");
       await clearParticleImage();
       showToast("Картинка убрана");
+      render();
+      initStarfield();
     });
 
     const soundInput = host.querySelector("#logoSoundInput");
