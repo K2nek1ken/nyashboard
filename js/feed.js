@@ -737,11 +737,23 @@ async function toggleVote(p, { listField, countField, weight, collectionName = "
   const fresh = snap?.exists() ? snap.data() : p;
   const has = (fresh[listField] || []).includes(currentUser.uid);
 
+  // Противоположная отметка снимается: держать одновременно «нравится» и
+  // «не нравится» бессмысленно — это взаимоисключающие оценки.
+  const opposite = listField === "likedBy"
+    ? { list: "dislikedBy", count: "dislikesCount" }
+    : { list: "likedBy", count: "likesCount" };
+  const hadOpposite = !has && (fresh[opposite.list] || []).includes(currentUser.uid);
+
   try {
-    await updateDoc(ref, {
+    const patch = {
       [listField]: has ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
       [countField]: increment(has ? -1 : 1)
-    });
+    };
+    if (hadOpposite) {
+      patch[opposite.list] = arrayRemove(currentUser.uid);
+      patch[opposite.count] = increment(-1);
+    }
+    await updateDoc(ref, patch);
   } catch (e) {
     // Сервер отклоняет несогласованные изменения — значит данные разъехались.
     // Показываем актуальное состояние, чтобы человек видел правду.
@@ -757,6 +769,12 @@ async function toggleVote(p, { listField, countField, weight, collectionName = "
     ? (fresh[listField] || []).filter(u => u !== currentUser.uid)
     : [...(fresh[listField] || []), currentUser.uid];
   p[countField] = Math.max(0, (fresh[countField] || 0) + (has ? -1 : 1));
+
+  if (hadOpposite) {
+    p[opposite.list] = (fresh[opposite.list] || []).filter(u => u !== currentUser.uid);
+    p[opposite.count] = Math.max(0, (fresh[opposite.count] || 0) - 1);
+  }
+  updatePostCard(p);      // обе отметки перерисовываем сразу
 
   learnFromPost(p, has ? -weight : weight);
 }

@@ -1015,7 +1015,10 @@ body { padding-top: 56px; }
 /* ---------- просмотр изображения на весь экран ---------- */
 .lightbox {
   position: fixed; inset: 0; z-index: 90;
-  background: rgba(8, 6, 12, 0.94);
+  /* Затемнение помягче: за ним видно, откуда фотография открыта, и не
+     возникает ощущения отдельной страницы. */
+  background: rgba(8, 6, 12, 0.72);
+  backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
 }
 .lightbox-stage {
@@ -1029,12 +1032,15 @@ body { padding-top: 56px; }
   cursor: zoom-in; user-select: none; -webkit-user-drag: none;
 }
 .lightbox-stage img.zoomed { cursor: grab; }
+/* Крестик прижат к самой фотографии, а не к углу экрана: так понятно,
+   что он закрывает именно её, и тянуться ближе. */
 .lightbox-close {
-  position: absolute; top: 14px; right: 14px; z-index: 2;
-  background: rgba(0,0,0,.5); border: none; color: #fff;
-  width: 42px; height: 42px; border-radius: 50%; cursor: pointer; font-size: 18px;
+  position: absolute; z-index: 3;
+  background: var(--bg-soft); border: 1px solid #3a2f47; color: var(--text);
+  width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
 }
-.lightbox-close:hover { background: rgba(0,0,0,.75); }
+.lightbox-close:hover { border-color: var(--accent); color: var(--accent); }
 .lightbox-nav {
   position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
   background: rgba(0,0,0,.5); border: none; color: #fff;
@@ -1715,7 +1721,10 @@ body.page-leaving #app { opacity: 0.35; }
 /* ---------- раскрытый вид плеера ---------- */
 .now-playing {
   position: fixed; inset: 0; z-index: 60;
-  background: rgba(10, 8, 14, 0.94);
+  /* Затемнение помягче: за ним должно угадываться содержимое, иначе
+     окно ощущается отдельной страницей, а не слоем поверх. */
+  background: rgba(10, 8, 14, 0.72);
+  backdrop-filter: blur(10px);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; padding: 24px;
   animation: npIn .2s ease;
@@ -1729,11 +1738,16 @@ body.np-open .player-bar { transform: translateY(-120%); transition: transform .
 .player-bar { transition: transform .2s ease; }
 .player-cover { cursor: pointer; }
 
+/* Крестик на самой карточке, а не в углу экрана: иначе непонятно,
+   к чему он относится, и до него далеко тянуться. */
 .np-close {
-  position: absolute; top: 16px; right: 16px;
-  background: rgba(255,255,255,0.1); border: none; color: #fff;
-  width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 17px;
+  position: absolute; top: 10px; right: 10px;
+  background: var(--card); border: 1px solid #3a2f47; color: var(--text);
+  width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 14px;
+  z-index: 2;
 }
+.np-close:hover { border-color: var(--accent); color: var(--accent); }
+.np-card { position: relative; }
 .np-cover {
   width: min(320px, 76vw); aspect-ratio: 1;
   border-radius: 20px; overflow: hidden; background: var(--card);
@@ -2174,3 +2188,16 @@ body.no-select, body.no-select * {
 /* номер можно нажать и скопировать */
 .track-nuid, .uid-display, [data-copy-nuid] { cursor: pointer; }
 .track-nuid:hover, .uid-display:hover, [data-copy-nuid]:hover { color: var(--accent); }
+
+/* карточка развёрнутого плеера */
+.np-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: var(--bg-soft); border: 1px solid #3a2f47;
+  border-radius: 22px; padding: 22px 20px 24px;
+  max-width: min(380px, 90vw);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+@media (min-width: 900px) {
+  .np-card { border: none; background: none; box-shadow: none; padding: 0; max-width: none; }
+}

@@ -318,6 +318,31 @@ service cloud.firestore {
         || exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(post.authorUid));
     }
 
+    // Смена оценки на противоположную: одна отметка ставится, другая снимается.
+    // Проверяем обе пары сразу, иначе такое изменение не проходило бы ни под
+    // одно из правил по отдельности.
+    function isVoteSwitch() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let uid = request.auth.uid;
+
+      return after.diff(before).affectedKeys()
+               .hasOnly(['likedBy', 'likesCount', 'dislikedBy', 'dislikesCount'])
+        && (
+          // было «не нравится», стало «нравится»
+          (!(uid in before.get('likedBy', [])) && uid in after.get('likedBy', [])
+            && uid in before.get('dislikedBy', []) && !(uid in after.get('dislikedBy', []))
+            && after.get('likesCount', 0) == before.get('likesCount', 0) + 1
+            && after.get('dislikesCount', 0) == before.get('dislikesCount', 0) - 1)
+          ||
+          // было «нравится», стало «не нравится»
+          (!(uid in before.get('dislikedBy', [])) && uid in after.get('dislikedBy', [])
+            && uid in before.get('likedBy', []) && !(uid in after.get('likedBy', []))
+            && after.get('dislikesCount', 0) == before.get('dislikesCount', 0) + 1
+            && after.get('likesCount', 0) == before.get('likesCount', 0) - 1)
+        );
+    }
+
     // ===================== ПОСТЫ ЛЕНТЫ =====================
     // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
     // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null
@@ -346,6 +371,7 @@ service cloud.firestore {
         // список не менялся (человек уже там), а счётчик рос.
         isVoteToggle('likedBy', 'likesCount') ||
         isVoteToggle('dislikedBy', 'dislikesCount') ||
+        isVoteSwitch() ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'editedAt']) &&
           (request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid ||
            canManageChannelPost(resource.data)))

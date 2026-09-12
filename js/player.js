@@ -128,13 +128,25 @@ function ensureBar() {
       </div>
     </div>
     <button class="player-fav" data-fav title="в любимое"><span class="nf">${ICON.heart}</span></button>
-    <button class="player-expand" data-expand title="развернуть"><span class="nf">${ICON.down}</span></button>`;
+    <button class="player-expand" data-expand title="развернуть">
+      <span class="nf" data-expand-icon>${ICON.down}</span>
+    </button>`;
   document.body.appendChild(bar);
 
   bar.querySelector("[data-toggle]").addEventListener("click", (e) => {
     e.stopPropagation();
     togglePlay();
   });
+  // На компьютере плеер разворачивается вверх, на телефоне — вниз.
+  // Стрелка должна показывать туда же, куда он откроется.
+  const expandIcon = bar.querySelector("[data-expand-icon]");
+  const pointExpand = () => {
+    const up = window.matchMedia("(min-width: 900px)").matches;
+    expandIcon.textContent = up ? ICON.up : ICON.down;
+  };
+  pointExpand();
+  window.addEventListener("resize", pointExpand);
+
   bar.querySelector("[data-expand]").addEventListener("click", openNowPlaying);
 
   // Добавить играющий трек в любимое, не уходя со страницы.
@@ -441,21 +453,25 @@ function openNowPlaying() {
   const box = document.createElement("div");
   box.className = "now-playing";
   box.id = "nowPlaying";
+  // Содержимое обёрнуто в карточку: крестик крепится к ней, а не к углу
+  // экрана — иначе непонятно, что именно он закрывает.
   box.innerHTML = `
-    <button class="np-close" data-close><span class="nf">${ICON.close}</span></button>
-    <div class="np-cover">
+    <div class="np-card">
+      <button class="np-close" data-close><span class="nf">${ICON.close}</span></button>
+      <div class="np-cover">
       <img src="${current.coverUrl || defaultCover(current.id || current.title)}" alt="">
     </div>
     <div class="np-title">${escapeHtml(current.title || "Без названия")}</div>
     <div class="np-artist">${escapeHtml(current.artist || "")}</div>
     <div class="np-progress" data-np-progress><div class="np-fill" data-np-fill></div></div>
     <div class="np-times"><span data-np-now>0:00</span><span data-np-total>—</span></div>
-    <div class="np-controls">
-      <button class="np-btn" data-np-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
-      <button class="np-btn" data-np-prev title="назад"><span class="nf">${ICON.left}</span></button>
-      <button class="np-btn np-play" data-np-toggle><span class="nf">${ICON.pause}</span></button>
-      <button class="np-btn" data-np-next title="дальше"><span class="nf">${ICON.right}</span></button>
-      <button class="np-btn" data-np-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
+      <div class="np-controls">
+        <button class="np-btn" data-np-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
+        <button class="np-btn" data-np-prev title="назад"><span class="nf">${ICON.left}</span></button>
+        <button class="np-btn np-play" data-np-toggle><span class="nf">${ICON.pause}</span></button>
+        <button class="np-btn" data-np-next title="дальше"><span class="nf">${ICON.right}</span></button>
+        <button class="np-btn" data-np-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
+      </div>
     </div>`;
   document.body.appendChild(box);
   document.body.classList.add("np-open");   // полоса уезжает под шапку

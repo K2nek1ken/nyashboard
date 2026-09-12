@@ -98,6 +98,20 @@ export function openLightbox(src, allSrcs = [], startIndex = 0) {
 
   // щипок двумя пальцами
   let pinchStart = 0, startScale = 1;
+  // Крестик ставим по краю самой фотографии: она бывает любого размера,
+  // и закреплённый в углу экрана выглядел бы оторванным от неё.
+  const placeClose = () => {
+    const btn = box.querySelector(".lightbox-close");
+    const r = img.getBoundingClientRect();
+    if (!btn || !r.width) return;
+    btn.style.top = Math.max(10, r.top - 6) + "px";
+    btn.style.left = Math.min(window.innerWidth - 46, r.right - 30) + "px";
+    btn.style.right = "auto";
+  };
+  img.addEventListener("load", placeClose);
+  window.addEventListener("resize", placeClose);
+  requestAnimationFrame(placeClose);
+
   stage.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 2) return;
     // плавность мешает при щипке: движение и без неё непрерывное,
