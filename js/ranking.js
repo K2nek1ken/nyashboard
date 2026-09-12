@@ -20,8 +20,12 @@ import { isOwned } from "./ownership.js";
 //
 // Порядок пересчитывается только при загрузке страницы: если бы он менялся
 // во время чтения, лента прыгала бы под пальцами.
+// Сколько времени своя запись держится наверху. Час — чтобы успеть увидеть
+// результат и первые отклики, но не заслонять ленту на весь день.
+const OWN_BOOST_WINDOW = 60 * 60 * 1000;
+
 const WEIGHTS = {
-  own: 2000,              // свои записи всегда наверху
+  ownFresh: 2000,         // свои записи — наверх, но только пока свежие
   followedUnseen: 1000,
   unseen: 300,
   followedBonus: 200,
@@ -40,10 +44,15 @@ export function scorePost(post, subs, friends) {
 
   let score = 0;
 
-  // Свои записи держим первыми: человек только что опубликовал и хочет
-  // увидеть результат, а не искать его в ленте. Для гостей владение
-  // определяется по локальной отметке — иначе их записи терялись бы.
-  if (isMine || isOwned("post", post.id)) score += WEIGHTS.own;
+  // Свою свежую запись поднимаем наверх: человек только что опубликовал и
+  // хочет увидеть результат. Но только на время — постоянный вес означал бы,
+  // что собственные записи навсегда заслоняют всё новое, и о чужих записях
+  // просто не узнать.
+  const mine = isMine || isOwned("post", post.id);
+  if (mine) {
+    const age = Date.now() - (post.createdAt?.toMillis?.() || 0);
+    if (age < OWN_BOOST_WINDOW) score += WEIGHTS.ownFresh;
+  }
 
   if (!seen && followed) score += WEIGHTS.followedUnseen;
   else if (!seen) score += WEIGHTS.unseen;
