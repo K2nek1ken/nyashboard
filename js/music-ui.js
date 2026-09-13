@@ -3,7 +3,7 @@ import { playTrack, queueNext, currentTrackId } from "./player.js";
 import { kebabHtml, wireKebab } from "./kebab.js";
 import { defaultCover } from "./default-avatar.js";
 import { currentUser, authReady } from "./auth.js";
-import { escapeHtml, showToast } from "./ui.js";
+import { escapeHtml, showToast, closeOverlay } from "./ui.js";
 import { askConfirm } from "./dialog.js";
 import { readAudioMeta } from "./audio-meta.js";
 import { ICON } from "./icons.js";
@@ -257,7 +257,7 @@ async function openUploadForm(file, onDone) {
     if (f) { setCover(f); note.textContent = "Обложка выбрана"; }
   });
 
-  const close = () => modal.remove();
+  const close = () => closeOverlay(modal);
   modal.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
   modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
 

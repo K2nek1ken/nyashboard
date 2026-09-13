@@ -1,6 +1,6 @@
 import { db, collection, addDoc, serverTimestamp } from "./firebase.js";
 import { currentUser } from "./auth.js";
-import { showToast, escapeHtml } from "./ui.js";
+import { showToast, escapeHtml, closeOverlay } from "./ui.js";
 import { ICON } from "./icons.js";
 
 // ============================================================
@@ -47,7 +47,7 @@ export function openReportDialog({ kind, id, preview = "" }) {
     </div>`;
   document.body.appendChild(box);
 
-  const close = () => box.remove();
+  const close = () => closeOverlay(box);
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
 

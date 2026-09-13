@@ -7,7 +7,7 @@ import { setQueue } from "./player.js";
 import { trackCardHtml, wireTrackCards } from "./music-ui.js";
 import { currentUser, authReady } from "./auth.js";
 import { askText, askConfirm } from "./dialog.js";
-import { showToast, escapeHtml } from "./ui.js";
+import { showToast, escapeHtml, closeOverlay } from "./ui.js";
 import { ICON } from "./icons.js";
 
 // ============================================================
@@ -240,7 +240,7 @@ function openPlaylistPicker(trackId) {
     </div>`;
   document.body.appendChild(box);
 
-  const close = () => box.remove();
+  const close = () => closeOverlay(box);
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
 

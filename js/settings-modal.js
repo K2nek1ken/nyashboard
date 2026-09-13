@@ -1,4 +1,5 @@
 import { initSettingsPage } from "./settings-ui.js";
+import { closeOverlay } from "./ui.js";
 import { ICON } from "./icons.js";
 
 // На широком экране настройки открываются поверх страницы: уходить со страницы
@@ -33,7 +34,7 @@ export function openSettingsModal() {
     </div>`;
   document.body.appendChild(modal);
 
-  const close = () => modal.remove();
+  const close = () => closeOverlay(modal);
   modal.querySelector("[data-close]").addEventListener("click", close);
   modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
   document.addEventListener("keydown", function esc(e) {

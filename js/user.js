@@ -2,7 +2,7 @@ import { getUserDoc } from "./data.js";
 import { goTo } from "./router.js";
 import { loadUserFeed, renderPostsInto } from "./feed.js";
 import { authReady, currentUser } from "./auth.js";
-import { escapeHtml, setText, setHtml } from "./ui.js";
+import { escapeHtml, setText, setHtml, closeOverlay } from "./ui.js";
 import { avatarHtml } from "./avatar.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
 import { fetchOnline } from "./presence.js";
@@ -243,7 +243,7 @@ async function renderMusicButton(uid, user) {
       </div>`;
     document.body.appendChild(box);
 
-    const close = () => box.remove();
+    const close = () => closeOverlay(box);
     box.querySelector("[data-close]").addEventListener("click", close);
     box.addEventListener("click", (e) => { if (e.target === box) close(); });
 

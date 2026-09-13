@@ -104,11 +104,14 @@ async function swap(page, { push = true } = {}) {
     // Открытые окна и меню относятся к покидаемой вкладке: они висят в общем
     // слое поверх страницы, поэтому сами бы не закрылись и остались бы
     // поверх новой.
-    document.querySelectorAll(".modal, .lightbox").forEach(el => {
+    document.querySelectorAll(".modal, .lightbox, .composer-screen").forEach(el => {
       if (el.id === "settingsModal") return;   // настройки открываются поверх любой вкладки
       if (el.dataset.persistent) return;       // окно, которое закрывает только человек
+      // Здесь убираем сразу: страница уже сменилась, и провожать окно
+      // анимацией не за чем — она проигралась бы поверх новой вкладки.
       el.remove();
     });
+    document.body.classList.remove("composer-open");
     // Развёрнутый плеер закрывать не нужно: он относится к музыке, а она
     // играет поверх всех вкладок. Закрывает его только сам человек.
     document.querySelectorAll(

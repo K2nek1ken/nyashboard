@@ -4,7 +4,7 @@ import { currentUser } from "./auth.js";
 import { loadFriends, isFriend, addFriend, removeFriend, isMutualFriend } from "./friends.js";
 import { avatarHtml } from "./avatar.js";
 import { relationBadge, badgeHtml, nameHtml, isAdmin } from "./person.js";
-import { escapeHtml, showToast } from "./ui.js";
+import { escapeHtml, showToast, closeOverlay } from "./ui.js";
 import { fetchOnline } from "./presence.js";
 import { getAlias, setAlias } from "./aliases.js";
 import { ICON } from "./icons.js";
@@ -154,7 +154,7 @@ function createBox() {
       <div data-body><div class="stub-note">Загружаю...</div></div>
     </div>`;
   document.body.appendChild(box);
-  const close = () => box.remove();
+  const close = () => closeOverlay(box);
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
   document.addEventListener("keydown", function esc(e) {

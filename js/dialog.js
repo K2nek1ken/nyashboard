@@ -1,5 +1,5 @@
 import { ICON } from "./icons.js";
-import { escapeHtml } from "./ui.js";
+import { escapeHtml, closeOverlay } from "./ui.js";
 
 // Свои окна вместо системных prompt/confirm: те выглядят чужеродно, по-разному
 // в каждом браузере, а на телефоне ещё и обрезают длинный текст.
@@ -18,7 +18,7 @@ function build(title, bodyHtml, buttons) {
       </div>`;
     document.body.appendChild(modal);
 
-    const done = (value) => { modal.remove(); document.removeEventListener("keydown", onKey); resolve(value); };
+    const done = (value) => { closeOverlay(modal); document.removeEventListener("keydown", onKey); resolve(value); };
     const onKey = (e) => {
       if (e.key === "Escape") done(null);
       if (e.key === "Enter" && !e.shiftKey && modal.querySelector("input")) {

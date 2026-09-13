@@ -4,7 +4,7 @@ import { uploadImages } from "./storage.js";
 import { extractHashtags } from "./hashtags.js";
 import { markOwned } from "./ownership.js";
 import { initPostIdentity, identityFields, getPostIdentity } from "./post-identity.js";
-import { showToast, escapeHtml } from "./ui.js";
+import { showToast, escapeHtml, closeOverlay } from "./ui.js";
 import { ICON } from "./icons.js";
 
 // ============================================================
@@ -58,10 +58,7 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
 
   if (!editing) initPostIdentity(box.querySelector("#composerIdentity"));
 
-  const close = () => {
-    box.remove();
-    document.body.classList.remove("composer-open");
-  };
+  const close = () => closeOverlay(box);
   box.querySelector("[data-cancel]").addEventListener("click", close);
 
   // Поле растёт под текст, но не выше экрана: дальше прокручивается.

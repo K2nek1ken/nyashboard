@@ -1,6 +1,6 @@
 import { formatDuration } from "./music.js";
 import { ICON } from "./icons.js";
-import { escapeHtml, showToast } from "./ui.js";
+import { escapeHtml, showToast, closeOverlay } from "./ui.js";
 import { defaultCover } from "./default-avatar.js";
 
 // ============================================================
@@ -625,11 +625,7 @@ function openNowPlaying() {
   box.dataset.persistent = "1";
   saveState();      // запоминаем, что вид открыт
 
-  const close = () => {
-    box.classList.add("closing");
-    document.body.classList.remove("np-open");
-    setTimeout(() => { box.remove(); saveState(); }, 180);
-  };
+  const close = () => closeOverlay(box, saveState);
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
 
@@ -706,7 +702,7 @@ function showQueue() {
     </div>`;
   document.body.appendChild(box);
 
-  const close = () => box.remove();
+  const close = () => closeOverlay(box);
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
   // Перетаскивание за ручку: порядок в очереди меняется одним движением.

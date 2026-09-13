@@ -1072,12 +1072,13 @@ body { padding-top: 56px; }
    отдельный предмет, а не как дыра в экране. Рамка нужна ещё и потому,
    что тёмное фото иначе сливается с затемнением вокруг.
 
-   При увеличении рамка и скругление убираются: тогда важен каждый пиксель
-   картинки, и рамка бы мешала разглядывать края. */
+   Рамка остаётся и при увеличении: несколько пикселей ничему не мешают,
+   а её исчезновение на первом же приближении выглядело как поломка.
+   Кому нужен каждый пиксель — откроет фото в новой вкладке. */
 .lightbox-stage img {
   max-width: 92%; max-height: 86%;
   transform-origin: center;
-  transition: transform .08s linear, border-radius .16s ease, box-shadow .16s ease;
+  transition: transform .08s linear;
   cursor: zoom-in; user-select: none; -webkit-user-drag: none;
 
   border-radius: 16px;
@@ -1085,12 +1086,7 @@ body { padding-top: 56px; }
   box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
   background: var(--bg);
 }
-.lightbox-stage img.zoomed {
-  cursor: grab;
-  border-radius: 0;
-  border-width: 0;
-  box-shadow: none;
-}
+.lightbox-stage img.zoomed { cursor: grab; }
 /* Крестик прижат к самой фотографии, а не к углу экрана: так понятно,
    что он закрывает именно её, и тянуться ближе. */
 .lightbox-close {
@@ -2620,4 +2616,43 @@ input[type="text"], input[type="search"], textarea {
 .inlineEdit:focus, .settingSelect:focus, .searchBox:focus, .edit-post-area:focus,
 input[type="text"]:focus, input[type="search"]:focus, textarea:focus {
   border-color: var(--accent); outline: none;
+}
+
+/* ============================================================
+   Появление и исчезновение окон
+   Резкое появление ощущается как рывок, поэтому всё всплывающее
+   проявляется и гаснет. Длительности короткие — интерфейс должен
+   оставаться отзывчивым, а не «плыть».
+   ============================================================ */
+@keyframes overlayIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes overlayOut { to { opacity: 0; } }
+@keyframes cardIn     { from { opacity: 0; transform: translateY(12px) scale(.985); }
+                        to   { opacity: 1; transform: none; } }
+@keyframes cardOut    { to { opacity: 0; transform: translateY(8px) scale(.99); } }
+
+.modal { animation: overlayIn .15s ease; }
+.modal > .modal-content { animation: cardIn .18s cubic-bezier(.2,.8,.3,1); }
+.modal.closing { animation: overlayOut .14s ease forwards; }
+.modal.closing > .modal-content { animation: cardOut .14s ease forwards; }
+
+.lightbox { animation: overlayIn .16s ease; }
+.lightbox.closing { animation: overlayOut .14s ease forwards; }
+.lightbox-stage img { animation: cardIn .2s cubic-bezier(.2,.8,.3,1); }
+
+.composer-screen.closing { animation: cardOut .16s ease forwards; }
+.now-playing.closing { animation: npOut .18s ease forwards; }
+
+/* Выпадающие меню — короче, они появляются часто */
+.kebabMenu:not(.hidden),
+.cselect-menu:not(.hidden),
+.player-menu:not(.hidden),
+.profile-dropdown:not(.hidden) { animation: cardIn .12s ease; }
+
+/* Уважаем просьбу системы: без движения всё появляется сразу */
+@media (prefers-reduced-motion: reduce) {
+  .modal, .modal > .modal-content, .lightbox, .lightbox-stage img,
+  .composer-screen, .now-playing, .kebabMenu, .cselect-menu,
+  .player-menu, .profile-dropdown {
+    animation: none !important;
+  }
 }

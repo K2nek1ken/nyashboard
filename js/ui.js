@@ -121,3 +121,29 @@ export function toggleClass(id, name, on) {
   el?.classList.toggle(name, on);
   return el;
 }
+
+
+// ============================================================
+//  Плавное закрытие окон
+//
+//  Появление можно сделать одними стилями, а вот исчезновение — нет:
+//  элемент удаляется сразу, и анимации негде проиграться. Поэтому сначала
+//  помечаем окно как закрывающееся, ждём анимацию и только потом убираем.
+//
+//  Длительность берём из самих стилей, а не вписываем числом: поменяется
+//  анимация — ничего подгонять не придётся.
+// ============================================================
+
+export function closeOverlay(el, done) {
+  if (!el || el.dataset.closing) return;
+  el.dataset.closing = "1";
+  el.classList.add("closing");
+  document.body.classList.remove("composer-open", "np-open");
+
+  const style = getComputedStyle(el);
+  const ms = parseFloat(style.animationDuration) * 1000
+          || parseFloat(style.transitionDuration) * 1000
+          || 160;
+
+  setTimeout(() => { el.remove(); done?.(); }, ms);
+}

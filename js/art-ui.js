@@ -2,7 +2,7 @@ import { listArtworks, uploadArt, deleteArtwork, toggleArtLike } from "./art.js"
 import { currentUser, authReady } from "./auth.js";
 import { openLightbox } from "./lightbox.js";
 import { askText, askConfirm } from "./dialog.js";
-import { showToast, escapeHtml, timeAgo } from "./ui.js";
+import { showToast, escapeHtml, timeAgo, closeOverlay } from "./ui.js";
 import { ICON } from "./icons.js";
 
 // Раздел с работами: сетка картинок, под каждой автор и оценки.
@@ -152,7 +152,7 @@ export function openArtForm({ file = null, art = null, onDone } = {}) {
   const preview = box.querySelector("[data-preview]");
   preview.src = editing ? art.imageUrl : URL.createObjectURL(file);
 
-  const close = () => box.remove();
+  const close = () => closeOverlay(box);
   box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
 
@@ -208,7 +208,7 @@ export async function openArtPreview(artId) {
     </div>`;
   document.body.appendChild(box);
 
-  const close = () => box.remove();
+  const close = () => closeOverlay(box);
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
 }

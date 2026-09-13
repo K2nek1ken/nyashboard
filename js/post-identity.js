@@ -2,7 +2,7 @@ import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { remember, recall } from "./session-state.js";
 import { avatarHtml } from "./avatar.js";
 import { CHANNEL_COLOR } from "./palette.js";
-import { escapeHtml, showToast } from "./ui.js";
+import { escapeHtml, showToast, closeOverlay } from "./ui.js";
 import { ICON } from "./icons.js";
 
 // ============================================================
@@ -142,7 +142,7 @@ function pickChannel() {
       </div>`;
     document.body.appendChild(box);
 
-    const done = (value) => { box.remove(); resolve(value); };
+    const done = (value) => { closeOverlay(box); resolve(value); };
     box.querySelector("[data-close]").addEventListener("click", () => done(null));
     box.addEventListener("click", (e) => { if (e.target === box) done(null); });
     box.querySelectorAll("[data-pick]").forEach(btn =>
