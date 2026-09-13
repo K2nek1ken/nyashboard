@@ -248,6 +248,8 @@ function wireCreateModal() {
   const descInput = document.getElementById("channelDescInput");
   const createBtn = document.getElementById("createChannelBtn");
 
+  if (!modal || !fab) return;   // не на всякой странице есть создание канала
+
   fab.addEventListener("click", () => {
     if (!currentUser) { showToast("Нужен аккаунт, чтобы создать канал (иначе некому будет им управлять)"); return; }
     nameInput.value = "";

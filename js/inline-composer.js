@@ -32,12 +32,8 @@ export function initInlineComposer(onPublished) {
   }
   textarea.addEventListener("input", autoGrow);
 
-  authReady.then(() => {
-    if (!currentUser) {
-      anonToggle.checked = true;
-      anonToggle.disabled = true;
-    }
-  });
+  // Гостю выбирать не из чего — это решает сам модуль выбора имени,
+  // отдельная проверка здесь больше не нужна.
 
   function renderStrip() {
     strip.innerHTML = images.map((f, i) => `

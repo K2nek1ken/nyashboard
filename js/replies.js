@@ -36,6 +36,9 @@ export async function sendReply(postId, text, imageFile = null) {
     postId,
     authorUid: currentUser ? currentUser.uid : null,
     authorNickname: currentUser ? (currentUserDoc?.nickname || "???") : null,
+    // Юзернейм нужен, чтобы на ответ можно было ответить упоминанием.
+    // У анонимных не сохраняем — иначе анонимность бы нарушалась.
+    authorUsername: (currentUser && !isAnon) ? (currentUserDoc?.username || null) : null,
     isAnonymous: isAnon,
     text,
     imageUrl,
@@ -101,13 +104,13 @@ export function replyRowHtml(r) {
       <div class="reply-row-head">
         <b class="${r.isAnonymous ? "anon" : ""}">${name}</b>
         <span class="muted">· ${timeAgo(r.createdAt)}</span>
-        ${kebabHtml(kebabItems, r.id)}
+        <button class="reply-act" data-action="replyToReply" title="ответить">
+          <span class="nf">${ICON.reply}</span>
+        </button>
+        ${canManage ? kebabHtml(kebabItems, r.id) : ""}
       </div>
       <div class="reply-text">${linkifyMentions(escapeHtml(r.text || ""))}</div>
       ${r.imageUrl ? `<img class="reply-img" src="${r.imageUrl}">` : ""}
-      <button class="replyLikeBtn" data-action="replyToReply" title="ответить">
-        <span class="nf">${ICON.reply}</span>
-      </button>
       <button class="replyLikeBtn ${liked ? "liked" : ""}" data-action="likeReply">
         <span class="nf">${liked ? ICON.heartFilled : ICON.heart}</span> ${r.likesCount || 0}
       </button>
@@ -122,10 +125,19 @@ export function wireReplyLikes(container, replies, onDeleted) {
     // Ответ на ответ: отдельная кнопка вместо меню — действие одно,
     // и прятать его в меню было бы лишним шагом.
     row.querySelector('[data-action="replyToReply"]')?.addEventListener("click", () => {
-      const input = document.getElementById("replyInput");
-      if (!input) return;
-      const handle = r.authorUsername ? `@${r.authorUsername} ` : "";
-      input.value = handle + input.value.replace(handle, "");
+      // Поле ответа называется по-разному на странице записи и в ленте —
+      // берём то, что есть на этой странице.
+      const input = document.getElementById("detailReplyInput")
+                 || document.getElementById("replyInput")
+                 || document.querySelector(".reply-input-row input");
+      if (!input) { showToast("Поле ответа не найдено"); return; }
+
+      // Имя автора берём из самого ответа; у анонимных его нет, тогда просто
+      // ставим курсор в поле — отвечать по имени не к кому.
+      const handle = (!r.isAnonymous && r.authorUsername) ? `@${r.authorUsername} ` : "";
+      if (handle && !input.value.startsWith(handle)) {
+        input.value = handle + input.value;
+      }
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
       input.scrollIntoView({ behavior: "smooth", block: "center" });

@@ -250,15 +250,6 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.authorUid == request.auth.uid;
       allow update: if request.auth != null && (
-        // Номер записи можно проставить один раз и только если его ещё нет.
-        // Разрешено любому вошедшему: у старых записей номера не было, а автор
-        // может больше не зайти — тогда они остались бы без него навсегда.
-        // Подменить уже проставленный нельзя: правило требует, чтобы прежнего
-        // значения не существовало.
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['publicUid'])
-          && !('publicUid' in resource.data)
-          && request.resource.data.publicUid is string
-          && request.resource.data.publicUid.matches('^U0[0-9]{6}$')) ||
         isVoteToggle('likedBy', 'likesCount') ||
         resource.data.authorUid == request.auth.uid
       );
@@ -381,6 +372,16 @@ service cloud.firestore {
         isVoteToggle('likedBy', 'likesCount') ||
         isVoteToggle('dislikedBy', 'dislikesCount') ||
         isVoteSwitch() ||
+
+        // Номер записи проставляется один раз и только если его ещё нет.
+        // Разрешено любому вошедшему: у старых записей номера не было, а автор
+        // может больше не зайти — тогда они остались бы без номера навсегда.
+        // Подменить уже проставленный нельзя: правило требует, чтобы прежнего
+        // значения не существовало.
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['publicUid'])
+          && !('publicUid' in resource.data)
+          && request.resource.data.publicUid is string
+          && request.resource.data.publicUid.matches('^U0[0-9]{6}$')) ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'editedAt', 'publicUid']) &&
           (request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid ||
            canManageChannelPost(resource.data)))

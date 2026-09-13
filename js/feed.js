@@ -948,7 +948,7 @@ export function openPostEditor(post = null) {
   const textarea = document.getElementById("postTextArea");
   // Выбор имени — общий модуль: он же собирает поля записи.
   initPostIdentity(document.getElementById("postIdentityHost"));
-  const anonRow = document.getElementById("anonToggleRow");
+  const identityHost = document.getElementById("postIdentityHost");
   const title = document.getElementById("editorTitle");
   const publishBtn = document.getElementById("publishPostBtn");
   if (!editor) return;
@@ -961,18 +961,12 @@ export function openPostEditor(post = null) {
   if (post) {
     title.textContent = "Редактирование поста";
     publishBtn.textContent = "Сохранить";
-    anonRow.classList.add("hidden"); // автора на редактировании не меняем
+    // Автора при правке не меняем: запись уже опубликована от чьего-то имени.
+    identityHost?.classList.add("hidden");
   } else {
     title.textContent = "Новый пост";
     publishBtn.textContent = "Опубликовать";
-    anonRow.classList.remove("hidden");
-    if (!currentUser) {
-      anonToggle.checked = true;
-      anonToggle.disabled = true;
-    } else {
-      anonToggle.disabled = false;
-      anonToggle.checked = false;
-    }
+    identityHost?.classList.remove("hidden");
   }
 
   editor.classList.remove("hidden");

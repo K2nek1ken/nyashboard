@@ -136,6 +136,11 @@ export async function initUserPage() {
 
     function paint() {
       const list = active === "wall" ? wallPosts : feedPosts;
+
+      // Писать можно только на стену: во вкладке «Лента» показаны записи,
+      // которые пишутся из самой ленты, и кнопка там ни к чему.
+      const writeBtn = document.getElementById("userPostBox");
+      if (writeBtn) writeBtn.classList.toggle("hidden", active !== "wall");
       tabs?.querySelectorAll("[data-usub]").forEach(b =>
         b.classList.toggle("active", b.dataset.usub === active));
 
