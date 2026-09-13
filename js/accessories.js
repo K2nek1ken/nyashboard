@@ -78,12 +78,14 @@ const ITEMS = {
     label: "Нимб серафима",
     forChannel: true,
     svg: (c) => {
+      // Три кольца под углом, как на эскизе, но над аватаркой, а не поверх
+      // неё: в полный размер они накрывали лицо и читались как решётка.
       const ring = (angle) =>
-        `<ellipse cx="50" cy="50" rx="48.9" ry="15.1" fill="none"
-                  stroke="${c}" stroke-width="2.6"
-                  transform="rotate(${angle} 50 50)"/>`;
-      return `${ring(0)}${ring(17.5)}${ring(-17.5)}
-              <circle cx="50" cy="50" r="9.5" fill="${c}"/>`;
+        `<ellipse cx="50" cy="13" rx="30" ry="9" fill="none"
+                  stroke="${c}" stroke-width="2.4"
+                  transform="rotate(${angle} 50 13)"/>`;
+      return `${ring(0)}${ring(16)}${ring(-16)}
+              <circle cx="50" cy="13" r="4.6" fill="${c}"/>`;
     }
   },
 
@@ -92,10 +94,15 @@ const ITEMS = {
     label: "Звёздочка",
     forChannel: true,
     svg: (c) => {
+      // Внешний радиус больше, чем у искры: у пятиконечной звезды между
+      // лучами много пустоты, и при равной ширине она кажется вдвое мельче.
+      // Внутренний тоже подтянут — так лучи шире и звезда читается плотнее.
       const pts = [];
       for (let i = 0; i < 10; i++) {
-        const r = i % 2 === 0 ? 13 : 5.6;
+        const r = i % 2 === 0 ? 14.5 : 6.4;
         const a = (Math.PI / 5) * i - Math.PI / 2;
+        // Центр там же, где был: звезда должна лежать на краю аватарки
+        // внахлёст, а не висеть рядом с ней.
         pts.push(`${(19 + Math.cos(a) * r).toFixed(1)},${(28 + Math.sin(a) * r).toFixed(1)}`);
       }
       return `<polygon points="${pts.join(" ")}" fill="${c}"/>`;
@@ -117,14 +124,24 @@ export const CHANNEL_ACCESSORIES = Object.fromEntries(
     .map(([k, v]) => [k, v.label])
 );
 
-export function accessoryHtml(key, colorKey) {
+// Украшение поверх аватарки. Параметр preview — для кнопок выбора:
+// там оно должно вписаться в кнопку, а не разложиться вокруг аватарки.
+export function accessoryHtml(key, colorKey, preview = false) {
   const item = ITEMS[key];
   if (!item || key === "none") return "";
   const svg = item.svg(paletteColor(colorKey));
   if (!svg) return "";
-  // Размеры продублированы прямо в разметке: если стиль почему-то не применился,
+
+  // Размеры вписаны прямо в разметку: если стиль почему-то не применился,
   // элемент со стороной ноль просто не был бы виден, и причину искать долго.
-  return `<svg class="avatar-accessory" viewBox="0 0 100 100" aria-hidden="true"
-    style="position:absolute;inset:-18%;width:136%;height:136%;pointer-events:none;z-index:1;overflow:visible;"
+  // Из-за этого же они сильнее любого правила снаружи — поэтому для кнопок
+  // выбора подставляем свои, а не пытаемся перебить их со стороны.
+  const box = preview
+    ? "position:absolute;inset:10%;width:80%;height:80%;"
+    : "position:absolute;inset:-18%;width:136%;height:136%;";
+
+  return `<svg class="avatar-accessory${preview ? " accessory-preview" : ""}"
+    viewBox="0 0 100 100" aria-hidden="true"
+    style="${box}pointer-events:none;z-index:1;overflow:visible;"
   >${svg}</svg>`;
 }

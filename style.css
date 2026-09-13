@@ -1224,13 +1224,10 @@ html[data-theme="quiet"] .searchBox {
   background: var(--card); border: 2px solid #3a2f47; border-radius: 12px; padding: 0;
 }
 .accessoryOption.selected { border-color: var(--accent); }
-/* Превью внутри кнопки выбора: раньше сюда попадали размеры настоящего
-   украшения (шире аватарки в полтора раза), и они вылезали за кнопку. */
-.accessoryOption svg {
-  position: absolute !important;
-  inset: 8% !important; width: 84% !important; height: 84% !important;
-  z-index: auto !important;
-}
+/* Размер превью задаёт сама разметка (см. accessoryHtml): встроенные стили
+   сильнее любого правила отсюда, поэтому спорить с ними бесполезно —
+   украшение для кнопки собирается сразу нужного размера. */
+.accessoryOption { position: relative; overflow: hidden; }
 .accessoryOption .none-label { font-size: 10px; color: var(--muted); }
 
 /* Обе половинки разбитого сердца должны меняться одинаково: раньше правило

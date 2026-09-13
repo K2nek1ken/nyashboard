@@ -422,6 +422,7 @@ function playMeow() {
 // Метки собираем один раз на список: у каждой свой запрос про взаимность,
 // и делать их во время отрисовки означало бы мигающие подписи.
 const authorProfiles = new Map();
+const channelCache = new Map();
 
 async function refreshBadges(msgs) {
   const uids = [...new Set(msgs.filter(m => m.authorUid).map(m => m.authorUid))];
@@ -433,6 +434,28 @@ async function refreshBadges(msgs) {
     authorProfiles.set(uid, user);
     badges.set(uid, await relationBadge(uid, user).catch(() => null));
   }));
+
+  // Каналы: оформление берём из самого канала — в сообщении лежит копия
+  // на момент отправки, и она устаревает при первой же смене цвета.
+  const channelIds = [...new Set(msgs.filter(m => m.channelId).map(m => m.channelId))];
+  if (channelIds.length) {
+    try {
+      const { getChannel } = await import("./channels.js");
+      await Promise.all(channelIds.map(async id => {
+        if (channelCache.has(id)) return;
+        channelCache.set(id, await getChannel(id).catch(() => null));
+      }));
+      msgs.forEach(m => {
+        const ch = m.channelId && channelCache.get(m.channelId);
+        if (!ch) return;
+        m.channelName = ch.name || m.channelName;
+        m.channelAvatar = ch.avatarUrl || m.channelAvatar;
+        m.channelShape = ch.avatarShape || "circle";
+        m.channelAccessory = ch.accessory || "none";
+        m.channelBorder = ch.avatarBorder || "teal";
+      });
+    } catch (e) { console.warn("Оформление каналов в чате:", e.message); }
+  }
 
   // Оформление берём из профиля, а не из того, что записалось при отправке:
   // человек мог сменить цвет ника или аватарку уже после сообщения, и в чате

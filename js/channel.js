@@ -348,7 +348,7 @@ function wireSettingsModal(channelId) {
         <button type="button" class="accessoryOption ${key === pendingChannelAccessory ? "selected" : ""}"
                 data-ch-accessory="${key}" title="${label}">
           ${key === "none" ? '<span class="none-label">нет</span>'
-                           : accessoryHtml(key, pendingChannelBorder)}
+                           : accessoryHtml(key, pendingChannelBorder, true)}
         </button>`).join("")}
     </div>`;
     csAccessoryHost.querySelectorAll("[data-ch-accessory]").forEach(btn => {
@@ -421,6 +421,10 @@ function wireSettingsModal(channelId) {
         await changeChannelUsername(channelId, channel.username, usernameSuffix);
       }
       channel = await getChannel(channelId);
+
+      // Лента и стены помнят прежнее оформление — просим забыть,
+      // иначе новые цвет и украшение появятся только после перезагрузки.
+      import("./feed.js").then(({ forgetChannelDecor }) => forgetChannelDecor(channelId)).catch(() => {});
       // обновляем аватарку в шапке после сохранения — тем же общим рендером
       const host = document.getElementById("chAvatarHost");
       if (host) {

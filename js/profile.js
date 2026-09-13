@@ -78,7 +78,7 @@ export function initProfilePageForm() {
         <button type="button" class="accessoryOption ${key === pendingAccessory ? "selected" : ""}"
                 data-accessory="${key}" title="${label}">
           ${key === "none" ? '<span class="none-label">нет</span>'
-                           : accessoryHtml(key, pendingBorder)}
+                           : accessoryHtml(key, pendingBorder, true)}
         </button>`).join("")}
     </div>`;
     accessoryHost.querySelectorAll("[data-accessory]").forEach(btn => {

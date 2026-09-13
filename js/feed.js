@@ -217,7 +217,7 @@ async function enrichAuthors(posts) {
     posts.filter(p => p.authorUid && !p.isAnonymous && p.authorAccessory === undefined)
          .map(p => p.authorUid)
   )];
-  const needChannels = posts.some(p => p.channelId && p.channelAccessory === undefined);
+  const needChannels = posts.some(p => p.channelId);
   if (!uids.length && !needChannels) return;
 
   const { getUserDoc } = await import("./data.js");
@@ -226,9 +226,12 @@ async function enrichAuthors(posts) {
     authorCache.set(uid, await getUserDoc(uid).catch(() => null));
   }));
 
-  // каналы: оформление тоже могло измениться после публикации
+  // Оформление канала берём из самого канала всегда, а не только когда его
+  // нет в записи. В записи лежит копия на момент публикации — она устаревает
+  // сразу, как владелец сменил цвет или украшение. Запрос один на канал,
+  // а не на запись: дальше берётся из памяти.
   const channelIds = [...new Set(
-    posts.filter(p => p.channelId && p.channelAccessory === undefined).map(p => p.channelId)
+    posts.filter(p => p.channelId).map(p => p.channelId)
   )];
   if (channelIds.length) {
     const { getChannel } = await import("./channels.js");
@@ -1198,4 +1201,12 @@ function friendlyError(e) {
     return "Слишком много запросов — подожди немного";
   }
   return "Ошибка: " + msg;
+}
+
+
+// Сбрасывает запомненное оформление канала: после его изменения лента должна
+// показать новое, а не то, что осталось в памяти с прошлой загрузки.
+export function forgetChannelDecor(channelId = null) {
+  if (channelId) authorCache.delete("ch:" + channelId);
+  else [...authorCache.keys()].filter(k => k.startsWith("ch:")).forEach(k => authorCache.delete(k));
 }
