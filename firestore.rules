@@ -343,6 +343,19 @@ service cloud.firestore {
         );
     }
 
+    // Право публиковать от имени канала.
+    //
+    // Управляющих проверяем первыми: список лежит в самом канале, он читается
+    // всегда. Создателя — только если его запись вообще существует: обращение
+    // к отсутствующему документу роняет всё правило целиком, и тогда даже
+    // законный управляющий получал отказ.
+    function canPostAsChannel(channelId) {
+      return (exists(/databases/$(database)/documents/channels/$(channelId))
+               && request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.get('adminUids', []))
+          || (exists(/databases/$(database)/documents/channelSecrets/$(channelId))
+               && request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(channelId)).data.creatorUid);
+    }
+
     // ===================== ПОСТЫ ЛЕНТЫ =====================
     // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
     // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null
@@ -361,8 +374,7 @@ service cloud.firestore {
         ||
         (request.resource.data.channelId != null &&
           request.resource.data.authorUid == null &&
-          (request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(request.resource.data.channelId)).data.creatorUid ||
-           request.auth.uid in get(/databases/$(database)/documents/channels/$(request.resource.data.channelId)).data.adminUids))
+          canPostAsChannel(request.resource.data.channelId))
       );
       allow update: if request.auth != null && (
         // Отметки проверяются на согласованность: счётчик должен меняться

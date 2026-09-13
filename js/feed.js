@@ -177,11 +177,15 @@ const authorCache = new Map();
 // всей ленте — лишняя нагрузка, а спешить некуда.
 let lastBackfill = 0;
 
-let backfillComplained = false;
+let backfillPaused = 0;
 
 async function backfillNuid(posts) {
   if (!currentUser) return;                       // проставить может только вошедший
   if (Date.now() - lastBackfill < 1500) return;
+
+  // После неудачи делаем паузу: если дело в связи или правах, повторять
+  // каждые полторы секунды бессмысленно — только запросы жечь.
+  if (Date.now() < backfillPaused) return;
 
   // Пачкой по пять: по одной за четыре секунды полсотни старых записей
   // нумеровались бы три минуты — человек успел бы уйти.
@@ -195,14 +199,12 @@ async function backfillNuid(posts) {
       await updateDoc(doc(db, "posts", target.id), { publicUid: nuid });
       target.publicUid = nuid;
     } catch (e) {
-      // Раньше отказ уходил в никуда, и понять, почему номеров нет, было
-      // невозможно. Теперь причина видна, а про отказ прав говорим вслух —
-      // почти всегда это незалитые правила базы.
+      // Молча: номер — приятная мелочь, а не то, ради чего человек открыл
+      // ленту. Причины бывают разные — от незалитых правил до плохой связи, —
+      // и сообщать о каждой попытке значит мешать без нужды. Не проставился
+      // сейчас — проставится при следующем просмотре.
       console.warn("Номер записи не проставился:", e.message);
-      if (!backfillComplained && /permission|insufficient/i.test(e.message)) {
-        backfillComplained = true;
-        showToast("Номера записей не проставляются — похоже, правила базы не обновлены");
-      }
+      backfillPaused = Date.now() + 60000;         // вернёмся через минуту
       return;                                      // остальные тоже не пройдут
     }
   }
