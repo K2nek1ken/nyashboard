@@ -1489,9 +1489,7 @@ body.player-open .chat-floating-bar { /* поле ввода остаётся н
   font-size: 16px; padding: 6px; flex-shrink: 0;
 }
 .player-info { flex: 1; min-width: 0; }
-.player-title {
-  font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.player-title { font-size: 13px; }
 .player-progress {
   height: 4px; background: var(--card); border-radius: 999px;
   margin-top: 6px; cursor: pointer; overflow: hidden;
@@ -1826,8 +1824,6 @@ body.np-open .player-bar { transform: translateY(-120%); transition: transform .
 
 /* ---------- плеер в колонке навигации (ПК) ---------- */
 @media (min-width: 900px) {
-  .player-bar .player-info { flex: 1 1 100%; order: 3; }
-  .player-bar .player-title { white-space: normal; font-size: 12px; line-height: 1.3; }
   .player-cover { width: 42px; height: 42px; }
   .player-time { font-size: 10px; }
 
@@ -2438,12 +2434,12 @@ html[data-theme="nothing"] .chat-msg.is-mine {
   .player-bar { flex-wrap: wrap; row-gap: 6px; gap: 8px; }
 
   .player-bar .player-cover-wrap { order: 0; }
+  /* flex-basis обязательно ноль: при «auto» блок требует места под весь
+     текст и при переносе строк уезжает на свою строку целиком, вместо того
+     чтобы сжаться. Именно поэтому длинное название разваливало плеер. */
   .player-bar .player-info {
-    order: 1; flex: 1 1 auto; min-width: 0;
-    display: flex; align-items: center;
-  }
-  .player-bar .player-title {
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px;
+    order: 1; flex: 1 1 0; min-width: 0;
+    display: flex; align-items: center; overflow: hidden;
   }
   .player-bar .player-time { order: 2; font-size: 10px; flex-shrink: 0; }
   .player-bar .player-btn,
@@ -2475,11 +2471,14 @@ html[data-theme="nothing"] .chat-msg.is-mine {
 /* Длинное название трека не переносится на вторую строку, а обрезается
    многоточием. Ширину ограничиваем явно: без этого строка растягивала
    плеер, и кнопки уезжали за край. */
+/* Одно правило на все случаи: длинное название обрезается многоточием,
+   а не переносится и не растягивает плеер. Раньше это было записано в трёх
+   местах, и они успели разойтись — одно из них разрешало перенос. */
 .player-title {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 100%; display: block;
+  max-width: 100%; display: block; min-width: 0;
 }
-.player-info { min-width: 0; overflow: hidden; }
+.player-info { min-width: 0; overflow: hidden; flex-shrink: 1; }
 .np-title, .np-artist {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
