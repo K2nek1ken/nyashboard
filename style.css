@@ -393,8 +393,12 @@ button, input, textarea { font-family: inherit; color: inherit; }
 .create-channel-form textarea { resize: vertical; min-height: 70px; }
 
 /* ---------- modals ---------- */
+/* Размытие фона у всех окон, а не только у просмотра фото и плеера:
+   за окном угадывается страница, и оно ощущается слоем поверх неё,
+   а не отдельным экраном. */
 .modal {
-  position: fixed; inset: 0; background: rgba(10,8,14,0.7);
+  position: fixed; inset: 0; background: rgba(10,8,14,0.66);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px;
 }
 .modal-content {
@@ -1044,7 +1048,7 @@ body { padding-top: 56px; }
   /* Затемнение помягче: за ним видно, откуда фотография открыта, и не
      возникает ощущения отдельной страницы. */
   background: rgba(8, 6, 12, 0.72);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
 }
 .lightbox-stage {
@@ -1052,12 +1056,29 @@ body { padding-top: 56px; }
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; touch-action: none;
 }
+/* Фотография в рамке цвета фона со скруглением: так она читается как
+   отдельный предмет, а не как дыра в экране. Рамка нужна ещё и потому,
+   что тёмное фото иначе сливается с затемнением вокруг.
+
+   При увеличении рамка и скругление убираются: тогда важен каждый пиксель
+   картинки, и рамка бы мешала разглядывать края. */
 .lightbox-stage img {
-  max-width: 96%; max-height: 90%;
-  transform-origin: center; transition: transform .08s linear;
+  max-width: 92%; max-height: 86%;
+  transform-origin: center;
+  transition: transform .08s linear, border-radius .16s ease, box-shadow .16s ease;
   cursor: zoom-in; user-select: none; -webkit-user-drag: none;
+
+  border-radius: 16px;
+  border: 6px solid var(--bg);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
+  background: var(--bg);
 }
-.lightbox-stage img.zoomed { cursor: grab; }
+.lightbox-stage img.zoomed {
+  cursor: grab;
+  border-radius: 0;
+  border-width: 0;
+  box-shadow: none;
+}
 /* Крестик прижат к самой фотографии, а не к углу экрана: так понятно,
    что он закрывает именно её, и тянуться ближе. */
 .lightbox-close {
@@ -1769,7 +1790,7 @@ body.page-leaving #app { opacity: 0.35; }
   /* Затемнение помягче: за ним должно угадываться содержимое, иначе
      окно ощущается отдельной страницей, а не слоем поверх. */
   background: rgba(10, 8, 14, 0.72);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; padding: 24px;
   animation: npIn .2s ease;
@@ -2509,7 +2530,10 @@ body.is-beta { padding-top: 18px; }
    ============================================================ */
 .composer-screen {
   position: fixed; inset: 0; z-index: 120;
-  background: var(--bg);
+  /* Слегка прозрачный: видно, откуда пишешь — из ленты, со стены или
+     со страницы канала. Глухой фон отрывал редактор от места. */
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   display: flex; flex-direction: column;
   padding: 14px 16px 0;
   animation: composerIn .16s ease;
@@ -2549,3 +2573,15 @@ body.player-open .composer-screen { top: var(--player-height, 116px); }
 }
 .composer-attach:hover { color: var(--accent); background: var(--card); }
 .composer-bottom .primaryBtn { margin-left: auto; width: auto; padding: 11px 26px; }
+
+
+/* Размытие стоит дорого на слабых устройствах. Там, где человек попросил
+   меньше движения, обходимся плотным затемнением без него. */
+@media (prefers-reduced-motion: reduce) {
+  .modal, .lightbox, .now-playing, .composer-screen, .kebabMenu {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .modal { background: rgba(10, 8, 14, 0.9); }
+  .lightbox { background: rgba(8, 6, 12, 0.93); }
+  .composer-screen { background: var(--bg); }
+}

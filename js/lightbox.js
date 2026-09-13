@@ -104,8 +104,10 @@ export function openLightbox(src, allSrcs = [], startIndex = 0) {
     const btn = box.querySelector(".lightbox-close");
     const r = img.getBoundingClientRect();
     if (!btn || !r.width) return;
-    btn.style.top = Math.max(10, r.top - 6) + "px";
-    btn.style.left = Math.min(window.innerWidth - 46, r.right - 30) + "px";
+    // Ставим крестик на угол рамки, а не на угол картинки: рамка добавляет
+    // несколько пикселей, и без поправки он налезал бы на само фото.
+    btn.style.top = Math.max(10, r.top - 10) + "px";
+    btn.style.left = Math.min(window.innerWidth - 46, r.right - 26) + "px";
     btn.style.right = "auto";
   };
   img.addEventListener("load", placeClose);
