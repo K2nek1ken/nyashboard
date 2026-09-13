@@ -138,9 +138,9 @@ function ensureBar() {
     </div>
     <div class="player-info">
       <div class="player-title" data-title></div>
-      <div class="player-progress" data-progress>
-        <div class="player-progress-fill" data-fill></div>
-      </div>
+    </div>
+    <div class="player-progress" data-progress>
+      <div class="player-progress-fill" data-fill></div>
     </div>
     <div class="player-time" data-time>0:00</div>
     <button class="player-btn" data-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>

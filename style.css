@@ -1315,7 +1315,13 @@ html[data-theme="quiet"] .searchBox {
 .chat-account-label input { accent-color: var(--accent); }
 
 /* сообщение от аккаунта: миниатюра и кликабельное имя */
-.chat-msg .person-chip { vertical-align: middle; }
+/* Аватарка в чате оказывалась ниже ника: обёртка украшения — строчный
+   элемент, и он садился на базовую линию текста вместо середины строки. */
+.chat-msg .person-chip { vertical-align: middle; align-items: center; }
+.chat-msg .person-chip .avatar-wrap {
+  display: inline-flex; align-items: center; vertical-align: middle;
+}
+.chat-msg .person-chip img { display: block; }
 .chat-msg-head .mini-avatar { margin-right: 2px; }
 
 /* ---------- кнопки навигации по чату ---------- */
@@ -2063,15 +2069,31 @@ body.player-open #dmHeader { top: 124px; }
    а не окном во весь экран (для этого он и живёт в колонке).
    ============================================================ */
 @media (min-width: 900px) {
-  .player-bar { flex-wrap: nowrap; }
-  .player-bar .player-info { flex: 1 1 auto; order: 0; min-width: 0; }
-  .player-bar .player-time,
+  /* Плеер в колонке узкий, поэтому раскладываем в два ряда:
+     сверху обложка, название и кнопки, снизу — полоса на всю ширину.
+     В одну строку полоса сжималась до неразличимого, а по бокам
+     оставалась пустота. */
+  .player-bar {
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 8px;
+  }
+  .player-bar .player-cover-wrap { order: 0; }
+  .player-bar .player-info {
+    order: 1; flex: 1 1 auto; min-width: 0;
+    display: flex; flex-direction: column; justify-content: center;
+  }
   .player-bar .player-btn,
   .player-bar .player-menu-wrap,
-  .player-bar .player-expand { margin-left: auto; }
-  .player-bar .player-btn + .player-btn,
-  .player-bar .player-menu-wrap,
-  .player-bar .player-expand { margin-left: 0; }
+  .player-bar .player-expand,
+  .player-bar .player-fav { order: 2; }
+
+  /* полоса и время — отдельной строкой во всю ширину */
+  .player-bar .player-progress {
+    order: 3; flex: 1 1 100%; height: 5px; margin: 0;
+  }
+  .player-bar .player-time { order: 4; font-size: 10px; margin-left: 0; }
+  .player-bar .player-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* Раскрытый вид не занимает весь экран: он встаёт над колонкой,
      содержимое остаётся видимым и продолжает читаться. */
@@ -2405,3 +2427,9 @@ html[data-theme="nothing"] .chat-msg.is-mine {
 /* аватарка в меню профиля: украшение не должно обрезаться */
 #ddAvatarWrap { display: inline-block; overflow: visible; flex-shrink: 0; }
 #ddAvatarWrap img { width: 100%; height: 100%; }
+
+/* На телефоне полоса остаётся в одной строке с названием */
+@media (max-width: 899px) {
+  .player-bar { flex-wrap: nowrap; }
+  .player-bar .player-progress { flex: 1 1 auto; min-width: 60px; }
+}

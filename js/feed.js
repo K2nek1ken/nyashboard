@@ -516,11 +516,18 @@ export function postToHtml(p, maskAuthor = false) {
   const hasEditor = true;
   const onPostPage = location.pathname.endsWith("post.html");
   const suppressed = isSuppressed(p.id);
+
+  // Прятать от себя собственные записи и записи своих каналов бессмысленно,
+  // как и жаловаться на них.
+  const canSuppress = !(currentUser && p.authorUid === currentUser.uid)
+                   && !(p.channelId && managedChannels.has(p.channelId))
+                   && !isOwned("post", p.id);
+
   const kebabItems = [
     ...(onPostPage ? [] : [{ action: "openPost", label: "Открыть пост", icon: ICON.open }]),
-    suppressed
+    ...(canSuppress ? [suppressed
       ? { action: "undoNotInterested", label: "Вернуть в рекомендации", icon: ICON.up }
-      : { action: "notInterested", label: "Не рекомендовать", icon: ICON.down },
+      : { action: "notInterested", label: "Не рекомендовать", icon: ICON.down }] : []),
     ...(p.publicUid ? [{ action: "copyNuid", label: "Скопировать NUID", icon: ICON.hash }] : []),
     // Жаловаться на себя и прятать своё — бессмысленно. Управляющие канала
     // тоже считаются своими для его записей.
