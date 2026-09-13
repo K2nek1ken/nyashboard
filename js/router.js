@@ -108,8 +108,10 @@ async function swap(page, { push = true } = {}) {
       if (el.id === "settingsModal") return;   // настройки открываются поверх любой вкладки
       el.remove();
     });
-    document.querySelectorAll(".kebabMenu:not(.hidden), .cselect-menu:not(.hidden), .player-menu:not(.hidden)")
-      .forEach(el => el.classList.add("hidden"));
+    document.querySelectorAll(
+      ".kebabMenu:not(.hidden), .cselect-menu:not(.hidden), " +
+      ".player-menu:not(.hidden), .profile-dropdown:not(.hidden)"
+    ).forEach(el => el.classList.add("hidden"));
     document.body.classList.remove("np-open");
 
     const app = document.getElementById("app");

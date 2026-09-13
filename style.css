@@ -2401,3 +2401,7 @@ html[data-theme="nothing"] .chat-msg.is-mine {
 }
 .art-attached-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .art-attached-title { font-weight: 600; font-size: 14px; }
+
+/* аватарка в меню профиля: украшение не должно обрезаться */
+#ddAvatarWrap { display: inline-block; overflow: visible; flex-shrink: 0; }
+#ddAvatarWrap img { width: 100%; height: 100%; }

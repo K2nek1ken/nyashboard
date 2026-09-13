@@ -127,7 +127,10 @@ export async function openChannelPreview(channelId) {
 
   body.innerHTML = `
     <div class="preview-head">
-      ${avatarHtml({ avatarUrl: ch.avatarUrl, avatarShape: ch.avatarShape }, 64)}
+      ${avatarHtml({
+          avatarUrl: ch.avatarUrl, avatarShape: ch.avatarShape,
+          accessory: ch.accessory || "none", avatarBorder: ch.avatarBorder || "teal"
+        }, 64)}
       <div style="min-width:0;">
         <div class="preview-name">${escapeHtml(ch.name)}</div>
         <div class="muted">@${escapeHtml(ch.username || "")}</div>

@@ -104,7 +104,17 @@ export async function openUserProfile(uid) {
   const badge = await relationBadge(uid, user).catch(() => null);
   nameEl.innerHTML = nameHtml(user, { clickable: false }) + badgeHtml(badge);
   userEl.textContent = user.username;
-  avatarEl.src = user.avatarUrl || defaultAvatar();
+  // Карточка человека — с оформлением, как и его аватарка в списках.
+  const wrap = avatarEl.closest(".avatar-wrap") || avatarEl.parentElement;
+  if (wrap) {
+    wrap.innerHTML = avatarHtml({
+      ...user,
+      accessory: user.accessory || "none",
+      avatarBorder: user.avatarBorder || "pink"
+    }, 64);
+  } else {
+    avatarEl.src = user.avatarUrl || defaultAvatar();
+  }
   avatarEl.className = `avatar-shaped ${shapeClass(user.avatarShape)}`;
   const statusEl = document.getElementById("vpStatus");
   if (statusEl) statusEl.textContent = user.statusEmoji || "";

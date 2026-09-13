@@ -5,7 +5,7 @@ import { ensureUserDoc } from "./data.js";
 import { showToast, setGenderSource, gendered } from "./ui.js";
 import { getSettings } from "./settings.js";
 import { positionNear } from "./anchor.js";
-import { applyAvatar } from "./avatar.js";
+import { applyAvatar, avatarHtml } from "./avatar.js";
 import { defaultAvatar } from "./default-avatar.js";
 
 export let currentUser = null;      // firebase auth user (или null)
@@ -127,7 +127,31 @@ export async function logout() {
 
 // Маленькая выпадашка у иконки профиля в шапке — есть на КАЖДОЙ странице.
 // Полноценное редактирование профиля живёт отдельно, на странице profile.html.
+// Аватарка в меню — со всем оформлением, как везде: раньше здесь стояла
+// голая картинка без рамки и украшения.
+function paintDropdownAvatar(user) {
+  const img = document.getElementById("ddAvatar");
+  if (!img) return;
+  const wrap = img.closest(".avatar-wrap") || img.parentElement;
+  if (!wrap) { img.src = user?.avatarUrl || defaultAvatar(); return; }
+
+  wrap.innerHTML = avatarHtml({
+    ...user,
+    accessory: user?.accessory || "none",
+    avatarBorder: user?.avatarBorder || "pink"
+  }, 42);
+}
+
 export function initProfileDropdown() {
+  // Нажатие по пункту меню закрывает его сразу: страница больше не
+  // перезагружается, и раньше меню оставалось висеть до следующего нажатия
+  // где-нибудь ещё.
+  document.getElementById("profileDropdown")?.addEventListener("click", (e) => {
+    if (e.target.closest("a, .dropdownBtn, #logoutBtn")) {
+      document.getElementById("profileDropdown")?.classList.add("hidden");
+    }
+  });
+
   const dropdown = document.getElementById("profileDropdown");
   const profileIcon = document.getElementById("profileIcon");
   const profilePic = document.getElementById("profilePic");
@@ -181,7 +205,7 @@ export function initProfileDropdown() {
     if (shown) {
       loggedOutView.classList.add("hidden");
       loggedInView.classList.remove("hidden");
-      ddAvatar.src = shown.avatarUrl || defaultAvatar();
+      paintDropdownAvatar(shown);
       ddNickname.textContent = shown.nickname || "";
       ddUsername.textContent = "@" + (shown.username || "");
       return;
@@ -189,7 +213,7 @@ export function initProfileDropdown() {
     if (currentUser && currentUserDoc) {
       loggedOutView.classList.add("hidden");
       loggedInView.classList.remove("hidden");
-      ddAvatar.src = currentUserDoc.avatarUrl || defaultAvatar();
+      paintDropdownAvatar(currentUserDoc);
       ddNickname.textContent = currentUserDoc.nickname || "";
       ddUsername.textContent = "@" + (currentUserDoc.username || "");
     } else {

@@ -278,7 +278,16 @@ function wireSettingsModal(channelId) {
   }
 
   openBtn.addEventListener("click", async () => {
-    avatarImg.src = channel.avatarUrl || defaultAvatar();
+    // с оформлением: у каналов тоже есть рамка и украшение
+    const wrap = avatarImg.closest(".avatar-wrap") || avatarImg.parentElement;
+    if (wrap) {
+      wrap.innerHTML = avatarHtml({
+        avatarUrl: channel.avatarUrl, avatarShape: channel.avatarShape,
+        accessory: channel.accessory, avatarBorder: channel.avatarBorder
+      }, 44);
+    } else {
+      avatarImg.src = channel.avatarUrl || defaultAvatar();
+    }
     nameInput.value = channel.name;
     usernameInput.value = (channel.username || "").replace(/^ch_/, "");
     descInput.value = channel.description || "";
