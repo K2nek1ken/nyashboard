@@ -41,6 +41,7 @@ function saveState() {
       position: audio.currentTime || 0,
       playing: !audio.paused,
       queue, queueIndex, repeatMode,
+      expanded: !!document.getElementById("nowPlaying"),
       savedAt: Date.now()
     }));
   } catch {}
@@ -79,6 +80,15 @@ export function restorePlayback() {
   audio.src = saved.track.url;
   audio.currentTime = saved.position || 0;
   paintBar(saved.track);
+
+  // Развёрнутый вид восстанавливаем следом: он не мешает и не сворачивается
+  // сам, значит и после перезагрузки должен остаться открытым.
+  // На телефоне развёрнутый вид занимает весь экран: открывать его сразу
+  // после загрузки — значит закрыть человеку страницу, на которую он шёл.
+  // Поэтому восстанавливаем только там, где он стоит карточкой сбоку.
+  if (saved.expanded && window.matchMedia("(min-width: 900px)").matches) {
+    setTimeout(() => { if (current) openNowPlaying(); }, 0);
+  }
 
   if (saved.playing) {
     // Браузер не даёт заиграть, пока человек не сделал хоть что-то на странице.
@@ -521,11 +531,12 @@ function openNowPlaying() {
   // не прерывается, значит и окно с ней закрывать незачем. Закроет его
   // только сам человек.
   box.dataset.persistent = "1";
+  saveState();      // запоминаем, что вид открыт
 
   const close = () => {
     box.classList.add("closing");
     document.body.classList.remove("np-open");
-    setTimeout(() => box.remove(), 180);
+    setTimeout(() => { box.remove(); saveState(); }, 180);
   };
   box.querySelector("[data-close]").addEventListener("click", close);
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
