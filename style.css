@@ -549,7 +549,19 @@ button, input, textarea { font-family: inherit; color: inherit; }
   background: linear-gradient(180deg, transparent, var(--card));
   pointer-events: none;
 }
-.post-text.expanded { max-height: none; }
+
+/* Раскрытая длинная запись не растягивает карточку на весь экран, а
+   прокручивается внутри: читать можно на месте, не открывая её отдельно.
+   Потолок высокий — до него дотягиваются только настоящие длиннопосты. */
+.post-text.expanded {
+  max-height: 60vh; overflow-y: auto;
+  padding-right: 6px; scrollbar-width: thin;
+}
+.post-text.expanded::after { display: none; }
+.post-text.expanded::-webkit-scrollbar { width: 4px; }
+.post-text.expanded::-webkit-scrollbar-thumb {
+  background: var(--card-hover); border-radius: 999px;
+}
 .post-text.expanded::after { display: none; }
 .expandBtn {
   background: none; border: none; color: var(--accent-2); cursor: pointer;
@@ -2555,11 +2567,19 @@ body.player-open .composer-screen { top: var(--player-height, 116px); }
 .composer-top #composerIdentity { flex: 1 1 100%; }
 .composer-top .identity-row { margin: 0; }
 
+/* Рамка поля видна всегда, а не только в фокусе: без неё непонятно, где
+   рабочая зона, и обрыв текста выглядит резко на фоне остального сайта.
+   В фокусе она просто становится заметнее. */
 .composer-area {
-  width: 100%; background: none; border: none; outline: none;
+  width: 100%; background: var(--bg-soft);
+  border: 1px solid #3a2f47; border-radius: 14px;
+  outline: none; padding: 12px 14px;
   color: var(--text); font: inherit; font-size: 16px; line-height: 1.55;
   resize: none; min-height: 120px; flex-shrink: 0;
+  transition: border-color .14s ease;
 }
+.composer-area:focus { border-color: var(--accent); }
+.composer-area::placeholder { color: var(--muted); }
 .composer-screen .image-strip { flex-shrink: 0; margin-top: 8px; }
 
 .composer-bottom {
@@ -2584,4 +2604,20 @@ body.player-open .composer-screen { top: var(--player-height, 116px); }
   .modal { background: rgba(10, 8, 14, 0.9); }
   .lightbox { background: rgba(8, 6, 12, 0.93); }
   .composer-screen { background: var(--bg); }
+}
+
+
+
+
+/* Поля ввода по всему сайту: рамка видна всегда, в фокусе — ярче.
+   Раньше часть полей показывала её только при наборе, и рабочая зона
+   угадывалась по памяти. */
+.inlineEdit, .settingSelect, .searchBox, .edit-post-area,
+input[type="text"], input[type="search"], textarea {
+  border: 1px solid #3a2f47; border-radius: 12px;
+  transition: border-color .14s ease;
+}
+.inlineEdit:focus, .settingSelect:focus, .searchBox:focus, .edit-post-area:focus,
+input[type="text"]:focus, input[type="search"]:focus, textarea:focus {
+  border-color: var(--accent); outline: none;
 }

@@ -488,7 +488,13 @@ export function postToHtml(p, maskAuthor = false) {
   // Идентификатор трека убираем из текста: он написан на самой карточке
   // проигрывателя, и дублировать его строкой незачем. При правке текст
   // берётся из data-raw, поэтому там идентификатор остаётся на месте.
-  const rawText = (p.text || "").replace(/\s*#U3\d{6}/gi, "").trim();
+  // Номер трека убираем — он написан на карточке проигрывателя. Номер работы
+  // оставляем, но переносим на свою строку: впритык к последнему слову он
+  // читался как часть предложения.
+  const rawText = (p.text || "")
+    .replace(/\s*#U3\d{6}/gi, "")
+    .replace(/(\S)\s*(#U5\d{6})/gi, "$1\n$2")
+    .trim();
   const isLong = rawText.length > 420 || rawText.split("\n").length > 10;
   const authorForAvatar = isChannelPost
     ? { avatarUrl: p.channelAvatar, avatarShape: p.channelShape || "circle",
@@ -597,9 +603,17 @@ export function wirePostCard(p, container = document) {
         openPostComposer({
           post: p,
           onDone: () => {
-            updatePostCard(p);
-            renderPostTracks(p, card);
-            renderPostArtworks(p, card);
+            // Карточку пересобираем целиком, а не правим текст на месте:
+            // после изменения меняется и длина, и обрезка, и кнопка
+            // «показать полностью» — точечное обновление этого не учитывало,
+            // и запись оставалась в прежнем виде до обновления списка.
+            const fresh = document.createElement("div");
+            fresh.innerHTML = postToHtml(p);
+            const next = fresh.firstElementChild;
+            if (next) {
+              card.replaceWith(next);
+              wirePostCard(p, next.parentElement || document);
+            }
           }
         });
       }).catch(e => showToast("Редактор не открылся: " + e.message));
@@ -713,7 +727,10 @@ async function renderPostArtworks(p, card) {
         </div>
       </div>`).join("");
 
-    (card.querySelector(".post-text") || card).insertAdjacentElement("afterend", host);
+    // Ставим после кнопки «показать полностью», если она есть: иначе работа
+    // вклинивалась между текстом и кнопкой, и кнопка оказывалась под ней.
+    const anchor = card.querySelector(".expandBtn") || card.querySelector(".post-text") || card;
+    anchor.insertAdjacentElement("afterend", host);
     host.querySelectorAll("img").forEach((img, i) => {
       img.addEventListener("click", () => openLightbox(img.src, works.map(w => w.imageUrl), i));
     });
