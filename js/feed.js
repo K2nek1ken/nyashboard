@@ -4,6 +4,7 @@ import {
   arrayUnion, arrayRemove, increment, where
 } from "./firebase.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
+import { initPostIdentity, identityFields, getPostIdentity } from "./post-identity.js";
 import { registerPostNuid } from "./nuid.js";
 import { goTo } from "./router.js";
 import { wireImageZoom } from "./lightbox.js";
@@ -279,6 +280,16 @@ function updatePostCard(post) {
   }
 
   // текст мог измениться при правке
+  // Видео в записи — отдельным проигрывателем под текстом.
+  if (p.videoUrl && !card.dataset.videoDone) {
+    card.dataset.videoDone = "1";
+    import("./video-player.js").then(({ videoHtml, wireVideo }) => {
+      const host = card.querySelector(".post-text") || card;
+      host.insertAdjacentHTML("afterend", videoHtml(p.videoUrl, { poster: p.videoPoster || "" }));
+      wireVideo(card);
+    }).catch(e => console.warn("Видео не показалось:", e.message));
+  }
+
   const textEl = card.querySelector(".post-text");
   if (textEl && post.text !== undefined) {
     const current = textEl.dataset.raw;
@@ -579,6 +590,7 @@ export function wirePostCard(p, container = document) {
   wireMentions(card);
   observeSeen(card);
   renderPostTracks(p, card);
+  renderPostArtworks(p, card);
   wireImageZoom(card);
 
   card.querySelectorAll('[data-action="viewAuthor"]').forEach(el => {
@@ -705,6 +717,48 @@ export function wirePostCard(p, container = document) {
 
 // Треки, упомянутые в тексте записи, показываем карточками под ней: ссылка
 // вида #U3XXXXXX превращается в проигрыватель, а не остаётся набором символов.
+// Работы из «Творчества» по их номеру — как треки, только картинкой.
+async function renderPostArtworks(p, card) {
+  const ids = [...new Set(((p.text || "").match(/#U5\d{6}/gi) || []))]
+    .map(t => t.slice(1).toUpperCase()).slice(0, 3);
+  if (!ids.length || card.dataset.artDone) return;
+  card.dataset.artDone = "1";
+
+  try {
+    const { resolveNuid } = await import("./nuid.js");
+    const { getArtwork } = await import("./art.js");
+    const { openLightbox } = await import("./lightbox.js");
+
+    const works = [];
+    for (const nuid of ids) {
+      const hit = await resolveNuid(nuid);
+      if (hit?.type !== "art") continue;
+      const art = await getArtwork(hit.uid);
+      if (art) works.push(art);
+    }
+    if (!works.length) return;
+
+    const host = document.createElement("div");
+    host.className = "post-artworks";
+    host.innerHTML = works.map(a => `
+      <div class="art-attached">
+        <img src="${a.imageUrl}" alt="${escapeHtml(a.title)}" loading="lazy">
+        <div class="art-attached-body">
+          <div class="art-attached-title">${escapeHtml(a.title)}</div>
+          ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
+          <span class="track-nuid" data-copy-nuid="${a.publicUid || ""}">${a.publicUid || ""}</span>
+        </div>
+      </div>`).join("");
+
+    (card.querySelector(".post-text") || card).insertAdjacentElement("afterend", host);
+    host.querySelectorAll("img").forEach((img, i) => {
+      img.addEventListener("click", () => openLightbox(img.src, works.map(w => w.imageUrl), i));
+    });
+  } catch (e) {
+    console.warn("Работы не подгрузились:", e.message);
+  }
+}
+
 async function renderPostTracks(p, card) {
   const host = card.querySelector(`[data-post-tracks="${p.id}"]`);
   if (!host) return;
@@ -885,7 +939,8 @@ function renderImageStrip() {
 export function openPostEditor(post = null) {
   const editor = document.getElementById("postEditor");
   const textarea = document.getElementById("postTextArea");
-  const anonToggle = document.getElementById("postAnonToggle");
+  // Выбор имени — общий модуль: он же собирает поля записи.
+  initPostIdentity(document.getElementById("postIdentityHost"));
   const anonRow = document.getElementById("anonToggleRow");
   const title = document.getElementById("editorTitle");
   const publishBtn = document.getElementById("publishPostBtn");
@@ -923,7 +978,8 @@ export function initPostEditor() {
   const fab = document.getElementById("newPostFab");
   const closeBtn = document.getElementById("closeEditorBtn");
   const textarea = document.getElementById("postTextArea");
-  const anonToggle = document.getElementById("postAnonToggle");
+  // Выбор имени — общий модуль: он же собирает поля записи.
+  initPostIdentity(document.getElementById("postIdentityHost"));
   const imageInput = document.getElementById("postImageInput");
   const publishBtn = document.getElementById("publishPostBtn");
 
@@ -964,27 +1020,17 @@ export function initPostEditor() {
         });
         showToast("Пост обновлён ♡");
       } else {
-        const isAnon = !currentUser || anonToggle.checked;
         const ref = await addDoc(collection(db, "posts"), {
-          authorUid: (!isAnon && currentUser) ? currentUser.uid : null,
-          authorNickname: (!isAnon && currentUserDoc) ? currentUserDoc.nickname : null,
-          authorAvatar: (!isAnon && currentUserDoc) ? currentUserDoc.avatarUrl : null,
-          authorShape: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarShape || "circle") : null,
-          authorStatus: (!isAnon && currentUserDoc) ? (currentUserDoc.statusEmoji || "") : null,
-          // украшение, цвет рамки и цвет ника — часть образа автора, и они
-          // должны быть видны прямо в ленте, без запроса профиля на каждую запись
-          authorAccessory: (!isAnon && currentUserDoc) ? (currentUserDoc.accessory || "none") : null,
-          authorBorder: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarBorder || "pink") : null,
-          authorNickColor: (!isAnon && currentUserDoc) ? (currentUserDoc.nickColor || "") : null,
-          channelId: null,
-          isAnonymous: isAnon,
+          // Имя автора, украшения и цвета собирает выбор имени публикации:
+          // он знает, публикуешь ты от себя, анонимно или от имени канала.
+          ...identityFields(),
           text,
           hashtags: extractHashtags(text),
           imageUrls,
           // Где опубликовано: в ленте или на стене профиля. Это разные места,
           // а не уровни доступа — записи стены живут у тебя на странице и
           // попадают в чужую ленту только к друзьям, и то по твоей настройке.
-          place: "feed",   // из ленты пишем в ленту; на стену — со своей страницы
+          place: "feed",
           // копия настройки автора: лента не должна запрашивать профиль
           // ради каждой записи
           wallInFeed: currentUserDoc?.wallInFeed !== false,
@@ -999,7 +1045,9 @@ export function initPostEditor() {
         // (реальный аккаунт ИЛИ анонимная гостевая сессия — она тоже валидна)
         await setDoc(doc(db, "postSecrets", ref.id), { ownerUid: auth.currentUser.uid });
         // копия авторства для репостов: выдаётся по настройке приватности
-        if (!isAnon && currentUser && currentUserDoc) {
+        // Копия авторства нужна только для записей от своего имени: у анонимных
+        // и канальных её быть не должно.
+        if (getPostIdentity().kind === "self" && currentUser && currentUserDoc) {
           await setDoc(doc(db, "postAuthors", ref.id), {
             uid: currentUser.uid,
             nickname: currentUserDoc.nickname || "",

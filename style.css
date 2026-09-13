@@ -2232,9 +2232,11 @@ body.no-select, body.no-select * {
 .mention.nuid-post { color: #a5c9a0; }
 
 /* своя картинка в узоре цитаты */
+/* Меньше, чем значки: у картинки заполнена вся площадь, а у символа — нет,
+   поэтому при одинаковом размере картинки наезжали друг на друга. */
 .quote-image {
-  position: absolute; width: 26px; height: 26px;
-  object-fit: contain; pointer-events: none;
+  position: absolute; width: 15px; height: 15px;
+  object-fit: contain; pointer-events: none; opacity: 0.85;
 }
 
 
@@ -2340,3 +2342,62 @@ html[data-theme="nothing"] .chat-msg.is-mine {
 }
 .setting-row.sub .setting-label { font-size: 14px; }
 .setting-row.sub .setting-hint { font-size: 11px; }
+
+/* ---------- от чьего имени публиковать ---------- */
+.identity-row {
+  display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0;
+}
+.identity-option {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--card); border: 1px solid transparent; border-radius: 999px;
+  padding: 6px 12px; color: var(--muted); cursor: pointer;
+  font: inherit; font-size: 12.5px;
+}
+.identity-option:hover { background: var(--card-hover); }
+.identity-option.active {
+  border-color: var(--accent); color: var(--text);
+  background: color-mix(in oklab, var(--accent) 12%, var(--card));
+}
+.identity-option .avatar-wrap { flex-shrink: 0; }
+
+/* ---------- видео (в проверке) ---------- */
+.video-card {
+  position: relative; border-radius: 12px; overflow: hidden;
+  background: #000; margin-top: 8px;
+}
+.video-el { width: 100%; display: block; max-height: 460px; background: #000; }
+.video-big-play {
+  position: absolute; inset: 0; margin: auto;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(0,0,0,0.55); border: none; color: #fff; cursor: pointer; font-size: 20px;
+}
+.video-card.playing .video-big-play { display: none; }
+.video-controls {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.75));
+}
+.video-btn {
+  background: none; border: none; color: #fff; cursor: pointer;
+  font-size: 13px; padding: 4px; flex-shrink: 0;
+}
+.video-btn.off { opacity: 0.45; }
+.video-time { color: #fff; font-size: 11px; flex-shrink: 0; }
+.video-progress {
+  flex: 1; height: 4px; background: rgba(255,255,255,0.28);
+  border-radius: 999px; cursor: pointer; min-width: 40px;
+}
+.video-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; }
+
+/* прикреплённая работа из «Творчества» */
+.post-artworks { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.art-attached {
+  display: flex; gap: 10px; background: var(--card-hover);
+  border-radius: 12px; overflow: hidden; padding: 8px;
+}
+.art-attached img {
+  width: 96px; height: 96px; object-fit: cover; border-radius: 8px;
+  cursor: zoom-in; flex-shrink: 0;
+}
+.art-attached-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.art-attached-title { font-weight: 600; font-size: 14px; }

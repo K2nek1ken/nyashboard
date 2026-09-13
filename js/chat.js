@@ -219,7 +219,11 @@ function decorHtml() {
 
   // Цитата стала выше, поэтому узоров больше и лежат они свободнее:
   // прежняя сетка рассчитывалась на полоску в пару строк.
-  const cols = 7, rows = 2;
+  // Для картинок сетка реже: они плотнее символов и при частом шаге
+  // накладываются друг на друга.
+  const isImageDecor = getSettings().quoteDecor === "custom";
+  const cols = isImageDecor ? 5 : 7;
+  const rows = 2;
   const out = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -359,6 +363,53 @@ function keepInputClearance() {
   }
 }
 
+// Работы из «Творчества», упомянутые номером — картинкой под сообщением.
+async function renderChatArtworks(container, msgs) {
+  const withArt = msgs.filter(m => /#U5\d{6}/i.test(m.text || ""));
+  if (!withArt.length) return;
+
+  try {
+    const { resolveNuid } = await import("./nuid.js");
+    const { getArtwork } = await import("./art.js");
+    const { openLightbox } = await import("./lightbox.js");
+
+    for (const m of withArt) {
+      const row = container.querySelector(`.chat-msg[data-id="${m.id}"] .txt`);
+      if (!row || row.dataset.artDone) continue;
+      row.dataset.artDone = "1";
+
+      const ids = [...new Set((m.text.match(/#U5\d{6}/gi) || []))]
+        .map(t => t.slice(1).toUpperCase()).slice(0, 2);
+      const works = [];
+      for (const nuid of ids) {
+        const hit = await resolveNuid(nuid);
+        if (hit?.type !== "art") continue;
+        const art = await getArtwork(hit.uid);
+        if (art) works.push(art);
+      }
+      if (!works.length) continue;
+
+      const host = document.createElement("div");
+      host.className = "post-artworks";
+      host.innerHTML = works.map(a => `
+        <div class="art-attached">
+          <img src="${a.imageUrl}" alt="${escapeHtml(a.title)}" loading="lazy">
+          <div class="art-attached-body">
+            <div class="art-attached-title">${escapeHtml(a.title)}</div>
+            ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
+          </div>
+        </div>`).join("");
+      row.after(host);
+
+      host.querySelectorAll("img").forEach((img, i) => {
+        img.addEventListener("click", () => openLightbox(img.src, works.map(w => w.imageUrl), i));
+      });
+    }
+  } catch (e) {
+    console.warn("Работы в чате не загрузились:", e.message);
+  }
+}
+
 function playMeow() {
   showToast("мяу!");
   try {
@@ -483,6 +534,7 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   wireImageZoom(messagesEl);
   // «мяу» можно услышать в любой момент, а не только когда мяукнули при тебе
   renderChatTracks(messagesEl, msgs);
+  renderChatArtworks(messagesEl, msgs);
 
   messagesEl.querySelectorAll(".meow-again").forEach(el => {
     el.addEventListener("click", () => playMeow());

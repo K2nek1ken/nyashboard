@@ -1,4 +1,5 @@
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
+import { initPostIdentity, identityFields, getPostIdentity } from "./post-identity.js";
 import { registerPostNuid } from "./nuid.js";
 import { uploadImages } from "./storage.js";
 import { db, auth, collection, addDoc, doc, setDoc, serverTimestamp, updateDoc } from "./firebase.js";
@@ -20,7 +21,7 @@ export function initInlineComposer(onPublished) {
   const strip = document.getElementById("icStrip");
   const fileInput = document.getElementById("icImages");
   const publishBtn = document.getElementById("icPublish");
-  const anonToggle = document.getElementById("icAnon");
+  initPostIdentity(document.getElementById("icIdentityHost"));
   const hint = document.getElementById("icHint");
   let images = [];
 
@@ -88,22 +89,12 @@ export function initInlineComposer(onPublished) {
     try {
       const imageUrls = pending.length ? await uploadImages(pending) : [];
       if (imageUrls.some(u => !u)) throw new Error("Одна из картинок не загрузилась");
-
-      const isAnon = !currentUser || anonToggle.checked;
       const ref = await addDoc(collection(db, "posts"), {
-        authorUid: (!isAnon && currentUser) ? currentUser.uid : null,
-        authorNickname: (!isAnon && currentUserDoc) ? currentUserDoc.nickname : null,
-        authorAvatar: (!isAnon && currentUserDoc) ? currentUserDoc.avatarUrl : null,
-        authorShape: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarShape || "circle") : null,
-        authorStatus: (!isAnon && currentUserDoc) ? (currentUserDoc.statusEmoji || "") : null,
-        authorAccessory: (!isAnon && currentUserDoc) ? (currentUserDoc.accessory || "none") : null,
-        authorBorder: (!isAnon && currentUserDoc) ? (currentUserDoc.avatarBorder || "pink") : null,
-        authorNickColor: (!isAnon && currentUserDoc) ? (currentUserDoc.nickColor || "") : null,
+        ...identityFields(),
         place: "feed",   // из ленты пишем в ленту; на стену — со своей страницы
         wallInFeed: currentUserDoc?.wallInFeed !== false,
         channelId: null,
-        isAnonymous: isAnon,
-        text: savedText,
+                text: savedText,
         hashtags: extractHashtags(savedText),
         imageUrls,
         likesCount: 0, likedBy: [],
@@ -111,7 +102,7 @@ export function initInlineComposer(onPublished) {
         createdAt: serverTimestamp()
       });
       await setDoc(doc(db, "postSecrets", ref.id), { ownerUid: auth.currentUser.uid });
-      if (!isAnon && currentUser && currentUserDoc) {
+      if (getPostIdentity().kind === "self" && currentUser && currentUserDoc) {
         await setDoc(doc(db, "postAuthors", ref.id), {
           uid: currentUser.uid,
           nickname: currentUserDoc.nickname || "",

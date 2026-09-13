@@ -222,3 +222,52 @@ export async function uploadAudio(file, onProgress = null) {
   if (!json.secure_url) throw new Error("хранилище не вернуло ссылку");
   return json.secure_url;
 }
+
+
+// ============================================================
+//  Видео (в проверке)
+//
+//  Идёт в то же хранилище, что и музыка: там есть и место, и раздача.
+//  Предел — пять мегабайт: это секунд десять-пятнадцать приличного качества
+//  или до минуты при скромном. Больше упирается не в нас, а в бесплатный
+//  тариф хранилища.
+//
+//  Чего не умеем и не обещаем: проверять содержимое. Как и с картинками,
+//  единственная защита — жалобы.
+// ============================================================
+
+const MAX_VIDEO = 5 * 1024 * 1024;
+
+export function isVideoFile(file) {
+  return /^video\//.test(file.type) || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+}
+
+export async function uploadVideo(file, onProgress = null) {
+  if (!isVideoFile(file)) throw new Error("это не видео");
+  if (!file.size) throw new Error("файл не читается — скопируй его на устройство");
+  if (file.size > MAX_VIDEO) {
+    throw new Error(`видео больше 5 МБ (${(file.size / 1024 / 1024).toFixed(1)} МБ) — нужно покороче или сжать`);
+  }
+  if (!CLOUDINARY_CLOUD || !CLOUDINARY_PRESET) {
+    throw new Error("хранилище для видео не настроено");
+  }
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", CLOUDINARY_PRESET);
+
+  // тот же путь, что и у музыки, только раздел video
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/video/upload`;
+  const data = await uploadWithProgress(url, form, onProgress);
+  if (!data?.secure_url) throw new Error("хранилище не приняло видео");
+
+  return {
+    url: data.secure_url,
+    duration: data.duration || 0,
+    width: data.width || 0,
+    height: data.height || 0,
+    // обложка: то же видео первым кадром — просит сам Cloudinary, отдельной
+    // загрузки не нужно
+    poster: data.secure_url.replace(/\.(mp4|webm|mov|m4v)$/i, ".jpg")
+  };
+}

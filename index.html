@@ -20,11 +20,11 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="icon" href="assets/favicon.svg?v=202609131044" type="image/svg+xml" sizes="any">
-  <link rel="apple-touch-icon" href="assets/favicon.svg?v=202609131044">
+  <link rel="icon" href="assets/favicon.svg?v=202609131520" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="assets/favicon.svg?v=202609131520">
   <link rel="manifest" href="site.webmanifest">
   <meta name="theme-color" content="#17131c">
-  <link rel="stylesheet" href="style.css?v=202609131044">
+  <link rel="stylesheet" href="style.css?v=202609131520">
 </head>
 <body>
 
@@ -41,10 +41,7 @@
         <label class="attachBtn nf" for="icImages" title="фото">&#xf0c6;</label>
         <input type="file" id="icImages" accept="image/*" multiple style="display:none;">
         <button type="button" id="icEmoji" class="attachBtn nf" title="эмодзи">&#xf118;</button>
-        <label class="toggle-anon" style="margin-left:0;">
-          <input type="checkbox" id="icAnon">
-          <span>анонимно</span>
-        </label>
+        <div id="icIdentityHost"></div>
         <span class="muted" id="icHint" style="font-size:12px;"></span>
         <button id="icPublish" class="publishBtn" style="margin-left:auto;">Опубликовать</button>
       </div>
@@ -59,10 +56,7 @@
 <div id="postEditor" class="post-editor hidden">
   <div class="post-editor-top">
     <span id="editorTitle" class="muted">Новый пост</span>
-    <label class="toggle-anon" id="anonToggleRow">
-      <input type="checkbox" id="postAnonToggle">
-      <span>анонимно</span>
-    </label>
+    <div id="postIdentityHost"></div>
     <button id="closeEditorBtn" class="closeBtn"><span class="nf">&#xf00d;</span></button>
   </div>
   <textarea id="postTextArea" placeholder="Что у тебя нового? ♡"></textarea>
@@ -125,6 +119,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/feed-page.js?v=202609131044"></script>
+<script type="module" src="js/feed-page.js?v=202609131520"></script>
 </body>
 </html>

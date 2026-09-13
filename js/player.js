@@ -81,9 +81,25 @@ export function restorePlayback() {
   paintBar(saved.track);
 
   if (saved.playing) {
-    // Браузер может не дать заиграть без действия человека — тогда просто
-    // покажем плеер на паузе, и звук пойдёт с первого нажатия.
-    audio.play().catch(() => paintPlayState(false));
+    // Браузер не даёт заиграть, пока человек не сделал хоть что-то на странице.
+    // Поэтому пробуем сразу, а если откажут — ждём первого касания или нажатия
+    // и продолжаем с того же места. Для человека это выглядит так, будто
+    // музыка просто не прерывалась.
+    audio.play().catch(() => {
+      paintPlayState(false);
+
+      const resume = () => {
+        audio.play().then(() => cleanup()).catch(() => {});
+      };
+      const cleanup = () => {
+        document.removeEventListener("pointerdown", resume);
+        document.removeEventListener("keydown", resume);
+        document.removeEventListener("touchstart", resume);
+      };
+      document.addEventListener("pointerdown", resume, { once: false });
+      document.addEventListener("keydown", resume, { once: false });
+      document.addEventListener("touchstart", resume, { once: false });
+    });
   } else {
     paintPlayState(false);
   }
@@ -178,6 +194,8 @@ function ensureBar() {
     const mode = cycleRepeat();
     showToast({ off: "Повтор выключен", all: "Повтор списка", one: "Повтор трека" }[mode]);
   });
+
+  paintRepeat();   // кнопка должна сразу показывать текущее состояние
 
   const menuBtn = bar.querySelector("[data-menu]");
   const menuList = bar.querySelector("[data-menu-list]");
@@ -416,22 +434,18 @@ export function getRepeatMode() { return repeatMode; }
 
 function paintRepeat() {
   const label = { off: "повтор выключен", all: "повтор списка", one: "повтор трека" }[repeatMode];
+
+  // Кнопок две — на полосе и в развёрнутом виде. Обновляем обе разом:
+  // раньше одна отрисовывалась, а вторая оставалась с прежним значком,
+  // и они показывали разное.
   document.querySelectorAll("[data-np-repeat], [data-repeat]").forEach(btn => {
-    // Три состояния — три вида: выключенный приглушён, повтор списка
-    // подсвечен, повтор трека подсвечен и со своим значком. Иначе первые
-    // два выглядели одинаково, и было непонятно, включено ли что-то.
+    btn.title = label;
+    const glyph = btn.querySelector(".nf");
+    if (glyph) glyph.textContent = repeatMode === "one" ? ICON.repeatOne : ICON.refresh;
+
+    btn.classList.toggle("repeat-one", repeatMode === "one");
     btn.classList.toggle("repeat-off", repeatMode === "off");
     btn.classList.toggle("active", repeatMode !== "off");
-    btn.title = label;
-    // Значок берём по текущему состоянию. Раньше он мог остаться прежним:
-    // кнопок две (полоса и развёрнутый вид), и отрисовка одной перетирала
-    // состояние другой.
-    // Значок один и тот же — круговая стрелка. Повтор одного трека
-    // отмечаем единицей рядом, как в привычных плеерах: отдельного значка
-    // для него в шрифте нет, а похожие путались между собой.
-    const glyph = btn.querySelector(".nf");
-    if (glyph) glyph.textContent = ICON.refresh;
-    btn.classList.toggle("repeat-one", repeatMode === "one");
   });
 }
 
