@@ -208,7 +208,10 @@ function ensureBar() {
     showToast({ off: "Повтор выключен", all: "Повтор списка", one: "Повтор трека" }[mode]);
   });
 
-  paintRepeat();   // кнопка должна сразу показывать текущее состояние
+  // Обе кнопки-режима должны сразу показывать своё состояние: иначе
+  // перемешивание всегда выглядит включённым, хотя на деле выключено.
+  paintRepeat();
+  paintShuffle();
 
   const menuBtn = bar.querySelector("[data-menu]");
   const menuList = bar.querySelector("[data-menu-list]");
