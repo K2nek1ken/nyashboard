@@ -136,15 +136,9 @@ function ensureBar() {
       <img class="player-cover" data-cover alt="">
       <button class="player-cover-btn" data-toggle><span class="nf">${ICON.play}</span></button>
     </div>
-    <div class="player-info">
-      <div class="player-title" data-title></div>
-    </div>
-    <div class="player-progress" data-progress>
-      <div class="player-progress-fill" data-fill></div>
-    </div>
     <div class="player-time" data-time>0:00</div>
-    <button class="player-btn" data-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
     <button class="player-btn" data-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
+    <button class="player-btn" data-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
     <div class="player-menu-wrap">
       <button class="player-btn" data-menu title="ещё"><span class="nf">${ICON.more}</span></button>
       <div class="player-menu hidden" data-menu-list>
@@ -155,7 +149,13 @@ function ensureBar() {
     <button class="player-fav" data-fav title="в любимое"><span class="nf">${ICON.heart}</span></button>
     <button class="player-expand" data-expand title="развернуть">
       <span class="nf" data-expand-icon>${ICON.down}</span>
-    </button>`;
+    </button>
+    <div class="player-info">
+      <div class="player-title" data-title></div>
+    </div>
+    <div class="player-progress" data-progress>
+      <div class="player-progress-fill" data-fill></div>
+    </div>`;
   document.body.appendChild(bar);
 
   bar.querySelector("[data-toggle]").addEventListener("click", (e) => {
@@ -516,6 +516,11 @@ function openNowPlaying() {
     </div>`;
   document.body.appendChild(box);
   document.body.classList.add("np-open");   // полоса уезжает под шапку
+
+  // Развёрнутый вид живёт поверх вкладок и переживает переходы: музыка
+  // не прерывается, значит и окно с ней закрывать незачем. Закроет его
+  // только сам человек.
+  box.dataset.persistent = "1";
 
   const close = () => {
     box.classList.add("closing");

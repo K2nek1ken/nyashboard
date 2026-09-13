@@ -104,15 +104,17 @@ async function swap(page, { push = true } = {}) {
     // Открытые окна и меню относятся к покидаемой вкладке: они висят в общем
     // слое поверх страницы, поэтому сами бы не закрылись и остались бы
     // поверх новой.
-    document.querySelectorAll(".modal, .now-playing, .lightbox").forEach(el => {
+    document.querySelectorAll(".modal, .lightbox").forEach(el => {
       if (el.id === "settingsModal") return;   // настройки открываются поверх любой вкладки
+      if (el.dataset.persistent) return;       // окно, которое закрывает только человек
       el.remove();
     });
+    // Развёрнутый плеер закрывать не нужно: он относится к музыке, а она
+    // играет поверх всех вкладок. Закрывает его только сам человек.
     document.querySelectorAll(
       ".kebabMenu:not(.hidden), .cselect-menu:not(.hidden), " +
       ".player-menu:not(.hidden), .profile-dropdown:not(.hidden)"
     ).forEach(el => el.classList.add("hidden"));
-    document.body.classList.remove("np-open");
 
     const app = document.getElementById("app");
     const fresh = new DOMParser().parseFromString(html, "text/html");
