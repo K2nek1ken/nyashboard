@@ -32,6 +32,8 @@ let current = null;
 let queue = [];          // очередь: что играет дальше
 let queueIndex = -1;
 let repeatMode = "off"; // off | one | all
+let shuffled = false;   // перемешивание — режим, а не одноразовое действие
+let orderedQueue = [];  // исходный порядок, чтобы было куда вернуться
 
 function saveState() {
   if (!current || !audio) return;
@@ -40,7 +42,7 @@ function saveState() {
       track: current,
       position: audio.currentTime || 0,
       playing: !audio.paused,
-      queue, queueIndex, repeatMode,
+      queue, queueIndex, repeatMode, shuffled, orderedQueue,
       expanded: !!document.getElementById("nowPlaying"),
       savedAt: Date.now()
     }));
@@ -72,7 +74,9 @@ export function restorePlayback() {
   queue = saved.queue || [];
   queueIndex = saved.queueIndex ?? -1;
   repeatMode = saved.repeatMode || "off";
-  setTimeout(paintRepeat, 0);     // кнопки появляются чуть позже состояния
+  shuffled = !!saved.shuffled;
+  orderedQueue = saved.orderedQueue || [];
+  setTimeout(() => { paintRepeat(); paintShuffle(); }, 0);   // кнопки появляются позже состояния
 
   ensureAudio();
   ensureBar();
@@ -197,8 +201,7 @@ function ensureBar() {
     }
   });
   bar.querySelector("[data-shuffle]").addEventListener("click", () => {
-    shuffleQueue();
-    showToast("Перемешала ♡");
+    showToast(toggleShuffle() ? "Перемешала ♡" : "Обычный порядок");
   });
   bar.querySelector("[data-repeat]").addEventListener("click", () => {
     const mode = cycleRepeat();
@@ -400,6 +403,14 @@ export function setQueue(tracks, startIndex = 0) {
     url: t.url, coverUrl: t.coverUrl || null
   }));
   queueIndex = startIndex;
+  orderedQueue = queue.slice();
+
+  // Если перемешивание включено, новый список тоже перемешиваем: режим
+  // остаётся режимом, а не сбрасывается при смене подборки.
+  if (shuffled) {
+    shuffled = false;
+    toggleShuffle();
+  }
   if (queue[queueIndex]) playTrack(queue[queueIndex]);
 }
 
@@ -485,18 +496,52 @@ function paintRepeat() {
   });
 }
 
-export function shuffleQueue() {
-  if (queue.length < 2) return;
-  const currentTrack = queue[queueIndex];
-  const rest = queue.filter((_, i) => i !== queueIndex);
-  // перемешивание с конца: каждый элемент честно может оказаться где угодно
-  for (let i = rest.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rest[i], rest[j]] = [rest[j], rest[i]];
+// Перемешивание — состояние, а не разовое действие: включил и выключил.
+// При выключении очередь возвращается к тому порядку, в каком была задана,
+// иначе исходную последовательность было бы уже не восстановить.
+export function toggleShuffle() {
+  if (queue.length < 2) { shuffled = !shuffled; paintShuffle(); return shuffled; }
+
+  const playing = queue[queueIndex];
+
+  if (!shuffled) {
+    orderedQueue = queue.slice();          // запоминаем, к чему возвращаться
+
+    const rest = queue.filter((_, i) => i !== queueIndex);
+    // перемешивание с конца: каждый элемент честно может оказаться где угодно
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    // Играющий трек оставляем первым: прерывать его ради перемешивания
+    // никто не просил.
+    queue = playing ? [playing, ...rest] : rest;
+    queueIndex = 0;
+  } else {
+    if (orderedQueue.length) queue = orderedQueue.slice();
+    // указатель переносим на тот же трек, что и играл
+    queueIndex = Math.max(0, queue.findIndex(t => t.id === playing?.id));
   }
-  queue = currentTrack ? [currentTrack, ...rest] : rest;
-  queueIndex = 0;
+
+  shuffled = !shuffled;
   saveState();
+  paintShuffle();
+  return shuffled;
+}
+
+// Совместимость со старыми вызовами: включить перемешивание.
+export function shuffleQueue() {
+  if (!shuffled) toggleShuffle();
+}
+
+export function isShuffled() { return shuffled; }
+
+function paintShuffle() {
+  document.querySelectorAll("[data-shuffle], [data-np-shuffle]").forEach(btn => {
+    btn.classList.toggle("repeat-off", !shuffled);   // тот же приглушённый вид
+    btn.classList.toggle("active", shuffled);
+    btn.title = shuffled ? "перемешано" : "перемешивание выключено";
+  });
 }
 
 export function stop() {
@@ -578,8 +623,7 @@ function openNowPlaying() {
     showToast({ off: "Повтор выключен", all: "Повтор списка", one: "Повтор трека" }[mode]);
   });
   box.querySelector("[data-np-shuffle]").addEventListener("click", () => {
-    shuffleQueue();
-    showToast("Перемешала ♡");
+    showToast(toggleShuffle() ? "Перемешала ♡" : "Обычный порядок");
   });
   box.querySelector("[data-np-progress]").addEventListener("click", (e) => {
     if (!audio?.duration) return;
@@ -589,6 +633,7 @@ function openNowPlaying() {
 
   paintProgress();
   paintRepeat();
+  paintShuffle();
 }
 
 // Обновляет развёрнутый вид, если он открыт. Раньше он рисовался один раз

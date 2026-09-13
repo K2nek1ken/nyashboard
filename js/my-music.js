@@ -3,7 +3,7 @@ import {
   addToPlaylist, removeFromPlaylist, loadPlaylistTracks,
   moveFavoriteToTop, loadFavoriteOrder, toggleFavorite
 } from "./music.js";
-import { setQueue, shuffleQueue } from "./player.js";
+import { setQueue } from "./player.js";
 import { trackCardHtml, wireTrackCards } from "./music-ui.js";
 import { currentUser, authReady } from "./auth.js";
 import { askText, askConfirm } from "./dialog.js";
@@ -48,8 +48,11 @@ export async function initMyMusic() {
       ? await loadPlaylistTracks(activePlaylist)
       : favorites;
     if (!tracks.length) { showToast("Нечего перемешивать"); return; }
+    // Ставим подборку и включаем перемешивание: кнопка здесь означает
+    // «играть вперемешку», а не «перемешать один раз».
     setQueue(tracks, Math.floor(Math.random() * tracks.length));
-    shuffleQueue();
+    const { isShuffled, toggleShuffle } = await import("./player.js");
+    if (!isShuffled()) toggleShuffle();
     showToast("Играет вперемешку ♡");
   });
 
