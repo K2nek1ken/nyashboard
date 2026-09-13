@@ -278,8 +278,10 @@ function wireSettingsModal(channelId) {
   }
 
   openBtn.addEventListener("click", async () => {
-    // с оформлением: у каналов тоже есть рамка и украшение
-    const wrap = avatarImg.closest(".avatar-wrap") || avatarImg.parentElement;
+    // Обёртку ищем заново, а не от картинки: она заменяется при отрисовке,
+    // и ссылка на прежнюю ведёт в никуда — аватарка застывала на прошлой.
+    const wrap = document.getElementById("chAvatarHost")
+              || avatarImg?.closest(".avatar-wrap");
     if (wrap) {
       wrap.innerHTML = avatarHtml({
         avatarUrl: channel.avatarUrl, avatarShape: channel.avatarShape,

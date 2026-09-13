@@ -1156,17 +1156,13 @@ async function revealRepostAuthor(p, container) {
     }
     const wrap = card.querySelector(".post-head .avatar-wrap");
     if (wrap) {
-      const img = wrap.querySelector("img");
-      // с оформлением: в ответах автор выглядит так же, как в самой записи
-      const wrap = img.closest(".avatar-wrap") || img.parentElement;
-      if (wrap) {
-        wrap.innerHTML = avatarHtml({
-          ...a, accessory: a.accessory || "none", avatarBorder: a.avatarBorder || "pink"
-        }, img.offsetWidth || 28);
-      } else {
-        applyAvatar(img, a, "neko");
-      }
-      img.style.width = img.style.height = "34px";
+      // Раскрытый автор репоста — с оформлением, как и везде.
+      wrap.innerHTML = avatarHtml({
+        ...a,
+        accessory: a.accessory || "none",
+        avatarBorder: a.avatarBorder || "pink"
+      }, 34);
+
       const st = wrap.querySelector(".avatar-status");
       if (st) st.textContent = a.statusEmoji || "";
     }

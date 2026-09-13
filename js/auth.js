@@ -130,10 +130,14 @@ export async function logout() {
 // Аватарка в меню — со всем оформлением, как везде: раньше здесь стояла
 // голая картинка без рамки и украшения.
 function paintDropdownAvatar(user) {
-  const img = document.getElementById("ddAvatar");
-  if (!img) return;
-  const wrap = img.closest(".avatar-wrap") || img.parentElement;
-  if (!wrap) { img.src = user?.avatarUrl || defaultAvatar(); return; }
+  // Обёртку ищем по её идентификатору: картинка внутри заменяется при каждой
+  // отрисовке, и ссылка на неё после этого ведёт в никуда.
+  const wrap = document.getElementById("ddAvatarWrap");
+  if (!wrap) {
+    const img = document.getElementById("ddAvatar");
+    if (img) img.src = user?.avatarUrl || defaultAvatar();
+    return;
+  }
 
   wrap.innerHTML = avatarHtml({
     ...user,

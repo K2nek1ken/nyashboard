@@ -104,19 +104,19 @@ export async function openUserProfile(uid) {
   const badge = await relationBadge(uid, user).catch(() => null);
   nameEl.innerHTML = nameHtml(user, { clickable: false }) + badgeHtml(badge);
   userEl.textContent = user.username;
-  // Карточка человека — с оформлением, как и его аватарка в списках.
-  const wrap = avatarEl.closest(".avatar-wrap") || avatarEl.parentElement;
+  // Обёртку берём по её собственному признаку, а не от картинки внутри:
+  // после первой же перерисовки та картинка выброшена из документа, и всё,
+  // что искалось от неё, уходило в никуда — карточка оставалась с прежним
+  // человеком.
+  const wrap = document.getElementById("vpAvatarWrap");
   if (wrap) {
     wrap.innerHTML = avatarHtml({
       ...user,
       accessory: user.accessory || "none",
       avatarBorder: user.avatarBorder || "pink"
     }, 64);
-  } else {
-    avatarEl.src = user.avatarUrl || defaultAvatar();
   }
-  avatarEl.className = `avatar-shaped ${shapeClass(user.avatarShape)}`;
-  const statusEl = document.getElementById("vpStatus");
+  const statusEl = wrap?.querySelector(".avatar-status") || document.getElementById("vpStatus");
   if (statusEl) statusEl.textContent = user.statusEmoji || "";
   const bioEl = document.getElementById("vpBio");
   if (bioEl) bioEl.textContent = user.bio || "";
