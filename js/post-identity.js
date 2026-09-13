@@ -22,7 +22,11 @@ import { ICON } from "./icons.js";
 //  место, и переставлять каждый раз утомительно.
 // ============================================================
 
-const INLINE_LIMIT = 3;
+// Сколько каналов показывать прямо в строке. На компьютере места больше,
+// поэтому и предел выше: до пяти влезает без тесноты.
+function inlineLimit() {
+  return window.matchMedia("(min-width: 900px)").matches ? 5 : 3;
+}
 
 let channels = [];
 let choice = { kind: "self", channelId: null };
@@ -38,6 +42,11 @@ export async function initPostIdentity(host, onChange) {
     return;
   }
 
+  // Сначала рисуем то, что доступно всегда: анонимно и от себя. Каналы
+  // подгружаются следом и добавляются к списку — иначе сбой при их загрузке
+  // оставлял бы человека вовсе без выбора.
+  render(host, onChange);
+
   try {
     const { fetchManagedChannels } = await import("./channels.js");
     const { created, admin } = await fetchManagedChannels();
@@ -47,7 +56,10 @@ export async function initPostIdentity(host, onChange) {
       seen.add(c.id);
       return true;
     });
-  } catch { channels = []; }
+  } catch (e) {
+    console.warn("Каналы для публикации не загрузились:", e.message);
+    channels = [];
+  }
 
   // восстанавливаем прошлый выбор, если он ещё имеет смысл
   const saved = recall("postIdentity", null);
@@ -66,7 +78,8 @@ function render(host, onChange) {
 
   // Мало каналов — показываем прямо в списке. Много — одной строкой,
   // за которой откроется окно выбора.
-  if (channels.length && channels.length <= INLINE_LIMIT) {
+  const limit = inlineLimit();
+  if (channels.length && channels.length <= limit) {
     channels.forEach(c => options.push({ kind: "channel", channelId: c.id, label: c.name, channel: c }));
   } else if (channels.length) {
     options.push({ kind: "pick", label: currentChannelName() || "От имени канала", icon: ICON.hash });

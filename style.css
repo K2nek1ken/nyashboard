@@ -901,9 +901,14 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
     color: var(--text); font-family: inherit; font-size: 15px; line-height: 1.5;
     min-height: 26px; overflow: hidden;   /* высота растёт по мере набора */
   }
+  /* Выбор имени публикации занимает место, поэтому строка переносится:
+     иначе кнопки сжимались до нечитаемого или уезжали за край. */
   .inline-composer-bottom {
-    display: flex; align-items: center; gap: 12px; margin-top: 10px;
+    display: flex; align-items: center; gap: 10px; margin-top: 10px;
+    flex-wrap: wrap;
   }
+  .inline-composer-bottom #icIdentityHost { flex: 1 1 auto; min-width: 0; }
+  .inline-composer-bottom .identity-row { margin: 0; }
   .inline-composer .image-strip { margin-top: 8px; }
   /* плавающая кнопка на ПК не нужна — есть строка ввода */
   #newPostFab { display: none; }
