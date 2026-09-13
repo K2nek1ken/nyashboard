@@ -48,11 +48,19 @@ export async function initMyMusic() {
       ? await loadPlaylistTracks(activePlaylist)
       : favorites;
     if (!tracks.length) { showToast("Нечего перемешивать"); return; }
-    // Ставим подборку и включаем перемешивание: кнопка здесь означает
-    // «играть вперемешку», а не «перемешать один раз».
-    setQueue(tracks, Math.floor(Math.random() * tracks.length));
     const { isShuffled, toggleShuffle } = await import("./player.js");
-    if (!isShuffled()) toggleShuffle();
+
+    // Если уже играет вперемешку — кнопка выключает режим, а не включает
+    // его заново. Раньше она каждый раз заново ставила очередь, и режим
+    // начинался с нуля: выключить его было невозможно.
+    if (isShuffled()) {
+      toggleShuffle();
+      showToast("Обычный порядок");
+      return;
+    }
+
+    setQueue(tracks, Math.floor(Math.random() * tracks.length));
+    toggleShuffle();
     showToast("Играет вперемешку ♡");
   });
 

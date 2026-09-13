@@ -410,10 +410,12 @@ export function setQueue(tracks, startIndex = 0) {
 
   // Если перемешивание включено, новый список тоже перемешиваем: режим
   // остаётся режимом, а не сбрасывается при смене подборки.
-  if (shuffled) {
-    shuffled = false;
-    toggleShuffle();
-  }
+  //
+  // Здесь важно не трогать сам флаг: раньше он сбрасывался в «выключено»
+  // перед вызовом переключателя, и при каждой новой подборке режим начинался
+  // заново. Со стороны выглядело так, будто перемешивание только включается
+  // и никогда не выключается.
+  if (shuffled) reshuffleKeepingMode();
   if (queue[queueIndex]) playTrack(queue[queueIndex]);
 }
 
@@ -502,6 +504,21 @@ function paintRepeat() {
 // Перемешивание — состояние, а не разовое действие: включил и выключил.
 // При выключении очередь возвращается к тому порядку, в каком была задана,
 // иначе исходную последовательность было бы уже не восстановить.
+// Перетасовать очередь, оставив режим включённым. Нужно, когда меняется
+// подборка: список новый, а «играть вперемешку» человек уже выбрал.
+function reshuffleKeepingMode() {
+  if (queue.length < 2) return;
+  const playing = queue[queueIndex];
+  const rest = queue.filter((_, i) => i !== queueIndex);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  queue = playing ? [playing, ...rest] : rest;
+  queueIndex = 0;
+  saveState();
+}
+
 export function toggleShuffle() {
   if (queue.length < 2) { shuffled = !shuffled; paintShuffle(); return shuffled; }
 
