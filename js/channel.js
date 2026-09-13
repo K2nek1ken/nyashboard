@@ -29,12 +29,21 @@ let isAdmin = false;
 let composerImages = []; // File[]
 
 export async function initChannelPage() {
+  // При переходе между вкладками страница запускается заново на новой
+  // разметке: прежние значения из замыкания указывали бы на исчезнувшие
+  // элементы.
+  channel = null;
+
   const channelId = getChannelId();
   const wallEl = document.getElementById("chWall");
   if (!channelId) { wallEl.innerHTML = `<div class="stub-note">Не указан канал (нет ?id= в ссылке)</div>`; return; }
 
   await authReady; // иначе роль (создатель/админ) определится неправильно на первой загрузке
-  await loadSubscriptions();
+
+  // Подписки нужны для кнопки «подписаться», но без них канал всё равно
+  // можно показать: сбой здесь не должен оставлять пустую страницу.
+  await loadSubscriptions().catch(e => console.warn("Подписки не загрузились:", e.message));
+
   channel = await getChannel(channelId);
   if (!channel) { wallEl.innerHTML = `<div class="stub-note">Канал не найден</div>`; return; }
 
@@ -174,7 +183,9 @@ function wireComposer(channelId) {
       await reloadWall(channelId);
     } catch (e) {
       console.error(e);
-      showToast("Ошибка: " + e.message);
+      showToast(/permission|insufficient/i.test(e.message)
+        ? "Не хватает прав — менять настройки канала может только его создатель"
+        : "Не сохранилось: " + e.message);
     } finally {
       publishBtn.disabled = false;
     }
@@ -217,7 +228,9 @@ function wirePeopleModal(channelId) {
       peopleBtn.click();
     } catch (e) {
       console.error(e);
-      showToast("Ошибка: " + e.message);
+      showToast(/permission|insufficient/i.test(e.message)
+        ? "Не хватает прав — менять настройки канала может только его создатель"
+        : "Не сохранилось: " + e.message);
     }
   });
 
@@ -229,7 +242,9 @@ function wirePeopleModal(channelId) {
       showToast(`Теперь админ: ${user.nickname}`);
     } catch (e) {
       console.error(e);
-      showToast("Ошибка: " + e.message);
+      showToast(/permission|insufficient/i.test(e.message)
+        ? "Не хватает прав — менять настройки канала может только его создатель"
+        : "Не сохранилось: " + e.message);
     }
   });
 }
@@ -333,7 +348,9 @@ function wireSettingsModal(channelId) {
   const csColorHost = document.getElementById("csColorHost");
 
   function applyChannelDecor() {
-    const wrap = csAvatar.closest(".avatar-wrap") || csAvatar.parentElement;
+    // Обёртку берём по её признаку: без неё украшение отсчитывается от всего
+    // окна и растягивается на весь экран — именно это и происходило.
+    const wrap = document.getElementById("csAvatarWrap");
     if (!wrap) return;
     csAvatar.style.borderColor = paletteColor(pendingChannelBorder);
     wrap.querySelector(".avatar-accessory")?.remove();
@@ -409,7 +426,16 @@ function wireSettingsModal(channelId) {
     if (!/^[a-zA-Z0-9_]{2,17}$/.test(usernameSuffix)) { showToast("Юзернейм: 2-17 символов после ch_"); return; }
     saveBtn.disabled = true;
     try {
-      const patch = { name, description: descInput.value.trim() };
+      // Оформление уезжает вместе с остальным: раньше его тут не было вовсе,
+      // и выбранные форма, украшение и цвет оставались только на этом
+      // устройстве — выглядело как сохранение, а на деле нет.
+      const patch = {
+        name,
+        description: descInput.value.trim(),
+        avatarShape: pendingChannelShape,
+        accessory: pendingChannelAccessory,
+        avatarBorder: pendingChannelBorder
+      };
       if (pendingAvatarFile) {
         showToast("Загружаю аватарку...");
         patch.avatarUrl = await uploadImage(pendingAvatarFile);
@@ -442,7 +468,9 @@ function wireSettingsModal(channelId) {
       modal.classList.add("hidden");
     } catch (e) {
       console.error(e);
-      showToast("Ошибка: " + e.message);
+      showToast(/permission|insufficient/i.test(e.message)
+        ? "Не хватает прав — менять настройки канала может только его создатель"
+        : "Не сохранилось: " + e.message);
     } finally {
       saveBtn.disabled = false;
     }

@@ -10,7 +10,17 @@ initShell();   // шапка, оформление и плеер — общие 
 export async function initPage() {
   keepScrollPosition();
   initViewProfileModal();
-  initChannelPage();
+
+  // Ошибку здесь нельзя терять: страница канала загружается в несколько
+  // шагов, и сбой на любом оставлял пустой экран без объяснений — помогала
+  // только перезагрузка.
+  try {
+    await initChannelPage();
+  } catch (e) {
+    console.error("Страница канала не открылась:", e);
+    const wall = document.getElementById("chWall");
+    if (wall) wall.innerHTML = `<div class="stub-note">Не удалось открыть канал: ${e.message}</div>`;
+  }
 }
 
 export function destroyPage() {

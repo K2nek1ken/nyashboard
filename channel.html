@@ -20,11 +20,11 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="icon" href="assets/favicon.svg?v=202609131751" type="image/svg+xml" sizes="any">
-  <link rel="apple-touch-icon" href="assets/favicon.svg?v=202609131751">
+  <link rel="icon" href="assets/favicon.svg?v=202609131804" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="assets/favicon.svg?v=202609131804">
   <link rel="manifest" href="site.webmanifest">
   <meta name="theme-color" content="#17131c">
-  <link rel="stylesheet" href="style.css?v=202609131751">
+  <link rel="stylesheet" href="style.css?v=202609131804">
 </head>
 <body>
 
@@ -93,7 +93,9 @@
     <button class="closeBtn modalClose" id="closeSettingsModal"><span class="nf">&#xf00d;</span></button>
     <h2>Настройки канала</h2>
     <label for="csAvatarInput" class="avatar-edit-wrap" style="display:block; text-align:center;">
-      <img id="csAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-shaped shape-circle" style="width:72px;height:72px;">
+      <span class="avatar-wrap" id="csAvatarWrap" style="width:72px;height:72px;">
+        <img id="csAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="avatar-shaped shape-circle" style="width:72px;height:72px;">
+      </span>
       <div id="csShapeHost"></div>
       <div class="muted" style="font-size:12px; margin-top:14px;">Украшение</div>
       <div id="csAccessoryHost"></div>
@@ -163,6 +165,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/channel-page.js?v=202609131751"></script>
+<script type="module" src="js/channel-page.js?v=202609131804"></script>
 </body>
 </html>

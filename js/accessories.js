@@ -20,6 +20,10 @@ const ITEMS = {
   spark: {
     label: "Искра",
     forChannel: true,
+    // Область, в которой лежит сама фигура: в превью показываем только её,
+    // иначе украшение уезжает в угол кнопки — оно нарисовано со смещением,
+    // чтобы ложиться на край аватарки.
+    box: "2 4 36 36",
     svg: (c) => {
       const p = (x, y, long, short) =>
         `${x},${y - long} ${x + short},${y - short} ${x + long},${y} ` +
@@ -40,6 +44,7 @@ const ITEMS = {
   // поэтому она тонкая и повторяет изгиб аватарки.
   ears: {
     label: "Ушки",
+    box: "6 0 88 46",
     svg: (c) => `
       <path d="M14,44 A38,38 0 0 1 86,44" fill="none" stroke="${c}"
             stroke-width="3" stroke-linecap="round"/>
@@ -50,6 +55,7 @@ const ITEMS = {
   // Цветок сбоку: шесть овальных лепестков и более яркая сердцевина.
   flower: {
     label: "Цветочек",
+    box: "2 10 40 40",
     svg: (c) => {
       const core = lighten(c, 0.45);
       const petals = [0, 60, 120, 180, 240, 300].map(a =>
@@ -63,6 +69,7 @@ const ITEMS = {
 
   halo: {
     label: "Нимб",
+    box: "20 2 60 26",
     svg: (c) => `
       <ellipse cx="50" cy="14" rx="26" ry="7.5" fill="none"
                stroke="${c}" stroke-width="4.5"/>`
@@ -77,6 +84,7 @@ const ITEMS = {
   halo2: {
     label: "Нимб серафима",
     forChannel: true,
+    box: "16 0 68 30",
     svg: (c) => {
       // Три кольца под углом, как на эскизе, но над аватаркой, а не поверх
       // неё: в полный размер они накрывали лицо и читались как решётка.
@@ -93,6 +101,7 @@ const ITEMS = {
   star: {
     label: "Звёздочка",
     forChannel: true,
+    box: "2 11 34 34",
     svg: (c) => {
       // Внешний радиус больше, чем у искры: у пятиконечной звезды между
       // лучами много пустоты, и при равной ширине она кажется вдвое мельче.
@@ -137,11 +146,15 @@ export function accessoryHtml(key, colorKey, preview = false) {
   // Из-за этого же они сильнее любого правила снаружи — поэтому для кнопок
   // выбора подставляем свои, а не пытаемся перебить их со стороны.
   const box = preview
-    ? "position:absolute;inset:10%;width:80%;height:80%;"
+    ? "position:absolute;inset:12%;width:76%;height:76%;"
     : "position:absolute;inset:-18%;width:136%;height:136%;";
 
+  // В превью показываем только саму фигуру: украшения нарисованы со сдвигом
+  // к краю аватарки, и при полной области они оказывались в углу кнопки.
+  const viewBox = preview ? (item.box || "0 0 100 100") : "0 0 100 100";
+
   return `<svg class="avatar-accessory${preview ? " accessory-preview" : ""}"
-    viewBox="0 0 100 100" aria-hidden="true"
+    viewBox="${viewBox}" aria-hidden="true"
     style="${box}pointer-events:none;z-index:1;overflow:visible;"
   >${svg}</svg>`;
 }
