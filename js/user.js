@@ -47,7 +47,18 @@ export async function initUserPage() {
   }
 
   setHtml("uNickname", nameHtml(user, { clickable: false }) + badgeHtml(badge));
-  setText("uUsername", user.username);
+  // Юзернейм копируется нажатием — как и номер: чаще всего с ним делают
+  // именно это.
+  const usernameEl = setText("uUsername", user.username);
+  if (usernameEl && !usernameEl.dataset.copyWired) {
+    usernameEl.dataset.copyWired = "1";
+    usernameEl.classList.add("copyable");
+    usernameEl.title = "нажми, чтобы скопировать";
+    usernameEl.addEventListener("click", async () => {
+      const { copyNuid } = await import("./copy-nuid.js");
+      copyNuid("@" + (usernameEl.textContent || ""), "Юзернейм");
+    });
+  }
   setText("uBio", user.bio || "");
   document.title = `NyashBoard ♡ — ${user.nickname}`;
 

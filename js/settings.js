@@ -33,6 +33,7 @@ export const THEMES = {
   default: "Ночная сирень",
   midnight: "Полночь",
   sakura: "Сакура",
+  nothing: "Абсолютное ничего",
   quiet: "Ночная тишь"
 };
 

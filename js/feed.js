@@ -176,22 +176,37 @@ const authorCache = new Map();
 // всей ленте — лишняя нагрузка, а спешить некуда.
 let lastBackfill = 0;
 
+let backfillComplained = false;
+
 async function backfillNuid(posts) {
   if (!currentUser) return;                       // проставить может только вошедший
-  if (Date.now() - lastBackfill < 4000) return;
+  if (Date.now() - lastBackfill < 1500) return;
 
-  const target = posts.find(p => !p.publicUid);
-  if (!target) return;
+  // Пачкой по пять: по одной за четыре секунды полсотни старых записей
+  // нумеровались бы три минуты — человек успел бы уйти.
+  const targets = posts.filter(p => !p.publicUid).slice(0, 5);
+  if (!targets.length) return;
   lastBackfill = Date.now();
 
-  try {
-    const nuid = await registerPostNuid(target.id);
-    await updateDoc(doc(db, "posts", target.id), { publicUid: nuid });
-    target.publicUid = nuid;
-  } catch (e) {
-    // Отказ здесь не страшен: номер проставит кто-нибудь другой при просмотре.
-    console.debug("Номер записи не проставился:", e.message);
+  for (const target of targets) {
+    try {
+      const nuid = await registerPostNuid(target.id);
+      await updateDoc(doc(db, "posts", target.id), { publicUid: nuid });
+      target.publicUid = nuid;
+    } catch (e) {
+      // Раньше отказ уходил в никуда, и понять, почему номеров нет, было
+      // невозможно. Теперь причина видна, а про отказ прав говорим вслух —
+      // почти всегда это незалитые правила базы.
+      console.warn("Номер записи не проставился:", e.message);
+      if (!backfillComplained && /permission|insufficient/i.test(e.message)) {
+        backfillComplained = true;
+        showToast("Номера записей не проставляются — похоже, правила базы не обновлены");
+      }
+      return;                                      // остальные тоже не пройдут
+    }
   }
+  // показываем проставленные номера сразу
+  if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
 }
 
 async function enrichAuthors(posts) {
@@ -496,7 +511,9 @@ export function postToHtml(p, maskAuthor = false) {
       ? { action: "undoNotInterested", label: "Вернуть в рекомендации", icon: ICON.up }
       : { action: "notInterested", label: "Не рекомендовать", icon: ICON.down },
     ...(p.publicUid ? [{ action: "copyNuid", label: "Скопировать NUID", icon: ICON.hash }] : []),
-    { action: "report", label: "Пожаловаться", icon: ICON.warning },
+    // Жаловаться на себя и прятать своё — бессмысленно. Управляющие канала
+    // тоже считаются своими для его записей.
+    ...(canSuppress ? [{ action: "report", label: "Пожаловаться", icon: ICON.warning }] : []),
     ...(canManage
       ? [
           ...(hasEditor ? [{ action: "editPost", label: "Изменить", icon: ICON.pencil }] : []),

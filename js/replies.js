@@ -105,6 +105,9 @@ export function replyRowHtml(r) {
       </div>
       <div class="reply-text">${linkifyMentions(escapeHtml(r.text || ""))}</div>
       ${r.imageUrl ? `<img class="reply-img" src="${r.imageUrl}">` : ""}
+      <button class="replyLikeBtn" data-action="replyToReply" title="ответить">
+        <span class="nf">${ICON.reply}</span>
+      </button>
       <button class="replyLikeBtn ${liked ? "liked" : ""}" data-action="likeReply">
         <span class="nf">${liked ? ICON.heartFilled : ICON.heart}</span> ${r.likesCount || 0}
       </button>
@@ -116,6 +119,18 @@ export function wireReplyLikes(container, replies, onDeleted) {
   container.querySelectorAll("[data-reply-id]").forEach(row => {
     const r = replies.find(x => x.id === row.dataset.replyId);
     if (!r) return;
+    // Ответ на ответ: отдельная кнопка вместо меню — действие одно,
+    // и прятать его в меню было бы лишним шагом.
+    row.querySelector('[data-action="replyToReply"]')?.addEventListener("click", () => {
+      const input = document.getElementById("replyInput");
+      if (!input) return;
+      const handle = r.authorUsername ? `@${r.authorUsername} ` : "";
+      input.value = handle + input.value.replace(handle, "");
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
     const likeBtn = row.querySelector('[data-action="likeReply"]');
     likeBtn.addEventListener("click", async () => {
       await toggleReplyLike(r);

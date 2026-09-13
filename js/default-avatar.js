@@ -84,19 +84,24 @@ function hiddenSvg({ accent, light, dark }) {
 
 // Мордочка бота по эскизу Неко: крупный силуэт снизу, ушки-треугольники,
 // глаза. Отличается от обычной анонимной пропорциями, поэтому узнаётся сразу.
-function botSvg({ accent, light }) {
-  // Эскиз Неко без изменений: мордочка и рожки-четырёхугольники.
-  // Меняются только цвета — тёмный фон и светлый силуэт.
+function botSvg() {
+  // Эскиз Неко без изменений: чёрно-белая мордочка с рожками.
+  // Цвета не подстраиваются под тему — в этом и смысл: бот узнаётся сразу,
+  // как бы ни было раскрашено всё вокруг.
+  //
+  // В теме «Абсолютное ничего» рожки красные — как отсылка, ради которой
+  // тема и появилась.
+  const nothing = document.documentElement.dataset.theme === "nothing";
+  const horns = nothing ? "#ad2831" : "#ffffff";
   const horn = "586.08,439.64 480.39,433.72 478.12,523.45 670.24,635.42";
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
-  <ellipse cx="540" cy="540" rx="536.07" ry="536.07" fill="${accent}"/>
-  <polygon points="${horn}" fill="${light}"
-           transform="matrix(-0.6,0,0,-0.6,723.6,1203.5)"/>
-  <polygon points="${horn}" fill="${light}"
-           transform="matrix(0.6,0,0,-0.6,355.3,1203.5)"/>
-  <ellipse cx="539.42" cy="921.17" rx="449.09" ry="449.09" fill="${light}"/>
-  <ellipse cx="379.18" cy="716.39" rx="102.05" ry="102.05" fill="${accent}"/>
-  <ellipse cx="706.39" cy="716.39" rx="102.05" ry="102.05" fill="${accent}"/>
+  <ellipse cx="540" cy="540" rx="536.07" ry="536.07" fill="#000000"/>
+  <ellipse cx="540" cy="1051.53" rx="449.09" ry="449.09" fill="#ffffff"/>
+  <polygon points="${horn}" fill="${horns}"
+           transform="matrix(-0.6,-0.8,0.8,-0.6,688.4,1265.2)"/>
+  <polygon points="${horn}" fill="${horns}"
+           transform="matrix(0.6,-0.8,-0.8,-0.6,390.4,1265.2)"/>
 </svg>`;
 }
 
@@ -107,12 +112,6 @@ export function defaultAvatar(variant = "neko", seed = null) {
   const theme = readTheme();
   // Аватарка анонима красится в его личный оттенок, а не в акцент темы:
   // так участники общего чата отличаются друг от друга.
-  // Бот всегда одного цвета: он не участник, а часть сайта, и меняться
-  // вместе с чужими темами ему незачем.
-  if (variant === "bot") {
-    theme.accent = "#7f9cf5";
-    theme.light = "#eef2ff";
-  }
   if (variant === "anon") {
     // Свой оттенок, если он задан: так старые сообщения тоже раскрашиваются,
     // и один и тот же человек всегда одного цвета.
@@ -120,7 +119,7 @@ export function defaultAvatar(variant = "neko", seed = null) {
     theme.accent = base;
     theme.light = lightenHex(base, 0.62);
   }
-  const key = `${variant}|${seed || ""}|${theme.accent}|${theme.light}|${theme.dark}`;
+  const key = `${variant}|${seed || ""}|${theme.accent}|${theme.light}|${theme.dark}|${document.documentElement.dataset.theme || ""}`;
   if (cache.has(key)) return cache.get(key);
   const svg = (BUILDERS[variant] || nekoSvg)(theme);
   const uri = "data:image/svg+xml," + encodeURIComponent(svg.replace(/\s+/g, " "));

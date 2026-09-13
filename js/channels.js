@@ -190,6 +190,13 @@ export async function assignChannelAdmin(channelId, handle) {
   const channel = await getChannel(channelId);
   if ((channel.adminUids || []).includes(user.uid)) throw new Error("Уже управляющий");
 
+  // Управлять каналом может только тот, кто на него подписан: иначе человека
+  // можно назначить туда, о чём он и не слышал.
+  const subscribed = await getDoc(doc(db, "users", user.uid, "subscriptions", channelId))
+    .then(s => s.exists())
+    .catch(() => false);
+  if (!subscribed) throw new Error("Сначала человек должен подписаться на канал");
+
   // Дата назначения нужна правилам: свежий управляющий первые три дня не может
   // трогать записи, опубликованные до его прихода.
   await updateDoc(doc(db, "channels", channelId), {
@@ -266,4 +273,24 @@ export function suggestChannels(allChannels, subscribedIds, excludeSubscribed = 
   const withScore = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score);
   if (withScore.length) return withScore.slice(0, 6).map(s => s.channel);
   return candidates.slice(0, 6);
+}
+
+
+// Уйти из управляющих самому. Создатель так поступить не может: канал
+// остался бы без хозяина, и вернуть доступ было бы некому.
+export async function leaveChannelAdmin(channelId) {
+  if (!currentUser) throw new Error("Нужен аккаунт");
+
+  const creator = await isChannelCreator(channelId).catch(() => false);
+  if (creator) throw new Error("Создатель не может уйти — иначе канал останется без хозяина");
+
+  const channel = await getChannel(channelId);
+  if (!(channel.adminUids || []).includes(currentUser.uid)) return;
+
+  const since = { ...(channel.adminSince || {}) };
+  delete since[currentUser.uid];
+  await updateDoc(doc(db, "channels", channelId), {
+    adminUids: (channel.adminUids || []).filter(u => u !== currentUser.uid),
+    adminSince: since
+  });
 }

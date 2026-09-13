@@ -1,12 +1,12 @@
 import { currentUser, authReady } from "./auth.js";
+import { goTo } from "./router.js";
 import { askText, askConfirm } from "./dialog.js";
 import {
   getChannel, isChannelCreator, updateChannel, changeChannelUsername,
   isSubscribedLocal, subscribeToChannel, unsubscribeFromChannel,
   isIdentifiedSubscriber, hideFromChannel, revealToChannel,
   listChannelSubscribers, addPersonToChannel, assignChannelAdmin, removeChannelAdmin,
-  createChannelPost
-} from "./channels.js";
+  createChannelPost, leaveChannelAdmin } from "./channels.js";
 import { loadSubscriptions } from "./subscriptions.js";
 import { loadChannelWall, renderPostsInto } from "./feed.js";
 import { getUserDoc } from "./data.js";
@@ -343,7 +343,28 @@ function wireSettingsModal(channelId) {
     csAccessoryHost.querySelectorAll("[data-ch-accessory]").forEach(btn => {
       btn.addEventListener("click", () => {
         pendingChannelAccessory = btn.dataset.chAccessory;
-        renderChannelAccessories();
+        // Уйти из управляющих можно самому — решать за человека, где ему состоять,
+  // неправильно. Создателю такая кнопка не показывается.
+  (async () => {
+    const host = document.getElementById("leaveAdminHost");
+    if (!host) return;
+    const iAmAdmin = (channel.adminUids || []).includes(currentUser?.uid);
+    const iAmCreator = await isChannelCreator(channelId).catch(() => false);
+    if (!iAmAdmin || iAmCreator) return;
+
+    host.innerHTML = `<button class="dangerBtn" id="leaveAdminBtn">Уйти из управляющих</button>`;
+    host.querySelector("#leaveAdminBtn").addEventListener("click", async () => {
+      if (!await askConfirm("Уйти из управляющих этого канала?",
+                            { okLabel: "Уйти", danger: true })) return;
+      try {
+        await leaveChannelAdmin(channelId);
+        showToast("Ты больше не управляющий");
+        goTo("content.html");
+      } catch (e) { showToast("Не вышло: " + e.message); }
+    });
+  })();
+
+  renderChannelAccessories();
         applyChannelDecor();
       });
     });

@@ -71,6 +71,7 @@ export function restorePlayback() {
   queue = saved.queue || [];
   queueIndex = saved.queueIndex ?? -1;
   repeatMode = saved.repeatMode || "off";
+  setTimeout(paintRepeat, 0);     // кнопки появляются чуть позже состояния
 
   ensureAudio();
   ensureBar();
@@ -422,8 +423,15 @@ function paintRepeat() {
     btn.classList.toggle("repeat-off", repeatMode === "off");
     btn.classList.toggle("active", repeatMode !== "off");
     btn.title = label;
+    // Значок берём по текущему состоянию. Раньше он мог остаться прежним:
+    // кнопок две (полоса и развёрнутый вид), и отрисовка одной перетирала
+    // состояние другой.
+    // Значок один и тот же — круговая стрелка. Повтор одного трека
+    // отмечаем единицей рядом, как в привычных плеерах: отдельного значка
+    // для него в шрифте нет, а похожие путались между собой.
     const glyph = btn.querySelector(".nf");
-    if (glyph) glyph.textContent = repeatMode === "one" ? ICON.repeatOne : ICON.refresh;
+    if (glyph) glyph.textContent = ICON.refresh;
+    btn.classList.toggle("repeat-one", repeatMode === "one");
   });
 }
 

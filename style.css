@@ -2237,3 +2237,106 @@ body.no-select, body.no-select * {
   object-fit: contain; pointer-events: none;
 }
 
+
+/* ============================================================
+   Тема «Абсолютное ничего»
+   Чёрно-белая основа, красный — только там, где что-то значит:
+   ссылки, идентификаторы, юзернеймы, отметки. Акцент, выбранный
+   в настройках, здесь намеренно не используется: вся суть в том,
+   что цвет один и появляется редко.
+   ============================================================ */
+html[data-theme="nothing"] {
+  --bg:         #000000;
+  --bg-soft:    #0a0a0a;
+  --card:       #141414;
+  --card-hover: #1e1e1e;
+  --text:       #f2f2f2;
+  --muted:      #7a7a7a;
+  --accent:     #ad2831;
+  --accent-2:   #d64550;
+  --danger:     #ad2831;
+}
+
+/* Границы тонкие и серые, без цветных подсветок */
+html[data-theme="nothing"] .post-card,
+html[data-theme="nothing"] .track-card,
+html[data-theme="nothing"] .art-card,
+html[data-theme="nothing"] .settings-group,
+html[data-theme="nothing"] .channel-card {
+  border: 1px solid #222;
+}
+html[data-theme="nothing"] #navHost,
+html[data-theme="nothing"] .profile-dropdown,
+html[data-theme="nothing"] .chat-floating-bar,
+html[data-theme="nothing"] .player-bar {
+  background: #0a0a0a;
+  border-color: #222;
+}
+
+/* Красным — только значимое: ссылки, номера, имена, активные вкладки */
+html[data-theme="nothing"] .mention,
+html[data-theme="nothing"] .hashtag,
+html[data-theme="nothing"] .track-nuid,
+html[data-theme="nothing"] .uid-display,
+html[data-theme="nothing"] .navBtn.active,
+html[data-theme="nothing"] .subtab.active,
+html[data-theme="nothing"] a:not(.dropdownBtn):not(.primaryBtn):not(.secondaryBtn) {
+  color: #ad2831;
+}
+
+/* Кнопки действия — красные, остальные бесцветные */
+html[data-theme="nothing"] .primaryBtn {
+  background: #ad2831; color: #fff; border: none;
+}
+html[data-theme="nothing"] .primaryBtn:hover { background: #c33440; }
+html[data-theme="nothing"] .secondaryBtn,
+html[data-theme="nothing"] .subBtn {
+  border-color: #333; color: #ccc; background: none;
+}
+html[data-theme="nothing"] .secondaryBtn:hover,
+html[data-theme="nothing"] .subBtn:hover { border-color: #ad2831; color: #ad2831; }
+
+/* Отметки и счётчики */
+html[data-theme="nothing"] .liked,
+html[data-theme="nothing"] .navBtn.has-new::after,
+html[data-theme="nothing"] .chat-nav-count { color: #ad2831; }
+html[data-theme="nothing"] .navBtn.has-new::after,
+html[data-theme="nothing"] .chat-nav-count { background: #ad2831; color: #fff; }
+
+/* Частицы и узоры приглушены: в этой теме фон должен быть пустым */
+html[data-theme="nothing"] #starfield { opacity: 0.35; }
+html[data-theme="nothing"] .chat-reply-quote {
+  background: #141414; border-left-color: #ad2831;
+}
+html[data-theme="nothing"] .chat-reply-quote .petals { opacity: 0.22; }
+
+/* Своё сообщение в чате — тонкой красной чертой, без заливки */
+html[data-theme="nothing"] .chat-msg.is-mine {
+  background: #141414; box-shadow: inset -2px 0 0 #ad2831;
+}
+
+/* то, что копируется нажатием */
+.copyable { cursor: pointer; }
+.copyable:hover { color: var(--accent); }
+
+/* Повтор одного трека: круговая стрелка с единицей — отдельного значка
+   для этого в шрифте нет, а похожие путались между собой. */
+.player-btn.repeat-one, .np-btn.repeat-one { position: relative; }
+.player-btn.repeat-one::after, .np-btn.repeat-one::after {
+  content: "1";
+  position: absolute; right: 2px; bottom: 2px;
+  font-size: 9px; font-weight: 700; line-height: 1;
+  background: var(--bg-soft); border-radius: 3px; padding: 0 2px;
+}
+
+/* ---------- подчинённые настройки ----------
+   Настройки, которые относятся к другой настройке (картинка и окраска —
+   к выбору частиц или узора), сдвинуты и отмечены чертой слева:
+   иначе непонятно, к чему они относятся. */
+.setting-row.sub {
+  padding-left: 22px;
+  border-left: 2px solid var(--card-hover);
+  margin-left: 4px;
+}
+.setting-row.sub .setting-label { font-size: 14px; }
+.setting-row.sub .setting-hint { font-size: 11px; }

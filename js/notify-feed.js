@@ -1,5 +1,5 @@
 import { db, collection, query, where, orderBy, limit, getDocs } from "./firebase.js";
-import { currentUser, authReady } from "./auth.js";
+import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { notify } from "./web-notify.js";
 import { getSettings } from "./settings.js";
 
@@ -106,6 +106,31 @@ export async function checkPersonalEvents() {
       }
       const newest = replies.docs[0]?.data().createdAt?.toMillis?.() || Date.now();
       if (seen.repliesAt !== newest) { seen.repliesAt = newest; changed = true; }
+    }
+
+    // ---- упоминания в ответах ----
+    // Раньше отслеживались только ответы на свои записи: если тебя отметили
+    // под чужой, узнать было неоткуда.
+    if (seen.mentionsAt !== undefined && currentUserDoc?.username) {
+      const recent = await getDocs(query(
+        collection(db, "replies"), orderBy("createdAt", "desc"), limit(40)
+      ));
+      const tag = new RegExp(`@${currentUserDoc.username}\\b`, "i");
+      const mentions = recent.docs.filter(d => {
+        const r = d.data();
+        return r.authorUid !== currentUser.uid
+          && tag.test(r.text || "")
+          && (r.createdAt?.toMillis?.() || 0) > seen.mentionsAt;
+      });
+      if (mentions.length) {
+        bump("mentions", mentions.length, (n) =>
+          n === 1 ? "Тебя упомянули в ответе" : `Тебя упомянули в ответах (${n})`);
+      }
+    }
+    if (seen.mentionsAt === undefined) { seen.mentionsAt = Date.now(); changed = true; }
+    else {
+      const now = Date.now();
+      if (now - seen.mentionsAt > 1000) { seen.mentionsAt = now; changed = true; }
     }
 
     // ---- заявки в друзья ----

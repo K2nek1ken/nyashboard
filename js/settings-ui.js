@@ -50,9 +50,15 @@ function group(id, title, hint, contentHtml, open = false) {
     </details>`;
 }
 
-function row(label, hint, controlHtml) {
+// Подчинённая строка — настройка, которая относится к другой настройке.
+// Отличается отступом и чертой слева, чтобы связь была видна.
+function subRow(label, hint, controlHtml) {
+  return row(label, hint, controlHtml, true);
+}
+
+function row(label, hint, controlHtml, isSub = false) {
   return `
-    <div class="setting-row">
+    <div class="setting-row ${isSub ? "sub" : ""}">
       <div class="setting-label">
         <div>${label}</div>
         ${hint ? `<div class="muted" style="font-size:12px;">${hint}</div>` : ""}
@@ -89,13 +95,13 @@ export function initSettingsPage() {
              ${select("particles", PARTICLES, s.particles)}
              <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
            </div>`)}
-        ${s.particles === "custom" ? row("Картинка для частиц", "png, svg или gif без фона, до 8 МБ. От гифки берётся первый кадр",
+        ${s.particles === "custom" ? subRow("Картинка для частиц", "png, svg или gif без фона, до 8 МБ. От гифки берётся первый кадр",
           `<div style="display:flex; gap:6px; align-items:center;">
              <button id="particlePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
              <input type="file" id="particleInput" accept="image/*" style="display:none;">
              <button class="linkBtn" id="particleClear" style="width:auto;">убрать</button>
            </div>`) : ""}
-        ${s.particles === "custom" ? row("Как красить картинку",
+        ${s.particles === "custom" ? subRow("Как красить картинку",
           "силуэтом — одним цветом; с деталями — светотень в оттенках акцента",
           select("particleTint", TINT_MODES, s.particleTint || "silhouette")) : ""}
         ${row("Узор на цитатах", "фон у ответа на сообщение в чате",
@@ -103,13 +109,13 @@ export function initSettingsPage() {
              ${select("quoteDecor", QUOTE_DECOR, s.quoteDecor)}
              <span class="particle-preview" id="decorPreview">${decorGlyphPreview(s.quoteDecor)}</span>
            </div>`)}
-        ${s.quoteDecor === "custom" ? row("Картинка для узора", "png, svg или gif без фона, до 8 МБ. От гифки берётся первый кадр",
+        ${s.quoteDecor === "custom" ? subRow("Картинка для узора", "png, svg или gif без фона, до 8 МБ. От гифки берётся первый кадр",
           `<div style="display:flex; gap:6px; align-items:center;">
              <button id="quotePick" class="secondaryBtn" style="width:auto; margin:0; padding:7px 12px;">Выбрать</button>
              <input type="file" id="quoteInput" accept="image/*" style="display:none;">
              <button class="linkBtn" id="quoteClear" style="width:auto;">убрать</button>
            </div>`) : ""}
-        ${s.quoteDecor === "custom" ? row("Как красить узор",
+        ${s.quoteDecor === "custom" ? subRow("Как красить узор",
           "силуэтом — одним цветом; с деталями — светотень в оттенках акцента",
           select("quoteTint", TINT_MODES, s.quoteTint || "silhouette")) : ""}
         ${row("Эмодзи", "Noto тянется с CDN и почти ничего не весит; Apple красивее, но это файл на 8 МБ",
