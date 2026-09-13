@@ -119,8 +119,9 @@ export async function initUserPage() {
             <span class="nf">${ICON.pencil}</span><span class="wall-write-label">Написать на стену</span>
           </button>`;
         host.querySelector("#writeWallBtn").addEventListener("click", async () => {
-          const { openWallComposer } = await import("./wall-composer.js");
-          openWallComposer(() => location.reload());
+          // Тот же редактор, что и в ленте: одно окно на все случаи.
+          const { openPostComposer } = await import("./post-composer.js");
+          openPostComposer({ place: "wall", onDone: () => location.reload() });
         });
       }
     }

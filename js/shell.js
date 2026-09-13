@@ -28,6 +28,12 @@ export function initShell() {
   if (started) return;
   started = true;
 
+  // Тестовая сборка помечается сразу: полоса сверху не даст перепутать её
+  // с рабочим сайтом.
+  import("./version.js").then(({ isBeta }) => {
+    if (isBeta()) document.body.classList.add("is-beta");
+  }).catch(() => {});
+
   applySettings();
   initLayout();          // шапка рисуется сразу, до отрисовки содержимого
   applyFavicon();

@@ -64,6 +64,10 @@ fi
   Укажи его вручную:
     FIREBASE_PROJECT=имя-проекта bash $0"
 
+# Показываем и репозиторий: правила у стабильной и тестовой версии свои,
+# и отправить их не в тот проект — быстрый способ сломать рабочий сайт.
+REMOTE=$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null || echo "не задан")
+echo "→ Репозиторий: ${REMOTE##*/}"
 echo "→ Отправляю правила в проект «$PROJECT»..."
 firebase deploy --only firestore:rules --project "$PROJECT"
 

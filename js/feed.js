@@ -260,8 +260,16 @@ async function enrichAuthors(posts) {
 // Порядок в ленте при этом не трогаем — он пересчитывается только при загрузке
 // страницы, иначе записи прыгали бы под пальцами во время чтения.
 function updatePostCard(post) {
-  const card = feedListEl?.querySelector(`.post-card[data-id="${post.id}"]`);
+  // Карточку ищем по всей странице, а не только в ленте: записи показываются
+  // и на стенах, и в поиске по тегу, и там обновление тоже нужно.
+  const card = document.querySelector(`.post-card[data-id="${post.id}"]`);
   if (!card) return;
+
+  // Отметка о правке: появляется сразу, а не после обновления списка.
+  const timeEl = card.querySelector(".post-time");
+  if (timeEl && post.editedAt && !timeEl.innerHTML.includes("изменено")) {
+    timeEl.innerHTML = `${timeAgo(post.createdAt)}<span class="post-edited-tag">(изменено)</span>`;
+  }
 
   const liked = currentUser && (post.likedBy || []).includes(currentUser.uid);
   const disliked = currentUser && (post.dislikedBy || []).includes(currentUser.uid);
@@ -367,71 +375,6 @@ function layoutPosts(container, posts, buildHtml) {
   // Помечаем классом, а не полагаемся на проверку вложенности в стилях:
   // так поведение одинаково во всех браузерах.
   container.classList.add("has-columns");
-}
-
-// Правка записи отдельным окном: встроенное поле выглядело неровно и
-// сбивало разметку карточки, особенно рядом с фотографиями.
-async function startInlineEdit(post, card) {
-  const textEl = card.querySelector(".post-text");
-  const original = textEl?.dataset.raw || post.text || "";
-
-  const box = document.createElement("div");
-  box.className = "modal";
-  box.innerHTML = `
-    <div class="modal-content" style="max-width:520px;">
-      <button class="closeBtn modalClose" data-cancel><span class="nf">${ICON.close}</span></button>
-      <h2 style="margin-top:0;font-size:17px;">Изменить запись</h2>
-      <textarea class="edit-post-area">${escapeHtml(original)}</textarea>
-      <div class="dialog-buttons">
-        <button class="secondaryBtn" data-cancel>Отмена</button>
-        <button class="primaryBtn" data-save>Сохранить</button>
-      </div>
-    </div>`;
-  document.body.appendChild(box);
-
-  const area = box.querySelector(".edit-post-area");
-  const close = () => box.remove();
-  box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
-  box.addEventListener("click", (e) => { if (e.target === box) close(); });
-
-  area.focus();
-  area.setSelectionRange(area.value.length, area.value.length);
-
-  box.querySelector("[data-save]").addEventListener("click", async () => {
-    const next = area.value.trim();
-    if (!next || next === original) { close(); return; }
-
-    const saveBtn = box.querySelector("[data-save]");
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Сохраняю…";
-    try {
-      await updateDoc(doc(db, "posts", post.id), {
-        text: next,
-        hashtags: extractHashtags(next),
-        editedAt: serverTimestamp()
-      });
-      post.text = next;
-
-      // обновляем карточку на месте, чтобы правка была видна сразу
-      if (textEl) {
-        textEl.dataset.raw = next;
-        textEl.innerHTML = linkifyMentions(escapeHtml(next.replace(/\s*#U3\d{6}/gi, "").trim()));
-        wireMentions(textEl);
-      }
-      close();
-      showToast("Изменено ♡");
-    } catch (e) {
-      console.error(e);
-      showToast("Не вышло: " + e.message);
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Сохранить";
-    }
-  });
-
-  area.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") close();
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) box.querySelector("[data-save]").click();
-  });
 }
 
 function renderFeed(posts) {
@@ -648,8 +591,18 @@ export function wirePostCard(p, container = document) {
     editPost: () => {
       // На широком экране правим прямо в карточке: отдельный экран ради
       // пары слов — лишний шаг, и из него не видно, как запись выглядит.
-      if (window.matchMedia("(min-width: 900px)").matches) startInlineEdit(p, card);
-      else openPostEditor(p);
+      // Один редактор на всё: он создаётся на месте и работает на любой
+      // странице — в ленте, на стене, в поиске по тегу.
+      import("./post-composer.js").then(({ openPostComposer }) => {
+        openPostComposer({
+          post: p,
+          onDone: () => {
+            updatePostCard(p);
+            renderPostTracks(p, card);
+            renderPostArtworks(p, card);
+          }
+        });
+      }).catch(e => showToast("Редактор не открылся: " + e.message));
     },
     deletePost: () => deletePost(p, card)
   });
@@ -730,8 +683,9 @@ export function wirePostCard(p, container = document) {
 async function renderPostArtworks(p, card) {
   const ids = [...new Set(((p.text || "").match(/#U5\d{6}/gi) || []))]
     .map(t => t.slice(1).toUpperCase()).slice(0, 3);
-  if (!ids.length || card.dataset.artDone) return;
-  card.dataset.artDone = "1";
+  if (!ids.length) { card.querySelector(".post-artworks")?.remove(); return; }
+  // при повторной отрисовке прежние карточки убираем, иначе они удвоятся
+  card.querySelector(".post-artworks")?.remove();
 
   try {
     const { resolveNuid } = await import("./nuid.js");
@@ -773,7 +727,9 @@ async function renderPostTracks(p, card) {
   if (!host) return;
   const ids = [...new Set((p.text || "").match(/#U3\d{6}/gi) || [])]
     .map(t => t.slice(1).toUpperCase());
-  if (!ids.length) return;
+
+  // Если после правки трека в тексте не осталось — убираем и карточку.
+  if (!ids.length) { host.innerHTML = ""; return; }
 
   try {
     const { resolveNuid } = await import("./nuid.js");
@@ -986,7 +942,12 @@ export function initPostEditor() {
   const imageInput = document.getElementById("postImageInput");
   const publishBtn = document.getElementById("publishPostBtn");
 
-  if (fab) fab.addEventListener("click", () => openPostEditor(null));
+  if (fab) {
+    fab.addEventListener("click", async () => {
+      const { openPostComposer } = await import("./post-composer.js");
+      openPostComposer({ place: "feed" });
+    });
+  }
 
   closeBtn.addEventListener("click", () => editor.classList.add("hidden"));
 

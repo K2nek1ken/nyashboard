@@ -2484,3 +2484,63 @@ html[data-theme="nothing"] .chat-msg.is-mine {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .queue-title { max-width: 100%; }
+
+/* Тестовая сборка отмечена полосой сверху: спутать её с рабочим сайтом
+   слишком легко, особенно когда обе открыты в соседних вкладках. */
+body.is-beta::before {
+  content: "тестовая сборка";
+  position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+  background: repeating-linear-gradient(45deg,
+    #f5a45c, #f5a45c 10px, #d98a45 10px, #d98a45 20px);
+  color: #1a1420; font-size: 10px; font-weight: 700; text-align: center;
+  padding: 2px; letter-spacing: 0.5px; pointer-events: none;
+}
+body.is-beta { padding-top: 18px; }
+
+/* ============================================================
+   Редактор записи на весь экран
+   Плеер остаётся выше и виден: содержимое начинается под ним, а не
+   прячется за окном.
+   ============================================================ */
+.composer-screen {
+  position: fixed; inset: 0; z-index: 120;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  padding: 14px 16px 0;
+  animation: composerIn .16s ease;
+}
+@keyframes composerIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+body.player-open .composer-screen { top: var(--player-height, 116px); }
+@media (min-width: 900px) {
+  body.player-open .composer-screen { top: 0; left: 320px; }
+  .composer-screen { left: 320px; padding: 24px 40px 0; }
+}
+
+.composer-top {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 12px; flex-shrink: 0;
+}
+.composer-title { font-weight: 600; font-size: 15px; }
+.composer-top .closeBtn { margin-left: auto; }
+.composer-top #composerIdentity { flex: 1 1 100%; }
+.composer-top .identity-row { margin: 0; }
+
+.composer-area {
+  width: 100%; background: none; border: none; outline: none;
+  color: var(--text); font: inherit; font-size: 16px; line-height: 1.55;
+  resize: none; min-height: 120px; flex-shrink: 0;
+}
+.composer-screen .image-strip { flex-shrink: 0; margin-top: 8px; }
+
+.composer-bottom {
+  margin-top: auto; display: flex; align-items: center; gap: 12px;
+  padding: 12px 0 16px; flex-shrink: 0;
+  border-top: 1px solid var(--card);
+}
+.composer-attach {
+  cursor: pointer; color: var(--muted); font-size: 19px;
+  padding: 8px; border-radius: 10px;
+}
+.composer-attach:hover { color: var(--accent); background: var(--card); }
+.composer-bottom .primaryBtn { margin-left: auto; width: auto; padding: 11px 26px; }

@@ -9,7 +9,18 @@ export const BUILD = {
   date: "2026-09-13"
 };
 
-// Строка для показа: «версия 1.0.0 — Сайя»
+// Строка для показа: «версия 1.0.0 — Сайя».
+// У тестовой сборки к ней добавляется пометка — иначе легко забыть, где ты
+// находишься, и удивляться, почему правка не появилась на рабочем сайте.
 export function buildLabel() {
-  return `версия ${BUILD.version} — ${BUILD.codename}`;
+  const label = `версия ${BUILD.version} — ${BUILD.codename}`;
+  return isBeta() ? `${label} · тестовая` : label;
+}
+
+// Тестовой считается сборка, которая живёт не на основном адресе.
+// Определяем по адресу, а не по настройке: настройку легко забыть переключить,
+// а адрес не соврёт.
+export function isBeta() {
+  if (typeof location === "undefined") return false;
+  return /beta|test|localhost|127\.0\.0\.1/i.test(location.hostname + location.pathname);
 }

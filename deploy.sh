@@ -73,6 +73,13 @@ if [ -z "$ZIP" ]; then
   echo "  Если доступа к памяти нет — выполни: termux-setup-storage"
   echo "→ Коммичу то, что уже лежит в репозитории."
 else
+  # Куда именно отправляем: репозиториев теперь два — стабильный и тестовый,
+  # и перепутать их проще простого, особенно когда оба открыты в Termux.
+  REMOTE=$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null || echo "не задан")
+  PROJECT=$(grep -o 'projectId:[[:space:]]*"[^"]*"' "$REPO_DIR/js/config.js" 2>/dev/null | head -1 | cut -d'"' -f2)
+  echo "→ Репозиторий: ${REMOTE##*/}"
+  [ -n "$PROJECT" ] && echo "→ База: $PROJECT"
+
   echo "→ Архив: $ZIP"
 
   # Показываем, что внутри: у файлов в загрузках похожие имена
