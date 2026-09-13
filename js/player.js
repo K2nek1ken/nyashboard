@@ -343,7 +343,25 @@ async function refreshFavState(track) {
   } catch { paintFavState(false); }
 }
 
+// Высота плеера меняется: на телефоне он в два ряда, на компьютере живёт
+// в колонке. Отдаём её стилям, чтобы содержимое отодвигалось ровно на
+// столько, сколько он занимает, а не на заранее вписанное число.
+function reportPlayerHeight() {
+  if (!bar) return;
+  const apply = () => {
+    const h = bar.offsetHeight;
+    if (h) document.documentElement.style.setProperty("--player-height", h + "px");
+  };
+  apply();
+
+  if (bar.dataset.measured) return;
+  bar.dataset.measured = "1";
+  if ("ResizeObserver" in window) new ResizeObserver(apply).observe(bar);
+  else window.addEventListener("resize", apply);
+}
+
 function paintBar(track) {
+  reportPlayerHeight();
   // Состояние сердечка узнаём после отрисовки полосы: до неё кнопки ещё нет,
   // и отметка просто некуда было ставить.
   setTimeout(() => refreshFavState(track), 0);
@@ -474,6 +492,7 @@ export function shuffleQueue() {
 }
 
 export function stop() {
+  document.documentElement.style.removeProperty("--player-height");
   audio?.pause();
   current = null;
   clearState();
