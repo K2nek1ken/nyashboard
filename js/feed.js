@@ -58,12 +58,9 @@ export function subscribeFeed() {
   feedListEl = document.getElementById("feedList");
   if (!feedListEl) return;
 
-  // Свои каналы нужны, чтобы их записями можно было распоряжаться.
-  // Раньше список объявлялся, но никогда не заполнялся.
-  import("./channels.js")
-    .then(({ fetchManagedChannelIds }) => fetchManagedChannelIds())
-    .then(ids => setManagedChannels(ids || []))
-    .catch(() => {});
+  // Список своих каналов загружает оболочка — он нужен не только ленте,
+  // но и странице канала, стенам, поиску по тегу. Раньше он заполнялся
+  // только здесь, и на других страницах записи канала нельзя было править.
   if (!feedListEl) return;
   if (feedUnsub) return;
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));

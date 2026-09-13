@@ -450,7 +450,15 @@ function wireSettingsModal(channelId) {
 
       // Лента и стены помнят прежнее оформление — просим забыть,
       // иначе новые цвет и украшение появятся только после перезагрузки.
-      import("./feed.js").then(({ forgetChannelDecor }) => forgetChannelDecor(channelId)).catch(() => {});
+      // Забываем прежнее оформление и сразу перерисовываем стену: иначе новые
+      // цвет и украшение появились бы на записях только после перезагрузки.
+      import("./feed.js").then(async ({ forgetChannelDecor, loadChannelWall, renderPostsInto }) => {
+        forgetChannelDecor(channelId);
+        const wall = document.getElementById("chWall");
+        if (!wall) return;
+        const posts = await loadChannelWall(channelId).catch(() => null);
+        if (posts) renderPostsInto(wall, posts, channel.name);
+      }).catch(e => console.warn("Стена не перерисовалась:", e.message));
       // обновляем аватарку в шапке после сохранения — тем же общим рендером
       const host = document.getElementById("chAvatarHost");
       if (host) {

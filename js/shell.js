@@ -37,6 +37,19 @@ export function initShell() {
   startPresence();
   startPersonalWatch();   // лайки, ответы, заявки, личка
 
+  // Свои каналы: нужны везде, где показываются записи, чтобы их можно было
+  // править и удалять. Загружаем один раз здесь, а не в каждой вкладке.
+  import("./auth.js").then(({ authReady }) => authReady).then(async () => {
+    try {
+      const [{ fetchManagedChannelIds }, { setManagedChannels }] = await Promise.all([
+        import("./channels.js"), import("./feed.js")
+      ]);
+      setManagedChannels(await fetchManagedChannelIds() || []);
+    } catch (e) {
+      console.warn("Свои каналы не загрузились:", e.message);
+    }
+  });
+
   // Отметку присутствия прекращаем при уходе: продолжать отмечаться
   // с закрытой страницы незачем.
   window.addEventListener("pagehide", () => {

@@ -158,31 +158,47 @@ async function swap(page, { push = true } = {}) {
 // поле ввода чата, панель ответа, выбор личности — стоят рядом с ним, потому
 // что должны прилипать к низу экрана. При переходе их тоже нужно заменить,
 // иначе на новой вкладке их просто нет (а старые остаются от прошлой).
-const EXTRA_IDS = [
-  "chatFloatingBar", "chatForm", "chatImagePreview", "replyComposeHost",
-  "accountToggleRow", "dmForm", "dmImagePreview", "dmReplyHost", "postEditor",
-  "viewProfileModal", "newPostFab"
-];
+// Не всё содержимое страницы лежит внутри #app: закреплённые панели, окна
+// настроек, выбор людей — всё это стоит рядом с ним, потому что должно
+// накрывать страницу целиком или прилипать к краю экрана.
+//
+// Раньше здесь был список таких элементов, и каждая новая страница добавляла
+// в него что-то своё. Забыть было легко: окна канала в списке не оказалось,
+// и при переходе на него они просто не появлялись — страница падала на первом
+// же обращении к ним.
+//
+// Поэтому теперь переносится всё, что лежит рядом с #app, кроме общего для
+// всех страниц: шапки, всплывающих сообщений, меню профиля.
+
+// Что принадлежит оболочке и живёт на всех страницах сразу.
+const SHELL_IDS = new Set([
+  "navHost", "toast", "profileDropdown", "settingsModal", "starfield", "nowPlaying"
+]);
+
+function isShellNode(el) {
+  if (!el || el.nodeType !== 1) return true;
+  if (el.tagName === "SCRIPT" || el.tagName === "STYLE" || el.tagName === "LINK") return true;
+  if (el.id && SHELL_IDS.has(el.id)) return true;
+  if (el.classList?.contains("player-bar")) return true;
+  if (el.classList?.contains("confetti-layer")) return true;
+  return false;
+}
 
 function swapPageExtras(freshDoc) {
-  // убираем то, что осталось от прошлой вкладки
-  EXTRA_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el && !el.closest("#app")) el.remove();
-  });
-  document.querySelector(".chat-floating-bar:not(#app .chat-floating-bar)")?.remove();
-
   const app = document.getElementById("app");
+  if (!app) return;
 
-  // и переносим то, что есть на новой
-  const bar = freshDoc.querySelector(".chat-floating-bar");
-  if (bar) app.after(bar.cloneNode(true));
+  // убираем то, что осталось от прошлой страницы
+  [...document.body.children].forEach(el => {
+    if (el === app || isShellNode(el)) return;
+    el.remove();
+  });
 
-  EXTRA_IDS.forEach(id => {
-    const fresh = freshDoc.getElementById(id);
-    if (!fresh || fresh.closest("#app") || document.getElementById(id)) return;
-    if (fresh.closest(".chat-floating-bar")) return;   // уже перенесён вместе с панелью
-    app.after(fresh.cloneNode(true));
+  // и переносим всё, что есть у новой
+  const freshApp = freshDoc.getElementById("app");
+  [...freshDoc.body.children].forEach(el => {
+    if (el === freshApp || isShellNode(el)) return;
+    app.after(el.cloneNode(true));
   });
 }
 

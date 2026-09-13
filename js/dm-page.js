@@ -1,4 +1,5 @@
 import { initShell } from "./shell.js";
+import { paletteColor } from "./palette.js";
 import { clearPending } from "./notify-feed.js";
 import { goTo } from "./router.js";
 import { askText, askConfirm } from "./dialog.js";
@@ -63,24 +64,27 @@ function render(msgs) {
       : (otherUser?.nickname || "собеседник"));
 
   el.innerHTML = msgs.map(m => {
-    // Сторона определяется отправителем: команду набрал ты, значит и ответ бота
-    // должен стоять с твоей стороны. А вот править его нельзя даже тебе —
-    // иначе можно подделать выданную ботом фразу.
-    const mine = m.senderUid === currentUser?.uid;
-    const canEdit = mine && !m.isBot;
+    // Сообщение бота — ничьё: оно встаёт по центру и подписывается им самим,
+    // как в общем чате. Удалить его может тот, чья команда его вызвала,
+    // а изменить нельзя никому — иначе легко подделать выданную им фразу.
+    const fromMe = m.senderUid === currentUser?.uid;
+    const mine = fromMe && !m.isBot;
+    const canEdit = mine;
     const items = [
       { action: "replyMsg", label: "Ответить", icon: ICON.reply },
       ...(canEdit ? [
         { action: "editMsg", label: "Изменить", icon: ICON.pencil }
       ] : []),
-      ...(mine ? [
+      ...(fromMe ? [
         { action: "deleteMsg", label: "Удалить", icon: ICON.close, danger: true }
       ] : [])
     ];
     return `
-      <div class="chat-msg ${mine ? "mine" : ""}" data-id="${m.id}">
+      <div class="chat-msg ${mine ? "is-mine" : ""} ${m.isBot ? "is-bot" : ""}" data-id="${m.id}">
         <div class="chat-msg-head">
-          <b>${mine ? "ты" : escapeHtml(theirName)}</b>
+          ${m.isBot
+            ? `<span class="person-chip">${avatarHtml({}, 22, "", "bot")}meowbot</span>`
+            : `<b ${!fromMe && otherUser?.nickColor ? `style="color:${paletteColor(otherUser.nickColor)}"` : ""}>${fromMe ? "ты" : escapeHtml(theirName)}</b>`}
           <span class="muted">· ${timeAgo(m.createdAt)}${m.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
           ${kebabHtml(items, m.id)}
         </div>
@@ -89,13 +93,27 @@ function render(msgs) {
             <b>${escapeHtml(m.replyToNickname || "сообщение")}</b>
             <span class="quote-text">${escapeHtml((m.replyToText || "").slice(0, 90))}</span>
           </div>` : ""}
-        ${m.text ? `<div class="txt">${linkifyMentions(escapeHtml(m.text))}</div>` : ""}
+        ${m.text ? `<div class="txt ${/мяукнул/i.test(m.text) ? "meow-again" : ""}"
+                         ${/мяукнул/i.test(m.text) ? 'title="нажми, чтобы услышать"' : ""}
+                    >${linkifyMentions(escapeHtml(m.text))}</div>` : ""}
         ${m.imageUrl ? `<img src="${m.imageUrl}">` : ""}
       </div>`;
   }).join("");
 
   if (wasAtBottom) window.scrollTo({ top: document.body.scrollHeight });
   wireMentions(el);
+
+  // «мяу» можно услышать в любой момент — как и в общем чате
+  el.querySelectorAll(".meow-again").forEach(node => {
+    node.addEventListener("click", () => {
+      showToast("мяу!");
+      try {
+        const audio = new Audio("assets/sounds/meow.mp3");
+        audio.volume = 0.6;
+        audio.play().catch(() => {});
+      } catch {}
+    });
+  });
   el.querySelectorAll("[data-jump]").forEach(q => {
     q.addEventListener("click", () => {
       const target = el.querySelector(`.chat-msg[data-id="${q.dataset.jump}"]`);

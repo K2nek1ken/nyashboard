@@ -42,9 +42,16 @@ for f in files:
             imported.add(p[-1] if len(p) > 1 else p[0])
     for m in re.finditer(r'import\s+(\w+)\s+from', t):
         imported.add(m.group(1))
-    # динамические, два вида:
+    # динамические, три вида:
     #   const { a } = await import("./x.js")
     #   import("./x.js").then(({ a }) => ...)
+    #   const [{ a }, { b }] = await Promise.all([import(...), import(...)])
+    # разбор списков деструктуризации: [{ a }, { b }] = await Promise.all(...)
+    for m in re.finditer(r'\[([^\[\]]*\{[^\[\]]*\}[^\[\]]*)\]\s*=\s*await', t):
+        for name in re.findall(r'\{([^{}]+)\}', m.group(1)):
+            for part in name.split(","):
+                imported.add(part.strip().split(":")[0].strip())
+
     for m in re.finditer(r'\{([^{}]+)\}\s*(?:=\s*await\s+import|\)\s*=>)', t):
         for x in m.group(1).split(','):
             p = [y.strip() for y in x.split(':')]

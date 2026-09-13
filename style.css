@@ -1938,7 +1938,7 @@ body.np-open .player-bar { transform: translateY(-160%); }
 }
 
 /* Плеер не должен закрывать шапку личного чата: она сдвигается под него */
-body.player-open #dmHeader { top: 124px; }
+body.player-open #dmHeader { top: calc(var(--player-height, 124px) + 4px); }
 @media (min-width: 900px) { body.player-open #dmHeader { top: 0; } }
 
 /* строка очереди с действиями */
@@ -2353,15 +2353,8 @@ html[data-theme="nothing"] .chat-msg.is-mine {
 .copyable { cursor: pointer; }
 .copyable:hover { color: var(--accent); }
 
-/* Повтор одного трека: круговая стрелка с единицей — отдельного значка
-   для этого в шрифте нет, а похожие путались между собой. */
-.player-btn.repeat-one, .np-btn.repeat-one { position: relative; }
-.player-btn.repeat-one::after, .np-btn.repeat-one::after {
-  content: "1";
-  position: absolute; right: 2px; bottom: 2px;
-  font-size: 9px; font-weight: 700; line-height: 1;
-  background: var(--bg-soft); border-radius: 3px; padding: 0 2px;
-}
+/* Повтор одного трека отличается самим значком, без приписки: цифра рядом
+   выбивалась из ряда одинаковых кнопок. */
 
 /* ---------- подчинённые настройки ----------
    Настройки, которые относятся к другой настройке (картинка и окраска —
@@ -2477,3 +2470,17 @@ html[data-theme="nothing"] .chat-msg.is-mine {
   position: fixed; inset: 0; z-index: 200;
   pointer-events: none;
 }
+
+
+/* Длинное название трека не переносится на вторую строку, а обрезается
+   многоточием. Ширину ограничиваем явно: без этого строка растягивала
+   плеер, и кнопки уезжали за край. */
+.player-title {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%; display: block;
+}
+.player-info { min-width: 0; overflow: hidden; }
+.np-title, .np-artist {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.queue-title { max-width: 100%; }

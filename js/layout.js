@@ -102,7 +102,9 @@ export function initLayout() {
       .then(({ burstConfetti }) => burstConfetti(r.left + r.width / 2, r.top + r.height / 2))
       .catch(() => {});
   });
-  brand.addEventListener("dblclick", () => { goTo("index.html"); });
+  // Двойное нажатие больше не уводит в ленту: по логотипу тыкают ради
+  // конфетти и мяуканья, и уехать со страницы посреди этого — неожиданно.
+  // Для перехода остаётся долгое удержание.
   brand.addEventListener("pointerdown", () => {
     held = setTimeout(() => { held = null; goTo("index.html"); }, 550);
   });
