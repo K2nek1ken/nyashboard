@@ -349,10 +349,18 @@ async function refreshFavState(track) {
 function reportPlayerHeight() {
   if (!bar) return;
   const apply = () => {
-    const h = bar.offsetHeight;
-    if (h) document.documentElement.style.setProperty("--player-height", h + "px");
+    // Берём нижнюю границу плеера, а не его высоту: он стоит не у самого
+    // верха, а под шапкой. По одной высоте отступ выходил меньше нужного
+    // ровно на это смещение, и плеер накрывал верх страницы.
+    const rect = bar.getBoundingClientRect();
+    const bottom = Math.round(rect.bottom);
+    if (bottom > 0) {
+      document.documentElement.style.setProperty("--player-height", bottom + "px");
+    }
   };
-  apply();
+  // Первое измерение — на следующем кадре: сразу после вставки браузер
+  // ещё не разложил элемент, и размеры вышли бы нулевыми.
+  requestAnimationFrame(apply);
 
   if (bar.dataset.measured) return;
   bar.dataset.measured = "1";

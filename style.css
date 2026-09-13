@@ -1472,7 +1472,7 @@ html[data-theme="quiet"] .searchBox {
 /* Отступ под плеер считается по его настоящей высоте (см. player.js):
    она меняется от того, в один ряд он или в два, и любое число здесь
    рано или поздно разъезжается — часть содержимого уходила под него. */
-body.player-open { padding-top: calc(var(--player-height, 116px) + 8px); }
+body.player-open { padding-top: calc(var(--player-height, 124px) + 10px); }
 body.player-open .chat-floating-bar { /* поле ввода остаётся на месте */ }
 @media (min-width: 900px) {
   /* Плеер переезжает в колонку навигации, над кнопкой профиля: так он
