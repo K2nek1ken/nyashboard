@@ -1068,7 +1068,7 @@ export function initPostEditor() {
       editor.classList.add("hidden");
     } catch (e) {
       console.error(e);
-      showToast("Ошибка: " + e.message);
+      showToast(friendlyError(e));
     } finally {
       publishBtn.disabled = false;
       publishBtn.textContent = originalLabel;
@@ -1179,4 +1179,21 @@ async function revealRepostAuthor(p, container) {
 export function unsubscribeFeed() {
   if (feedUnsub) { feedUnsub(); feedUnsub = null; }
   lastRenderedPosts = null;
+}
+
+
+// Отказ базы приходит по-английски и человеку ничего не объясняет.
+// Переводим самое частое, остальное показываем как есть.
+function friendlyError(e) {
+  const msg = e?.message || "";
+  if (/permission|insufficient/i.test(msg)) {
+    return "Не хватает прав — проверь, что правила базы обновлены";
+  }
+  if (/network|offline|unavailable/i.test(msg)) {
+    return "Нет связи с сервером — попробуй ещё раз";
+  }
+  if (/quota|resource-exhausted/i.test(msg)) {
+    return "Слишком много запросов — подожди немного";
+  }
+  return "Ошибка: " + msg;
 }

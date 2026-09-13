@@ -163,14 +163,21 @@ export function identityFields() {
       channelAccessory: c.accessory || "none",
       channelBorder: c.avatarBorder || "teal",
       isAnonymous: false,
-      authorUid: currentUser?.uid || null,   // право писать проверяется по человеку
+      // Автор у записи канала не указывается: она публикуется от канала,
+      // а не от человека. Право писать сервер проверяет по тому, кто
+      // отправил запрос, — подставлять себя в запись не нужно и нельзя.
+      authorUid: null,
       authorNickname: null, authorAvatar: null
     };
   }
   if (choice.kind === "anon") {
     return {
       channelId: null, isAnonymous: true,
-      authorUid: currentUser?.uid || null,
+      // Идентификатор автора в анонимной записи не хранится вовсе: запись
+      // читают все, и он выдал бы человека с головой — анонимность была бы
+      // только на вид. Право удалить и изменить свою запись остаётся: оно
+      // держится на отдельной записи о владении, которую видит только сервер.
+      authorUid: null,
       authorNickname: null, authorAvatar: null,
       authorShape: null, authorStatus: null,
       authorAccessory: null, authorBorder: null, authorNickColor: null

@@ -122,10 +122,27 @@ export function initInlineComposer(onPublished) {
       images = pending;
       renderStrip();
       autoGrow();
-      showToast("Ошибка: " + e.message);
+      showToast(friendlyError(e));
     } finally {
       publishBtn.disabled = false;
       publishBtn.textContent = "Опубликовать";
     }
   });
+}
+
+
+// Отказ базы приходит по-английски и человеку ничего не объясняет.
+// Переводим самое частое, остальное показываем как есть.
+function friendlyError(e) {
+  const msg = e?.message || "";
+  if (/permission|insufficient/i.test(msg)) {
+    return "Не хватает прав — проверь, что правила базы обновлены";
+  }
+  if (/network|offline|unavailable/i.test(msg)) {
+    return "Нет связи с сервером — попробуй ещё раз";
+  }
+  if (/quota|resource-exhausted/i.test(msg)) {
+    return "Слишком много запросов — подожди немного";
+  }
+  return "Ошибка: " + msg;
 }
