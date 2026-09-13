@@ -166,7 +166,10 @@ async function init() {
   otherUid = otherParticipant({ id: chatId, ...chatSnap.data() });
   const u = (await getUserDoc(otherUid)) || {};
   otherUser = u;
-  setText("dmNickname", getAlias(otherUid) || u.nickname || "???");
+  // Цвет ника — тот, что человек выбрал у себя: в сообщениях он уже
+  // применялся, а в шапке имя оставалось белым.
+  const nickEl = setText("dmNickname", getAlias(otherUid) || u.nickname || "???");
+  if (nickEl) nickEl.style.color = u.nickColor ? paletteColor(u.nickColor) : "";
   setText("dmUsername", u.username || "???");
   // Аватарка со всем оформлением: своя вёрстка здесь теряла и рамку,
   // и украшение — как это было на странице человека.
@@ -194,7 +197,9 @@ async function init() {
     if (next === null) return;
     setAlias(otherUid, next);
     showToast(next ? "Переименован ♡" : "Имя возвращено");
-    setText("dmNickname", next || u.nickname || "???");
+    // цвет сохраняется и после переименования: имя своё, а цвет его
+    const el = setText("dmNickname", next || u.nickname || "???");
+    if (el) el.style.color = u.nickColor ? paletteColor(u.nickColor) : "";
     render(lastMessages);
   });
   document.title = `NyashBoard ♡ — ${u.nickname || "чат"}`;

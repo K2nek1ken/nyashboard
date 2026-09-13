@@ -2,6 +2,7 @@ import {
   auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously
 } from "./firebase.js";
 import { ensureUserDoc } from "./data.js";
+import { paletteColor } from "./palette.js";
 import { showToast, setGenderSource, gendered } from "./ui.js";
 import { getSettings } from "./settings.js";
 import { positionNear } from "./anchor.js";
@@ -211,6 +212,8 @@ export function initProfileDropdown() {
       loggedInView.classList.remove("hidden");
       paintDropdownAvatar(shown);
       ddNickname.textContent = shown.nickname || "";
+      // свой ник тоже своего цвета — как его видят другие
+      ddNickname.style.color = shown.nickColor ? paletteColor(shown.nickColor) : "";
       ddUsername.textContent = "@" + (shown.username || "");
       return;
     }
@@ -219,6 +222,8 @@ export function initProfileDropdown() {
       loggedInView.classList.remove("hidden");
       paintDropdownAvatar(currentUserDoc);
       ddNickname.textContent = currentUserDoc.nickname || "";
+      // свой ник тоже своего цвета — как его видят другие
+      ddNickname.style.color = currentUserDoc.nickColor ? paletteColor(currentUserDoc.nickColor) : "";
       ddUsername.textContent = "@" + (currentUserDoc.username || "");
     } else {
       loggedOutView.classList.remove("hidden");
