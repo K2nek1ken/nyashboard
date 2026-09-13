@@ -53,6 +53,9 @@ export async function initMyMusic() {
     showToast("Играет вперемешку ♡");
   });
 
+  // Список любимого загружаем первым: счётчик на карточке считается по нему,
+  // и без этого он показывал ноль, пока треки не подгрузятся.
+  favorites = await loadFavorites().catch(() => []);
   await refreshPlaylists();
   await refreshList();
 }
@@ -115,6 +118,9 @@ async function managePlaylist(id) {
     await renamePlaylist(id, name);
     showToast("Переименован ♡");
   }
+  // Список любимого загружаем первым: счётчик на карточке считается по нему,
+  // и без этого он показывал ноль, пока треки не подгрузятся.
+  favorites = await loadFavorites().catch(() => []);
   await refreshPlaylists();
   await refreshList();
 }
@@ -142,6 +148,9 @@ async function refreshList() {
         return ia - ib;
       });
       tracks = favorites;
+      // карточка «Любимое» показывает число — обновляем её вместе со списком
+      const favCard = document.querySelector('[data-playlist=""] .playlist-count');
+      if (favCard) favCard.textContent = favorites.length;
     }
 
     if (!tracks.length) {
