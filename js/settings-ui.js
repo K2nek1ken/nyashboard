@@ -11,7 +11,7 @@ import { customSelect, wireSelects } from "./select.js";
 import { makeSortable } from "./drag-sort.js";
 import { initLayout, initStarfield } from "./layout.js";
 import { notificationsSupported, notificationsAllowed, requestNotifications } from "./web-notify.js";
-import { BUILD } from "./version.js";
+import { buildLabel } from "./version.js";
 import { saveLogoSound, clearLogoSound, getLogoSound, playLogoSound } from "./logo-sound.js";
 import { currentUser } from "./auth.js";
 import { deleteMyAccount } from "./account.js";
@@ -205,7 +205,7 @@ export function initSettingsPage() {
       </div>
 
       <p class="muted" style="font-size:11px; text-align:center; margin-top:22px;">
-        Сборка от ${BUILD.date} — ${BUILD.name}
+        ${buildLabel()}
       </p>
     `;
 

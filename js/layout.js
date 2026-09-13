@@ -91,9 +91,16 @@ export function initLayout() {
 
   const brand = host.querySelector("#brandBtn");
   let held = null;
-  brand.addEventListener("click", () => {
+  brand.addEventListener("click", (e) => {
     showToast(getSettings().logoMessage || "мяу!");
     playLogoSound();   // если человек выбрал свой звук
+
+    // Конфетти вылетает из самого логотипа, а не из середины экрана:
+    // так видно, что это отклик на нажатие.
+    const r = brand.getBoundingClientRect();
+    import("./confetti.js")
+      .then(({ burstConfetti }) => burstConfetti(r.left + r.width / 2, r.top + r.height / 2))
+      .catch(() => {});
   });
   brand.addEventListener("dblclick", () => { goTo("index.html"); });
   brand.addEventListener("pointerdown", () => {

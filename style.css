@@ -2474,3 +2474,9 @@ html[data-theme="nothing"] .chat-msg.is-mine {
 }
 .reply-act:hover { color: var(--accent); background: var(--card-hover); }
 .reply-row-head .kebab { margin-left: 0; }
+
+/* слой конфетти — поверх всего, но не мешает нажатиям */
+.confetti-layer {
+  position: fixed; inset: 0; z-index: 200;
+  pointer-events: none;
+}
