@@ -233,6 +233,12 @@ function ensureBar() {
   });
 
   // перемотка нажатием по полосе
+  wireScrub(
+    bar.querySelector("[data-progress]"),
+    bar.querySelector("[data-fill]"),
+    (sec) => { const t = bar.querySelector("[data-time]"); if (t) t.textContent = formatDuration(sec); }
+  );
+
   bar.querySelector("[data-progress]").addEventListener("click", (e) => {
     if (!audio?.duration) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -641,6 +647,12 @@ function openNowPlaying() {
   box.querySelector("[data-np-shuffle]").addEventListener("click", () => {
     showToast(toggleShuffle() ? "Перемешала ♡" : "Обычный порядок");
   });
+  wireScrub(
+    box.querySelector("[data-np-progress]"),
+    box.querySelector("[data-np-fill]"),
+    (sec) => { const t = box.querySelector("[data-np-now]"); if (t) t.textContent = formatDuration(sec); }
+  );
+
   box.querySelector("[data-np-progress]").addEventListener("click", (e) => {
     if (!audio?.duration) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -770,7 +782,71 @@ export function currentTrackId() {
   return current?.id || null;
 }
 
+// ============================================================
+//  Перемотка перетаскиванием
+//
+//  Нажал и повёл — метка идёт за пальцем, а звук всё это время продолжает
+//  играть как ни в чём не бывало. Перемотка применяется только когда
+//  отпустил: иначе трек дёргался бы на каждое движение пальца, а по узкой
+//  полосе попасть с первого раза почти невозможно.
+//
+//  Работает и мышью, и пальцем — события указателя одни на оба случая.
+// ============================================================
+let scrubbing = false;
+
+function wireScrub(track, fill, onPaintTime) {
+  if (!track || track.dataset.scrubWired) return;
+  track.dataset.scrubWired = "1";
+
+  // Полоса тонкая, поэтому попасть по ней пальцем трудно — расширяем
+  // область захвата за её пределы стилями (см. .player-progress::before).
+  const ratioAt = (clientX) => {
+    const r = track.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+  };
+
+  const preview = (clientX) => {
+    const ratio = ratioAt(clientX);
+    if (fill) fill.style.width = `${ratio * 100}%`;
+    if (audio?.duration) onPaintTime?.(ratio * audio.duration);
+    return ratio;
+  };
+
+  track.addEventListener("pointerdown", (e) => {
+    if (!audio?.duration) return;
+    e.preventDefault();
+    scrubbing = true;
+    track.setPointerCapture?.(e.pointerId);
+    track.classList.add("scrubbing");
+    preview(e.clientX);
+  });
+
+  track.addEventListener("pointermove", (e) => {
+    if (!scrubbing) return;
+    e.preventDefault();
+    preview(e.clientX);
+  }, { passive: false });
+
+  const finish = (e) => {
+    if (!scrubbing) return;
+    scrubbing = false;
+    track.classList.remove("scrubbing");
+    if (audio?.duration) audio.currentTime = ratioAt(e.clientX) * audio.duration;
+  };
+
+  track.addEventListener("pointerup", finish);
+  track.addEventListener("pointercancel", () => {
+    // отмена жеста — возвращаем метку туда, где звук на самом деле
+    scrubbing = false;
+    track.classList.remove("scrubbing");
+    paintProgress();
+  });
+}
+
 function paintProgress() {
+  // Пока ведёшь пальцем, метку не трогаем: она должна идти за рукой,
+  // а не прыгать обратно к текущему месту звука.
+  if (scrubbing) return;
   const np = document.getElementById("nowPlaying");
   if (np && audio?.duration) {
     const ratio = audio.currentTime / audio.duration;

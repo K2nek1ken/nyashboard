@@ -2656,3 +2656,32 @@ input[type="text"]:focus, input[type="search"]:focus, textarea:focus {
     animation: none !important;
   }
 }
+
+/* ============================================================
+   Перемотка перетаскиванием
+   Полоса тонкая — попасть по ней пальцем трудно, поэтому область захвата
+   шире самой полосы. Сама полоса при этом остаётся аккуратной.
+   ============================================================ */
+.player-progress, .np-progress {
+  position: relative;
+  touch-action: none;        /* жест наш, а не браузера: иначе страница прокручивается */
+  cursor: pointer;
+}
+.player-progress::before, .np-progress::before {
+  content: ""; position: absolute;
+  left: 0; right: 0; top: -11px; bottom: -11px;   /* невидимый запас для пальца */
+}
+
+/* Пока ведёшь — полоса заметнее, и появляется метка под пальцем */
+.player-progress.scrubbing, .np-progress.scrubbing { height: 7px; }
+.player-progress.scrubbing .player-progress-fill,
+.np-progress.scrubbing .np-fill { position: relative; }
+.player-progress.scrubbing .player-progress-fill::after,
+.np-progress.scrubbing .np-fill::after {
+  content: ""; position: absolute; right: -6px; top: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); transform: translateY(-50%);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+.player-progress, .np-progress,
+.player-progress-fill, .np-fill { transition: height .12s ease; }
