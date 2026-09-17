@@ -25,28 +25,43 @@ import { ICON } from "./icons.js";
 export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
   const editing = !!post;
 
+  // Два слоя: снизу неподвижный фон, поверх — содержимое. Так плеер и его
+  // меню остаются выше окна и не проваливаются под фон, а перестановка
+  // элементов внутри не трогает подложку.
   const box = document.createElement("div");
   box.className = "composer-screen";
   box.innerHTML = `
-    <div class="composer-top">
-      <span class="composer-title">${editing ? "Изменить запись"
-        : place === "wall" ? "Запись на стену" : "Новая запись"}</span>
+    <div class="composer-backdrop"></div>
+
+    <div class="composer-body">
+      <div class="composer-top">
+        <span class="composer-title">${editing ? "Изменить запись"
+          : place === "wall" ? "Запись на стену" : "Новая запись"}</span>
+        <button class="closeBtn" data-cancel><span class="nf">${ICON.close}</span></button>
+      </div>
+
       <div id="composerIdentity" class="${editing ? "hidden" : ""}"></div>
-      <button class="closeBtn" data-cancel><span class="nf">${ICON.close}</span></button>
-    </div>
 
-    <textarea class="composer-area" data-text
-      placeholder="${place === "wall" ? "Что у тебя нового? ♡" : "Что расскажешь? ♡"}"
-    >${editing ? escapeHtml(post.text || "") : ""}</textarea>
+      <!-- Поле набора и слой подсветки лежат друг на друге: видно, как
+           оформление применяется прямо во время набора. -->
+      <div class="composer-field">
+        <div class="composer-highlight" data-highlight aria-hidden="true"></div>
+        <textarea class="composer-area" data-text spellcheck="true"
+          placeholder="${place === "wall" ? "Что у тебя нового? ♡" : "Что расскажешь? ♡"}"
+        >${editing ? escapeHtml(post.text || "") : ""}</textarea>
+      </div>
 
-    <div class="image-strip" data-strip></div>
+      <div class="image-strip" data-strip></div>
 
-    <div class="composer-bottom">
-      <label class="composer-attach">
-        <span class="nf">${ICON.image}</span>
-        <input type="file" accept="image/*" multiple data-images style="display:none;">
-      </label>
-      <button class="primaryBtn" data-save>${editing ? "Сохранить" : "Опубликовать"}</button>
+      <!-- Кнопки под полем: на телефоне они иначе оказываются под клавиатурой -->
+      <div class="composer-bottom">
+        <label class="composer-attach" title="фото">
+          <span class="nf">${ICON.image}</span>
+          <input type="file" accept="image/*" multiple data-images style="display:none;">
+        </label>
+        <span class="composer-hint">**жирный** · __курсив__ · \`код\` · ### заголовок</span>
+        <button class="primaryBtn" data-save>${editing ? "Сохранить" : "Опубликовать"}</button>
+      </div>
     </div>`;
   document.body.appendChild(box);
   document.body.classList.add("composer-open");
@@ -61,13 +76,38 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
   const close = () => closeOverlay(box);
   box.querySelector("[data-cancel]").addEventListener("click", close);
 
-  // Поле растёт под текст, но не выше экрана: дальше прокручивается.
+  const highlight = box.querySelector("[data-highlight]");
+
+  // Подсветка разметки прямо во время набора: под полем лежит тот же текст,
+  // но уже оформленный, а сам текст в поле прозрачный — видно только курсор
+  // и выделение. Так сразу понятно, что получится, и публиковать ради
+  // проверки не нужно.
+  //
+  // Звёздочки и решётки остаются на месте: их видно оформленными, а не
+  // спрятанными — иначе непонятно, где правка разметки, а где текст.
+  const paintHighlight = async () => {
+    try {
+      const { markupPreview } = await import("./markup.js");
+      // перенос в конце нужен, чтобы последняя строка не обрезалась
+      highlight.innerHTML = markupPreview(escapeHtml(area.value)) + "\n";
+    } catch {
+      highlight.textContent = area.value;
+    }
+  };
+
+  // Поле растёт под текст. Потолок невысокий: длинный текст удобнее
+  // прокручивать, чем тянуться к кнопкам через весь экран.
   const grow = () => {
     area.style.height = "auto";
-    area.style.height = Math.min(area.scrollHeight, window.innerHeight * 0.5) + "px";
+    const max = Math.min(window.innerHeight * 0.34, 320);
+    area.style.height = Math.min(area.scrollHeight, max) + "px";
+    highlight.style.height = area.style.height;
   };
-  area.addEventListener("input", grow);
-  requestAnimationFrame(() => { grow(); area.focus(); });
+
+  area.addEventListener("input", () => { grow(); paintHighlight(); });
+  area.addEventListener("scroll", () => { highlight.scrollTop = area.scrollTop; });
+
+  requestAnimationFrame(() => { grow(); paintHighlight(); area.focus(); });
 
   area.addEventListener("keydown", (e) => {
     if (e.key === "Escape") close();

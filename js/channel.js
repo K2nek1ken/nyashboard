@@ -333,7 +333,10 @@ function wireSettingsModal(channelId) {
     shapeHost.querySelectorAll("[data-shape]").forEach(btn => {
       btn.addEventListener("click", () => {
         pendingChannelShape = btn.dataset.shape;
-        csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+        // Саму картинку тоже подставляем: раньше задавалась только форма,
+  // и в настройках было пустое место вместо аватарки.
+  csAvatar.src = channel.avatarUrl || defaultAvatar();
+  csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
         renderChannelShapes();
       });
     });

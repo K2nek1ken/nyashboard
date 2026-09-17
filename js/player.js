@@ -154,7 +154,7 @@ function ensureBar() {
     <button class="player-btn" data-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
     <button class="player-btn" data-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
     <div class="player-menu-wrap">
-      <button class="player-btn" data-menu title="ещё"><span class="nf">${ICON.more}</span></button>
+      <button class="player-btn" data-menu title="данго (⋮) — ещё"><span class="nf">${ICON.more}</span></button>
       <div class="player-menu hidden" data-menu-list>
         <button data-act="queue"><span class="nf">${ICON.list}</span> Очередь</button>
         <button data-act="stop"><span class="nf">${ICON.close}</span> Стоп</button>
@@ -571,12 +571,24 @@ function paintShuffle() {
 }
 
 export function stop() {
-  document.documentElement.style.removeProperty("--player-height");
+  // Плеер уезжает под шапку, а не пропадает рывком. Отступ содержимого
+  // при этом уменьшается вместе с ним: страница подтягивается плавно,
+  // а не прыгает в конце.
+  if (bar) {
+    bar.classList.add("leaving");
+    document.documentElement.style.setProperty("--player-height", "0px");
+    setTimeout(() => {
+      bar?.remove();
+      bar = null;
+      document.body.classList.remove("player-open");
+      document.documentElement.style.removeProperty("--player-height");
+    }, 260);
+  }
+
   audio?.pause();
   current = null;
   clearState();
-  bar?.classList.add("hidden");
-  document.body.classList.remove("player-open");
+
   document.querySelectorAll("[data-track-play].playing")
     .forEach(b => b.classList.remove("playing"));
 }

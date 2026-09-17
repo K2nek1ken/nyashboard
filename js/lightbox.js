@@ -1,4 +1,5 @@
 import { ICON } from "./icons.js";
+import { closeOverlay } from "./ui.js";
 
 // Просмотр изображения на весь экран с приближением.
 // Зум: колесо мыши, щипок двумя пальцами, двойное нажатие. Перетаскивание —
@@ -142,7 +143,7 @@ export function openLightbox(src, allSrcs = [], startIndex = 0) {
   function close() {
     document.body.style.overflow = "";
     document.removeEventListener("keydown", onKey);
-    box.remove();
+    closeOverlay(box);   // гаснет, а не пропадает рывком
   }
   function onKey(e) {
     if (e.key === "Escape") close();

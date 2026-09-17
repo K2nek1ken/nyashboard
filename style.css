@@ -1801,9 +1801,9 @@ body.page-leaving #app { opacity: 0.35; }
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; padding: 24px;
-  animation: npIn .2s ease;
+  animation: npIn .28s ease;
 }
-.now-playing.closing { animation: npOut .18s ease forwards; }
+.now-playing.closing { animation: npOut .26s ease forwards; }
 @keyframes npIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes npOut { to { opacity: 0; transform: translateY(12px); } }
 
@@ -2533,62 +2533,106 @@ body.is-beta { padding-top: 18px; }
 
 /* ============================================================
    Редактор записи на весь экран
-   Плеер остаётся выше и виден: содержимое начинается под ним, а не
-   прячется за окном.
+
+   Устроен в два слоя: неподвижная подложка и содержимое поверх неё.
+   Так плеер и его меню остаются выше окна — раньше меню плеера
+   проваливалось под фон, — а перестановка элементов внутри подложку
+   не трогает.
    ============================================================ */
 .composer-screen {
   position: fixed; inset: 0; z-index: 120;
-  /* Слегка прозрачный: видно, откуда пишешь — из ленты, со стены или
-     со страницы канала. Глухой фон отрывал редактор от места. */
-  background: color-mix(in oklab, var(--bg) 88%, transparent);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  animation: composerIn .26s ease;
+}
+
+/* нижний слой: только фон, ничего больше */
+.composer-backdrop {
+  position: absolute; inset: 0;
+  background: color-mix(in oklab, var(--bg) 86%, transparent);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+
+/* верхний слой: всё, что можно трогать */
+.composer-body {
+  position: absolute; inset: 0;
   display: flex; flex-direction: column;
   padding: 14px 16px 0;
-  animation: composerIn .16s ease;
+  overflow: hidden;
 }
-@keyframes composerIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-body.player-open .composer-screen { top: var(--player-height, 116px); }
+/* Плеер выше окна: им можно пользоваться, пока пишешь */
+body.composer-open .player-bar { z-index: 130; }
+body.composer-open .player-menu { z-index: 140; }
+
+body.player-open .composer-body { padding-top: calc(var(--player-height, 116px) + 10px); }
 @media (min-width: 900px) {
-  body.player-open .composer-screen { top: 0; left: 320px; }
-  .composer-screen { left: 320px; padding: 24px 40px 0; }
+  .composer-body { left: 320px; padding: 24px 40px 0; }
+  .composer-backdrop { left: 320px; }
+  body.player-open .composer-body { padding-top: 24px; }
 }
 
 .composer-top {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 12px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px; flex-shrink: 0;
 }
 .composer-title { font-weight: 600; font-size: 15px; }
 .composer-top .closeBtn { margin-left: auto; }
-.composer-top #composerIdentity { flex: 1 1 100%; }
-.composer-top .identity-row { margin: 0; }
+#composerIdentity { flex-shrink: 0; margin-bottom: 10px; }
+#composerIdentity .identity-row { margin: 0; }
 
-/* Рамка поля видна всегда, а не только в фокусе: без неё непонятно, где
-   рабочая зона, и обрыв текста выглядит резко на фоне остального сайта.
-   В фокусе она просто становится заметнее. */
-.composer-area {
-  width: 100%; background: var(--bg-soft);
+/* ---------- поле набора с подсветкой ----------
+   Слой подсветки и само поле лежат друг на друге и обязаны совпадать
+   по метрикам до пикселя: любое расхождение шрифта, отступов или высоты
+   строки — и текст «двоится». */
+.composer-field {
+  position: relative; flex-shrink: 0;
+  background: var(--bg-soft);
   border: 1px solid #3a2f47; border-radius: 14px;
-  outline: none; padding: 12px 14px;
-  color: var(--text); font: inherit; font-size: 16px; line-height: 1.55;
-  resize: none; min-height: 120px; flex-shrink: 0;
   transition: border-color .14s ease;
+  overflow: hidden;
 }
-.composer-area:focus { border-color: var(--accent); }
-.composer-area::placeholder { color: var(--muted); }
-.composer-screen .image-strip { flex-shrink: 0; margin-top: 8px; }
+.composer-field:focus-within { border-color: var(--accent); }
 
+.composer-area,
+.composer-highlight {
+  font: inherit; font-size: 16px; line-height: 1.55;
+  padding: 12px 14px; margin: 0; border: none;
+  white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
+  letter-spacing: normal;
+}
+
+.composer-highlight {
+  position: absolute; inset: 0; overflow: hidden;
+  color: var(--text); pointer-events: none;
+}
+
+.composer-area {
+  position: relative; width: 100%; background: none; outline: none;
+  resize: none; overflow-y: auto; min-height: 120px;
+  /* Текст прозрачный — его показывает слой подсветки. Курсор и выделение
+     остаются видимыми, иначе печатать было бы вслепую. */
+  color: transparent; caret-color: var(--accent);
+}
+.composer-area::selection { background: color-mix(in oklab, var(--accent) 35%, transparent); }
+.composer-area::placeholder { color: var(--muted); }
+
+.composer-screen .image-strip { flex-shrink: 0; margin-top: 10px; }
+
+/* Кнопки под полем: на телефоне они иначе оказываются под клавиатурой */
 .composer-bottom {
-  margin-top: auto; display: flex; align-items: center; gap: 12px;
-  padding: 12px 0 16px; flex-shrink: 0;
-  border-top: 1px solid var(--card);
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0 16px; margin-top: 10px; flex-shrink: 0;
 }
 .composer-attach {
   cursor: pointer; color: var(--muted); font-size: 19px;
-  padding: 8px; border-radius: 10px;
+  padding: 8px; border-radius: 10px; flex-shrink: 0;
 }
 .composer-attach:hover { color: var(--accent); background: var(--card); }
-.composer-bottom .primaryBtn { margin-left: auto; width: auto; padding: 11px 26px; }
+.composer-hint {
+  font-size: 10.5px; color: var(--muted); opacity: .7;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.composer-bottom .primaryBtn { margin-left: auto; width: auto; padding: 11px 26px; flex-shrink: 0; }
+@media (max-width: 520px) { .composer-hint { display: none; } }
 
 
 /* Размытие стоит дорого на слабых устройствах. Там, где человек попросил
@@ -2630,17 +2674,17 @@ input[type="text"]:focus, input[type="search"]:focus, textarea:focus {
                         to   { opacity: 1; transform: none; } }
 @keyframes cardOut    { to { opacity: 0; transform: translateY(8px) scale(.99); } }
 
-.modal { animation: overlayIn .15s ease; }
-.modal > .modal-content { animation: cardIn .18s cubic-bezier(.2,.8,.3,1); }
-.modal.closing { animation: overlayOut .14s ease forwards; }
-.modal.closing > .modal-content { animation: cardOut .14s ease forwards; }
+.modal { animation: overlayIn .24s ease; }
+.modal > .modal-content { animation: cardIn .28s cubic-bezier(.2,.8,.3,1); }
+.modal.closing { animation: overlayOut .24s ease forwards; }
+.modal.closing > .modal-content { animation: cardOut .24s ease forwards; }
 
-.lightbox { animation: overlayIn .16s ease; }
-.lightbox.closing { animation: overlayOut .14s ease forwards; }
-.lightbox-stage img { animation: cardIn .2s cubic-bezier(.2,.8,.3,1); }
+.lightbox { animation: overlayIn .26s ease; }
+.lightbox.closing { animation: overlayOut .26s ease forwards; }
+.lightbox-stage img { animation: cardIn .3s cubic-bezier(.2,.8,.3,1); }
 
-.composer-screen.closing { animation: cardOut .16s ease forwards; }
-.now-playing.closing { animation: npOut .18s ease forwards; }
+.composer-screen.closing { animation: cardOut .26s ease forwards; }
+.now-playing.closing { animation: npOut .26s ease forwards; }
 
 /* Выпадающие меню — короче, они появляются часто */
 .kebabMenu:not(.hidden),
@@ -2685,3 +2729,52 @@ input[type="text"]:focus, input[type="search"]:focus, textarea:focus {
 }
 .player-progress, .np-progress,
 .player-progress-fill, .np-fill { transition: height .12s ease; }
+
+/* цитата над полем ответа: видно, кому отвечаешь */
+.reply-target {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card-hover); border-left: 3px solid var(--accent-2);
+  border-radius: 0 10px 10px 0; padding: 7px 10px; margin: 6px 0;
+  font-size: 12px; color: var(--muted);
+}
+.reply-target-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reply-target b { color: var(--accent-2); }
+.reply-target-close {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 11px; padding: 2px 4px; flex-shrink: 0;
+}
+.reply-target-close:hover { color: var(--accent); }
+
+
+/* Оформление внутри подсветки — то же, что в готовой записи */
+.composer-highlight b { font-weight: 700; }
+.composer-highlight i { font-style: italic; }
+.composer-highlight .md-code {
+  background: var(--card); border-radius: 4px; padding: 1px 4px;
+  font-family: inherit;
+}
+.composer-highlight .md-head { font-weight: 700; font-size: 1.15em; }
+
+/* Знаки разметки в поле набора: видны, но приглушены — сразу ясно,
+   где оформление, а где текст. */
+.composer-highlight .md-mark { color: var(--muted); opacity: .55; font-weight: 400; }
+.composer-highlight .md-size-mark { color: var(--accent); opacity: .75; }
+
+/* Плеер уезжает под шапку при остановке. Отступ содержимого меняется
+   одновременно, поэтому страница подтягивается вместе с ним, а не
+   прыгает в конце. */
+.player-bar.leaving {
+  transform: translateY(-140%);
+  opacity: 0;
+  transition: transform .26s cubic-bezier(.4,0,.6,1), opacity .2s ease;
+}
+body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
+
+@media (min-width: 900px) {
+  /* в колонке он уезжает вбок — там нет шапки сверху */
+  .player-bar.leaving { transform: translateX(-130%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-bar.leaving { transition: none; }
+  body { transition: none; }
+}

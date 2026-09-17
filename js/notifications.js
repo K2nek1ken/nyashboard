@@ -89,16 +89,31 @@ export async function checkTabs() {
       orderBy("createdAt", "desc"), limit(5)));
     const since = seenAt("chat");
     const { isOwned } = await import("./ownership.js");
+    // Точка загорается, только когда обращаются к тебе: ответили на твоё
+    // сообщение или упомянули. Любое новое сообщение в общем чате — это
+    // просто жизнь чата, и отмечать его как непрочитанное значит держать
+    // точку зажжённой постоянно.
+    const myUsername = currentUserDoc?.username;
+    const myNickname = currentUserDoc?.nickname;
+
     result.chat = snap.docs.some(d => {
       const m = d.data();
       const ts = m.createdAt?.toMillis?.() || 0;
       if (ts <= since) return false;
-      // Своё — это и отправленное с этого устройства, и от своего аккаунта,
-      // и ответ бота на собственную команду: он приходит от тебя же.
+
       const mine = isOwned("chatMessage", d.id)
         || (currentUser && m.authorUid === currentUser.uid)
         || m.isBot;
-      return !mine;
+      if (mine) return false;
+
+      // ответ на твоё сообщение
+      if (m.replyToId && isOwned("chatMessage", m.replyToId)) return true;
+      if (m.replyToNickname && myNickname && m.replyToNickname === myNickname) return true;
+
+      // упоминание по юзернейму
+      if (myUsername && new RegExp(`@${myUsername}\\b`, "i").test(m.text || "")) return true;
+
+      return false;
     });
   } catch {}
 
@@ -135,6 +150,11 @@ export async function checkTabs() {
         const p = d.data();
         const ts = p.createdAt?.toMillis?.() || 0;
         if (ts <= sinceContent) return false;
+        // Своё сюда не попадает: отмечать собственную публикацию как
+        // непрочитанную незачем — точка загоралась от собственных действий.
+        if (currentUser && p.authorUid === currentUser.uid) return false;
+        if (isOwned("post", d.id)) return false;
+
         return (p.channelId && subs.includes(p.channelId))
             || (p.authorUid && friends.includes(p.authorUid));
       });

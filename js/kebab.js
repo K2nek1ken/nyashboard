@@ -7,7 +7,7 @@ export function kebabHtml(items, kebabId) {
   if (!items.length) return "";
   return `
     <div class="kebab" data-kebab-id="${kebabId}">
-      <button class="kebabTrigger nf" data-action="toggleKebab" title="ещё">${ICON.more}</button>
+      <button class="kebabTrigger nf" data-action="toggleKebab" title="данго (⋮) — ещё">${ICON.more}</button>
       <div class="kebabMenu hidden">
         ${items.map(i => `
           <button class="kebabItem ${i.danger ? "danger" : ""}" data-action="${i.action}">
@@ -19,9 +19,9 @@ export function kebabHtml(items, kebabId) {
 
 let globalCloseHandlerAttached = false;
 
-// container — DOM-элемент, ВНУТРИ которого искать кебабы (карточка поста, строка
+// container — DOM-элемент, ВНУТРИ которого искать данго (⋮) (карточка поста, строка
 // ответа, сообщение чата...). handlers — объект { actionName: () => {...} }, только
-// для тех действий, что реально присутствуют в этом конкретном кебабе.
+// для тех действий, что реально присутствуют в этом конкретном данго (⋮).
 export function wireKebab(container, handlers) {
   const kebab = container.querySelector("[data-kebab-id]");
   if (!kebab) return;

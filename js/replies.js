@@ -125,19 +125,21 @@ export function wireReplyLikes(container, replies, onDeleted) {
     // Ответ на ответ: отдельная кнопка вместо меню — действие одно,
     // и прятать его в меню было бы лишним шагом.
     row.querySelector('[data-action="replyToReply"]')?.addEventListener("click", () => {
-      // Поле ответа называется по-разному на странице записи и в ленте —
-      // берём то, что есть на этой странице.
-      const input = document.getElementById("detailReplyInput")
-                 || document.getElementById("replyInput")
-                 || document.querySelector(".reply-input-row input");
+      // Поле ответа ищем в своей карточке, а не по всей странице: в ленте
+      // карточек много, и раньше находилось первое попавшееся — ответ уходил
+      // не в ту запись.
+      const scope = row.closest(".post-card") || document;
+      const input = scope.querySelector("[data-reply-input]")
+                 || document.getElementById("detailReplyInput");
       if (!input) { showToast("Поле ответа не найдено"); return; }
 
-      // Имя автора берём из самого ответа; у анонимных его нет, тогда просто
-      // ставим курсор в поле — отвечать по имени не к кому.
+      // Показываем, кому отвечаешь: без этого было непонятно, привязался
+      // ответ к комментарию или ушёл в общий список.
+      showReplyTarget(scope, r);
+
       const handle = (!r.isAnonymous && r.authorUsername) ? `@${r.authorUsername} ` : "";
-      if (handle && !input.value.startsWith(handle)) {
-        input.value = handle + input.value;
-      }
+      if (handle && !input.value.startsWith(handle)) input.value = handle + input.value;
+
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
       input.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -179,4 +181,32 @@ export function wireReplyLikes(container, replies, onDeleted) {
       }
     });
   });
+}
+
+
+// Показывает над полем ответа, на чей комментарий отвечаешь. Убирается
+// крестиком или после отправки.
+function showReplyTarget(scope, reply) {
+  const row = scope.querySelector(".reply-input-row");
+  if (!row) return;
+
+  scope.querySelector(".reply-target")?.remove();
+
+  const name = reply.isAnonymous ? "анониму" : (reply.authorNickname || "кому-то");
+  const box = document.createElement("div");
+  box.className = "reply-target";
+  box.innerHTML = `
+    <span class="nf">${ICON.reply}</span>
+    <span class="reply-target-text">
+      <b>${escapeHtml(name)}</b>: ${escapeHtml((reply.text || "фото").slice(0, 60))}
+    </span>
+    <button class="reply-target-close" data-drop><span class="nf">${ICON.close}</span></button>`;
+  row.before(box);
+
+  box.querySelector("[data-drop]").addEventListener("click", () => box.remove());
+}
+
+// Убрать цитату — после отправки ответа.
+export function clearReplyTarget(scope = document) {
+  scope.querySelector(".reply-target")?.remove();
 }
