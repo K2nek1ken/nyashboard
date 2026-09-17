@@ -110,6 +110,10 @@ export async function initMusicPanel(host) {
   // с первой секунды. Состояние входа проверяется уже при нажатии — раньше
   // ожидание здесь задерживало появление кнопки на всё время проверки.
   host.innerHTML = `
+    <button class="secondaryBtn upload-zip-btn" id="uploadZipBtn" title="загрузить архивом">
+      <span class="nf">${ICON.archive || ICON.attach}</span> Архивом
+    </button>
+    <input type="file" id="zipFileInput" accept=".zip,application/zip" hidden>
     <button class="primaryBtn upload-track-btn" id="uploadTrackBtn">
       <span class="nf">${ICON.plus}</span><span class="upload-track-label">Загрузить трек</span>
     </button>
@@ -181,6 +185,20 @@ export async function initMusicPanel(host) {
     fileInput.click();
   });
 
+  // Загрузка архивом: треки идут по очереди, с показом хода работы.
+  const zipInput = host.querySelector("#zipFileInput");
+  host.querySelector("#uploadZipBtn")?.addEventListener("click", async () => {
+    await authReady;
+    if (!currentUser) { showToast("Войди, чтобы выкладывать музыку"); return; }
+    zipInput.click();
+  });
+
+  zipInput?.addEventListener("change", async () => {
+    const zip = zipInput.files[0];
+    zipInput.value = "";
+    if (zip) openZipUpload(zip, refresh);
+  });
+
   fileInput?.addEventListener("change", async () => {
     const file = fileInput.files[0];
     fileInput.value = "";
@@ -212,6 +230,12 @@ async function openUploadForm(file, onDone) {
         </div>
       </div>
       <input type="file" accept="image/*" hidden data-cover-input>
+
+      <label class="toggle-anon" style="margin:6px 0 0;">
+        <input type="checkbox" data-favorite checked>
+        <span>сразу в любимое</span>
+      </label>
+
       <p class="muted" data-meta-note style="font-size:12px;"></p>
 
       <div class="dialog-buttons">
@@ -269,20 +293,101 @@ async function openUploadForm(file, onDone) {
     btn.disabled = true;
     btn.textContent = "Загружаю… 0%";
     try {
-      const { publicUid } = await uploadTrack({
+      const uploaded = await uploadTrack({
         file, title, artist: artistInput.value.trim(), coverFile,
         // показываем ход отправки прямо на кнопке: у больших файлов без этого
         // непонятно, идёт ли что-то вообще
         onProgress: (ratio) => { btn.textContent = `Загружаю… ${Math.round(ratio * 100)}%`; }
       });
+
+      // Сразу в любимое, если отмечено: иначе после загрузки пришлось бы
+      // искать свой же трек в общем списке и отмечать вручную.
+      if (modal.querySelector("[data-favorite]")?.checked) {
+        await toggleFavorite({ id: uploaded.id, ...uploaded }).catch(() => {});
+      }
+
       close();
-      showToast(`Готово ♡ Идентификатор: ${publicUid}`);
+      showToast(`Готово ♡ Идентификатор: ${uploaded.publicUid}`);
       onDone?.();
     } catch (e) {
       console.error(e);
       showToast("Не вышло: " + e.message);
       btn.disabled = false;
       btn.textContent = "Опубликовать";
+    }
+  });
+}
+
+
+// Окно загрузки архивом: показывает, какой файл сейчас идёт, и что вышло
+// в итоге. Прерывать нельзя — уже загруженное останется, и обрывать на
+// середине было бы обманом.
+function openZipUpload(zipFile, onDone) {
+  const box = document.createElement("div");
+  box.className = "modal";
+  box.innerHTML = `
+    <div class="modal-content" style="max-width:380px;">
+      <button class="closeBtn modalClose" data-cancel><span class="nf">${ICON.close}</span></button>
+      <h2 style="margin-top:0;font-size:17px;">Треки из архива</h2>
+      <p class="muted" style="margin-top:0;font-size:12px;">${escapeHtml(zipFile.name)}</p>
+
+      <label class="toggle-anon" style="margin:10px 0;">
+        <input type="checkbox" data-favorite checked>
+        <span>сразу в любимое</span>
+      </label>
+
+      <p class="muted" style="font-size:11px;line-height:1.5;">
+        Название, исполнитель и обложка берутся из тегов файлов.
+        Треки загружаются по очереди — это может занять время.
+      </p>
+
+      <div data-status class="zip-status hidden"></div>
+
+      <div class="dialog-buttons">
+        <button class="secondaryBtn" data-cancel>Отмена</button>
+        <button class="primaryBtn" data-start>Загрузить</button>
+      </div>
+    </div>`;
+  document.body.appendChild(box);
+
+  const close = () => closeOverlay(box);
+  box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
+
+  box.querySelector("[data-start]").addEventListener("click", async () => {
+    const toFavorites = box.querySelector("[data-favorite]").checked;
+    const status = box.querySelector("[data-status]");
+    const startBtn = box.querySelector("[data-start]");
+
+    startBtn.disabled = true;
+    box.querySelectorAll("[data-cancel]").forEach(b => b.disabled = true);
+    status.classList.remove("hidden");
+
+    try {
+      const { uploadTracksFromZip } = await import("./music.js");
+      const { done, failed } = await uploadTracksFromZip(zipFile, {
+        toFavorites,
+        onProgress: ({ index, total, name, stage, ratio }) => {
+          const pct = ratio ? ` ${Math.round(ratio * 100)}%` : "";
+          status.innerHTML = `
+            <div class="zip-line">${index} из ${total}${pct}</div>
+            <div class="zip-name">${escapeHtml(name)}</div>
+            <div class="zip-bar"><div style="width:${(index / total) * 100}%"></div></div>`;
+          startBtn.textContent = stage === "uploading" ? "Загружаю…" : "Читаю…";
+        }
+      });
+
+      close();
+      showToast(failed.length
+        ? `Загружено: ${done.length}, пропущено: ${failed.length}`
+        : `Загружено треков: ${done.length} ♡`);
+      if (failed.length) console.warn("Не загрузились:", failed);
+      onDone?.();
+    } catch (e) {
+      console.error(e);
+      status.innerHTML = `<div class="zip-line" style="color:var(--danger)">${escapeHtml(e.message)}</div>`;
+      startBtn.disabled = false;
+      startBtn.textContent = "Попробовать снова";
+      box.querySelectorAll("[data-cancel]").forEach(b => b.disabled = false);
     }
   });
 }

@@ -46,7 +46,14 @@ export async function uploadTrack({ file, title, artist, coverFile, onProgress }
   await registerNuid(ref.id, nuid, "track").catch(() => {});
   await updateDoc(doc(db, "tracks", ref.id), { publicUid: nuid }).catch(() => {});
 
-  return { id: ref.id, publicUid: nuid };
+  // Возвращаем сам трек целиком: вызывающей стороне бывает нужно сразу
+  // положить его в любимое, а собирать данные заново ради этого незачем.
+  return {
+    id: ref.id, publicUid: nuid,
+    title: title.trim(), artist: (artist || "").trim(),
+    url, coverUrl, duration,
+    format: (file.name.split(".").pop() || "").toLowerCase()
+  };
 }
 
 // Длительность читается браузером, а он может и не ответить: файл ещё не
@@ -197,4 +204,76 @@ export async function loadFavoriteOrder() {
   if (!currentUser) return [];
   const snap = await getDoc(doc(db, "users", currentUser.uid, "private", FAV_ORDER_KEY)).catch(() => null);
   return snap?.exists() ? (snap.data().ids || []) : [];
+}
+
+
+// ============================================================
+//  Загрузка архивом
+//
+//  Треки идут по очереди, а не все разом: хранилище ограничивает частоту
+//  запросов, и пачка из двадцати файлов упёрлась бы в неё на третьем.
+//  Заодно так виден ход работы — какой файл сейчас идёт.
+//
+//  Название, исполнитель и обложка берутся из тегов самого файла: ради
+//  архива никто не станет заполнять два десятка форм руками.
+// ============================================================
+
+export async function uploadTracksFromZip(zipFile, { onProgress, toFavorites = false } = {}) {
+  const { readZip } = await import("./zip.js");
+  const { readAudioMeta } = await import("./audio-meta.js");
+
+  const entries = await readZip(zipFile);
+  const audioNames = Object.keys(entries)
+    .filter(n => /\.(mp3|wav|flac|ogg|m4a|opus|aac)$/i.test(n))
+    .filter(n => !n.startsWith("__MACOSX/") && !n.split("/").pop().startsWith("."))
+    .sort();
+
+  if (!audioNames.length) throw new Error("в архиве нет звуковых файлов");
+
+  const done = [];
+  const failed = [];
+
+  for (let i = 0; i < audioNames.length; i++) {
+    const name = audioNames[i];
+    const shortName = name.split("/").pop();
+    onProgress?.({ index: i + 1, total: audioNames.length, name: shortName, stage: "reading" });
+
+    try {
+      const file = new File([entries[name]], shortName, { type: guessType(shortName) });
+      const meta = await readAudioMeta(file).catch(() => ({}));
+
+      const title = meta.title?.trim() || shortName.replace(/\.[^.]+$/, "");
+      const coverFile = meta.cover
+        ? new File([meta.cover], "cover.jpg", { type: meta.cover.type || "image/jpeg" })
+        : null;
+
+      onProgress?.({ index: i + 1, total: audioNames.length, name: title, stage: "uploading" });
+
+      const track = await uploadTrack({
+        file, title, artist: meta.artist || "", coverFile,
+        onProgress: (ratio) => onProgress?.({
+          index: i + 1, total: audioNames.length, name: title,
+          stage: "uploading", ratio
+        })
+      });
+
+      if (toFavorites) await toggleFavorite(track).catch(() => {});
+      done.push(track);
+    } catch (e) {
+      // Один плохой файл не должен ронять всю пачку: остальные загрузятся,
+      // а про пропущенные скажем в конце.
+      console.warn(`Трек «${shortName}» не загрузился:`, e.message);
+      failed.push({ name: shortName, reason: e.message });
+    }
+  }
+
+  return { done, failed };
+}
+
+function guessType(name) {
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  return {
+    mp3: "audio/mpeg", wav: "audio/wav", flac: "audio/flac",
+    ogg: "audio/ogg", opus: "audio/ogg", m4a: "audio/mp4", aac: "audio/aac"
+  }[ext] || "audio/mpeg";
 }

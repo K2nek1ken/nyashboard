@@ -12,7 +12,9 @@ import { showToast } from "./ui.js";
 //  терять при первой же перерисовке.
 // ============================================================
 
-const NUID_PATTERN = /^U[1-5]\d{6}$/i;
+// U0 — записи, U1 — люди, U2 — сообщения, U3 — треки, U4 — каналы, U5 — работы.
+// Раньше здесь начиналось с единицы, и номера записей не копировались.
+const NUID_PATTERN = /^U[0-5]\d{6}$/i;
 
 export async function copyNuid(value, label = "NUID") {
   const text = (value || "").trim();
