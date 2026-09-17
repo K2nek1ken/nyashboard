@@ -121,87 +121,13 @@ export async function openUserProfile(uid) {
   const bioEl = document.getElementById("vpBio");
   if (bioEl) bioEl.textContent = user.bio || "";
 
-  // Кнопки разделов: карточка показывала только ленту, хотя в приоритете
-  // стена, а музыка нужна не реже. Теперь можно посмотреть всё прямо здесь,
-  // не уходя на страницу человека.
-  const tabsHost = document.getElementById("vpTabs");
-  if (tabsHost) {
-    tabsHost.innerHTML = `
-      <button class="subtab active" data-vp-tab="wall">Стена</button>
-      <button class="subtab" data-vp-tab="feed">Лента</button>
-      <button class="subtab" data-vp-tab="music">Музыка</button>`;
-
-    tabsHost.querySelectorAll("[data-vp-tab]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        tabsHost.querySelectorAll("[data-vp-tab]").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        showTab(btn.dataset.vpTab);
-      });
-    });
-  }
-
-  const actionsHost = document.getElementById("vpActions");
-  if (actionsHost) {
-    actionsHost.innerHTML = `
-      <a class="secondaryBtn" href="${isSelf ? "user.html?uid=me" : `user.html?uid=${uid}`}">
-        Открыть профиль
-      </a>
-      ${!isSelf ? `<a class="secondaryBtn" href="dm.html?uid=${uid}">Написать</a>` : ""}`;
-  }
-
-  // Стена открывается первой: это личная страница человека.
-  showTab("wall");
-
-  async function showTab(kind) {
-    postsEl.innerHTML = `<div class="stub-note">Загружаю…</div>`;
-
-    if (kind === "music") {
-      await showMusic();
-      return;
-    }
-
-    const all = await loadUserFeed(uid).catch(() => []);
-    const list = all.filter(p => (kind === "wall" ? p.place === "wall" : p.place !== "wall"));
-    if (!list.length) {
-      postsEl.innerHTML = `<div class="stub-note">${kind === "wall" ? "На стене пусто" : "Записей нет"}</div>`;
-      return;
-    }
-
-    postsEl.innerHTML = "";
-    renderPostsInto(postsEl, list.slice(0, 3), user.nickname);
-    if (list.length > 3) {
-      postsEl.insertAdjacentHTML("beforeend",
-        `<a href="user.html?uid=${uid}" class="showMoreReplies">и ещё ${list.length - 3} &#8594;</a>`);
-    }
-  }
-
-  // Музыка показывается, только если человек её открыл — настройку
-  // видимости проверяем так же, как на его странице.
-  async function showMusic() {
-    const visibility = user.musicVisibility || "all";
-    if (!isSelf && visibility === "nobody") {
-      postsEl.innerHTML = `<div class="stub-note">Музыка скрыта</div>`;
-      return;
-    }
-    if (!isSelf && visibility === "friends") {
-      const { isMutualFriend } = await import("./friends.js");
-      if (!await isMutualFriend(uid).catch(() => false)) {
-        postsEl.innerHTML = `<div class="stub-note">Музыка видна только друзьям</div>`;
-        return;
-      }
-    }
-
-    try {
-      const { loadFavorites } = await import("./music.js");
-      const { trackCardHtml, wireTrackCards } = await import("./music-ui.js");
-      const tracks = (await loadFavorites(uid)).slice(0, 5);
-      if (!tracks.length) { postsEl.innerHTML = `<div class="stub-note">Пусто</div>`; return; }
-
-      postsEl.innerHTML = tracks.map(t => trackCardHtml(t, { favorite: true })).join("");
-      wireTrackCards(postsEl, tracks);
-    } catch {
-      postsEl.innerHTML = `<div class="stub-note">Музыка скрыта</div>`;
-    }
+  // тут только предпросмотр — 3 последних поста/репоста, полный список на user.html
+  const posts = await loadUserFeed(uid);
+  const preview = posts.slice(0, 3);
+  renderPostsInto(postsEl, preview, user.nickname);
+  if (posts.length > 3 && fullLinkEl) {
+    postsEl.insertAdjacentHTML("beforeend",
+      `<a href="${isSelf ? "profile.html" : `user.html?uid=${uid}`}" class="showMoreReplies">и ещё ${posts.length - 3} &#8594;</a>`);
   }
 }
 

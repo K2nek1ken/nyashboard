@@ -122,12 +122,7 @@ export function restorePlayback() {
 function ensureAudio() {
   if (audio) return audio;
   audio = new Audio();
-
-  // Загружаем сам файл, а не только его описание. С «metadata» браузер
-  // держал в памяти лишь длительность, и любая перемотка — даже в начало,
-  // где уже всё проиграно, — уходила за новой порцией. На слабой связи это
-  // давало заметную паузу на ровном месте.
-  audio.preload = "auto";
+  audio.preload = "metadata";
   audio.addEventListener("timeupdate", () => {
     paintProgress();
     updateMediaPosition();
@@ -139,10 +134,6 @@ function ensureAudio() {
     playNextInQueue();
   });
   audio.addEventListener("play", () => { paintPlayState(true); saveState(); });
-  audio.addEventListener("seeked", () => {
-    document.querySelectorAll(".player-progress, .np-progress")
-      .forEach(el => el.classList.remove("loading"));
-  });
   audio.addEventListener("pause", () => { paintPlayState(false); saveState(); });
   return audio;
 }
@@ -367,21 +358,6 @@ async function refreshFavState(track) {
 // Высота плеера меняется: на телефоне он в два ряда, на компьютере живёт
 // в колонке. Отдаём её стилям, чтобы содержимое отодвигалось ровно на
 // столько, сколько он занимает, а не на заранее вписанное число.
-// Когда плеер появляется или уходит, меняется отступ страницы — и всё
-// содержимое сдвигается. Если просто дать этому произойти, список поедет
-// под рукой: ты читаешь запись, а она уезжает.
-//
-// Поэтому вместе с отступом сдвигаем и саму прокрутку на ту же величину.
-// Для человека ничего не происходит: страница остаётся ровно там, где была,
-// а плеер приезжает поверх.
-function shiftScrollBy(delta) {
-  if (!delta) return;
-  // В самом верху ничего не двигаем: там сдвигать некуда, и попытка
-  // «компенсировать» как раз и давала тот рывок вниз-вверх.
-  if (window.scrollY <= 1) return;
-  window.scrollBy({ top: delta, behavior: "instant" });
-}
-
 function reportPlayerHeight() {
   if (!bar) return;
   const apply = () => {
@@ -390,16 +366,9 @@ function reportPlayerHeight() {
     // ровно на это смещение, и плеер накрывал верх страницы.
     const rect = bar.getBoundingClientRect();
     const bottom = Math.round(rect.bottom);
-    if (bottom <= 0) return;
-
-    const prev = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue("--player-height")
-    ) || 0;
-
-    document.documentElement.style.setProperty("--player-height", bottom + "px");
-
-    // отступ вырос — на столько же опускаем прокрутку
-    if (prev) shiftScrollBy(bottom - prev);
+    if (bottom > 0) {
+      document.documentElement.style.setProperty("--player-height", bottom + "px");
+    }
   };
   // Первое измерение — на следующем кадре: сразу после вставки браузер
   // ещё не разложил элемент, и размеры вышли бы нулевыми.
@@ -418,11 +387,7 @@ function paintBar(track) {
   setTimeout(() => refreshFavState(track), 0);
   updateMediaSession(track);
   bar.classList.remove("hidden");
-  // Появляется плавно, а не возникает рывком: класс снимается на следующем
-  // кадре, иначе браузер не заметит смены состояния и анимации не будет.
-  bar.classList.add("entering");
   document.body.classList.add("player-open");   // содержимое отъезжает вниз
-  requestAnimationFrame(() => bar?.classList.remove("entering"));
   // Пустые значения не должны превращаться в «undefined» на экране:
   // у восстановленного из памяти трека часть полей может отсутствовать.
   const title = track.title || "Без названия";
@@ -610,10 +575,8 @@ export function stop() {
   // при этом уменьшается вместе с ним: страница подтягивается плавно,
   // а не прыгает в конце.
   if (bar) {
-    const height = bar.getBoundingClientRect().bottom || 0;
     bar.classList.add("leaving");
     document.documentElement.style.setProperty("--player-height", "0px");
-    shiftScrollBy(-height);   // страница остаётся на месте, уезжает только плеер
     setTimeout(() => {
       bar?.remove();
       bar = null;
@@ -880,14 +843,7 @@ function wireScrub(track, fill, onPaintTime) {
     if (!scrubbing) return;
     scrubbing = false;
     track.classList.remove("scrubbing");
-    if (!audio?.duration) return;
-
-    const target = ratioAt(e.clientX) * audio.duration;
-
-    // Если это место уже загружено, перемотка мгновенная. Если нет —
-    // показываем, что идёт подгрузка, иначе пауза выглядит как зависание.
-    if (!isBuffered(target)) track.classList.add("loading");
-    audio.currentTime = target;
+    if (audio?.duration) audio.currentTime = ratioAt(e.clientX) * audio.duration;
   };
 
   track.addEventListener("pointerup", finish);
@@ -897,16 +853,6 @@ function wireScrub(track, fill, onPaintTime) {
     track.classList.remove("scrubbing");
     paintProgress();
   });
-}
-
-// Загружен ли этот участок: браузер хранит несколько отрезков, и перемотка
-// внутри них происходит сразу, без обращения к сети.
-function isBuffered(sec) {
-  if (!audio?.buffered) return false;
-  for (let i = 0; i < audio.buffered.length; i++) {
-    if (sec >= audio.buffered.start(i) && sec <= audio.buffered.end(i)) return true;
-  }
-  return false;
 }
 
 function paintProgress() {
