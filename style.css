@@ -2821,3 +2821,12 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 @media (prefers-reduced-motion: reduce) {
   .player-bar, .player-bar.entering { transition: none; transform: none; opacity: 1; }
 }
+
+/* превью частицы в настройках */
+.particle-canvas { display: block; }
+.particle-img { width: 26px; height: 26px; object-fit: contain; }
+.particle-text {
+  line-height: 1; white-space: nowrap;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  padding: 0 2px;
+}

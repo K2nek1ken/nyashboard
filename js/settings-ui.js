@@ -1,6 +1,12 @@
 import { getSettings, setSetting, THEMES, PARTICLES, EMOJI_SOURCES, TIME_FORMATS, TAB_LABELS, GENDERS, TIMEZONES, QUOTE_DECOR, CHAT_IDENTITY, DM_NAMING, TINT_MODES, DEFAULTS,
   exportSettings, importSettings } from "./settings.js";
-import { showToast } from "./ui.js";
+import { showToast, escapeHtml } from "./ui.js";
+// Превью частиц и узоров собирается из того же описания, что и сами частицы —
+// иначе добавленное в модуле до настроек не доходило.
+import {
+  PARTICLES as PARTICLE_ITEMS, QUOTE_DECOR as DECOR_ITEMS,
+  previewHtml, paintPreviewCanvases
+} from "./modules/particles.js";
 import { goTo } from "./router.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
 import { applyFavicon } from "./favicon.js";
@@ -23,18 +29,6 @@ import { askText, askConfirm } from "./dialog.js";
 // нарисовать их одноцветной формой нельзя, так что остаются эмодзи.
 const STAR_SVG = `<svg viewBox="0 0 24 24" fill="currentColor" class="svg-ic" style="width:19px;height:19px;">
   <path d="M12 2.4l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.4l1.2-6.5L2.5 9.3l6.6-.9z"/></svg>`;
-
-function particleGlyph(kind) {
-  if (kind === "stars")  return STAR_SVG;
-  if (kind === "petals") return `<span class="petal-preview"></span>`;
-  return { flowers: "\u2740", leaves: "\uD83C\uDF41", sakura: "\uD83C\uDF38", off: "\u2014" }[kind] || STAR_SVG;
-}
-
-function decorGlyphPreview(kind) {
-  if (kind === "stars")  return STAR_SVG;
-  if (kind === "petals") return `<span class="petal-preview"></span>`;
-  return { flowers: "\u2740", leaves: "\uD83C\uDF41", none: "\u2014" }[kind] || "\u2740";
-}
 
 // Настроек стало много, и сплошным списком в них уже не найти нужное.
 // Группы свёрнуты по умолчанию, кроме первой: так видно всё разом, а раскрыть
@@ -93,7 +87,7 @@ export function initSettingsPage() {
         ${row("Падающие частицы", "лёгкая анимация на фоне",
           `<div style="display:flex; align-items:center;">
              ${select("particles", PARTICLES, s.particles)}
-             <span class="particle-preview" id="particlePreview">${particleGlyph(s.particles)}</span>
+             <span class="particle-preview" id="particlePreview">${previewHtml(PARTICLE_ITEMS, s.particles)}</span>
            </div>`)}
         ${s.particles === "custom" ? subRow("Картинка для частиц", "png, svg или gif без фона, до 8 МБ. От гифки берётся первый кадр",
           `<div style="display:flex; gap:6px; align-items:center;">
@@ -107,7 +101,7 @@ export function initSettingsPage() {
         ${row("Узор на цитатах", "фон у ответа на сообщение в чате",
           `<div style="display:flex; align-items:center;">
              ${select("quoteDecor", QUOTE_DECOR, s.quoteDecor)}
-             <span class="particle-preview" id="decorPreview">${decorGlyphPreview(s.quoteDecor)}</span>
+             <span class="particle-preview" id="decorPreview">${previewHtml(DECOR_ITEMS, s.quoteDecor)}</span>
            </div>`)}
         ${s.quoteDecor === "custom" ? subRow("Картинка для узора", "png, svg или gif без фона, до 8 МБ. От гифки берётся первый кадр",
           `<div style="display:flex; gap:6px; align-items:center;">
@@ -215,12 +209,15 @@ export function initSettingsPage() {
       </p>
     `;
 
+    paintPreviewCanvases(host);
+
     wireSelects(host, (key, value) => {
       setSetting(key, value);
 
       if (key === "particles") {
         const prev = host.querySelector("#particlePreview");
-        if (prev) prev.innerHTML = particleGlyph(value);
+        if (prev) prev.innerHTML = previewHtml(PARTICLE_ITEMS, value);
+        paintPreviewCanvases(host);
         showToast("Обновится после перезагрузки страницы");
         if (value === "custom") render();
       }
@@ -229,7 +226,8 @@ export function initSettingsPage() {
       }
       if (key === "quoteDecor") {
         const prev = host.querySelector("#decorPreview");
-        if (prev) prev.innerHTML = decorGlyphPreview(value);
+        if (prev) prev.innerHTML = previewHtml(DECOR_ITEMS, value);
+        paintPreviewCanvases(host);
         if (value === "custom") render();
       }
       // при смене способа обращения появляется или исчезает поле своего слова

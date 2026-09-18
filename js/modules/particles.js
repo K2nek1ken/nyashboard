@@ -80,16 +80,16 @@ export const PARTICLES = {
     image: true
   },
 
+  // Пример текстовой частицы — можно менять или убрать.
+  // Масштаб подобран под длину: чем длиннее текст, тем меньше число.
+  kaomoji: { label: "Лени фейс", glyph: "( ͡o ͜ʖ ͡o)", scale: 0.42 },
+
   custom: {
     label: "Своя картинка",
     image: true,
     // Картинку выбирает человек в настройках — см. logo-sound.js
     fromSettings: true
   },
-
-  // Пример текстовой частицы — можно менять или убрать.
-  // Масштаб подобран под длину: чем длиннее текст, тем меньше число.
-  kaomoji: { label: "Каомодзи", glyph: "( ͡o ͜ʖ ͡o)", scale: 0.42 },
 
   off: { label: "Без частиц" }
 };
@@ -100,6 +100,7 @@ export const QUOTE_DECOR = {
   flowers: { label: "Цветочки",  glyph: "\u2740" },   // ❀
   leaves:  { label: "Листья",    glyph: "\uD83C\uDF41" },
   petals:  { label: "Лепестки",  shape: true },       // рисуется фигурой, см. chat.js
+  kaomoji: { label: "Лени фейс", glyph: "( ͡o ͜ʖ ͡o)", scale: 0.42 },
   custom:  { label: "Своя картинка", image: true },
   none:    { label: "Без узора" }
 };
@@ -124,4 +125,81 @@ export function particleKindOf(key) {
   if (item.image) return "image";
   if (item.glyph) return "glyph";
   return "none";
+}
+
+// ============================================================
+//  Превью для настроек
+//
+//  Кнопка рядом со списком показывает, как выглядит выбранное. Собирается
+//  из этого же описания, поэтому новая частица появляется в настройках
+//  сама — раньше там лежала отдельная копия списка, и добавленное в модуле
+//  до настроек не доходило.
+//
+//  Длинный текст не влезает в маленькую кнопку, поэтому он уменьшается,
+//  а если и так не помещается — обрезается многоточием. Лучше показать
+//  начало, чем расползшуюся кашу.
+// ============================================================
+
+// Сколько знаков влезает в превью при обычном размере.
+// Подобрано под кнопку 40 на 40: дальше текст начинает вылезать.
+const PREVIEW_FITS = 3;
+const PREVIEW_MAX = 10;
+
+export function previewHtml(dict, key) {
+  const item = dict[key];
+  if (!item) return "\u2014";
+
+  // Своя фигура: рисуем её же на маленьком холсте — превью не может
+  // разойтись с тем, что падает на фоне.
+  if (item.draw) return `<canvas class="particle-canvas" data-particle="${key}" width="34" height="34"></canvas>`;
+
+  // Картинка из папки проекта
+  if (item.preview) return `<img src="${item.preview}" alt="" class="particle-img">`;
+
+  // Лепестки и своя картинка рисуются по-особому — у них своя заготовка
+  if (item.image) return `<span class="petal-preview"></span>`;
+
+  if (item.glyph) {
+    // Считаем видимые знаки: в каомодзи много надстрочных добавок вроде
+    // « ͡ », они ширины почти не занимают, но по счёту идут отдельно —
+    // без этого «( ͡o ͜ʖ ͡o)» считался длиннее, чем выглядит.
+    const text = [...item.glyph];
+    const visible = text.filter(ch => !/[\u0300-\u036f\u0483-\u0489\u20d0-\u20f0]/.test(ch)).length;
+
+    if (visible <= PREVIEW_FITS) return item.glyph;
+
+    // Не влезает — уменьшаем. Коэффициент подобран так, чтобы
+    // «( ͡o ͜ʖ ͡o)» читалось целиком.
+    if (visible <= PREVIEW_MAX) {
+      const scale = Math.max(0.34, PREVIEW_FITS / visible);
+      return `<span class="particle-text" style="font-size:${(19 * scale).toFixed(1)}px">${item.glyph}</span>`;
+    }
+
+    // Совсем длинный — показываем начало и многоточие: лучше так,
+    // чем нечитаемая каша в четыре пикселя.
+    const short = text.slice(0, PREVIEW_MAX + 2).join("") + "\u2026";
+    return `<span class="particle-text" style="font-size:6.5px" title="${item.glyph}">${short}</span>`;
+  }
+
+  return "\u2014";
+}
+
+// Дорисовывает фигуры в превью: их нельзя вставить разметкой, они
+// рисуются на холсте.
+export function paintPreviewCanvases(root = document, color = null) {
+  const accent = color || getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent").trim() || "#e88fd0";
+
+  root.querySelectorAll("canvas[data-particle]").forEach(canvas => {
+    const item = PARTICLES[canvas.dataset.particle] || QUOTE_DECOR[canvas.dataset.particle];
+    if (!item?.draw) return;
+
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.fillStyle = accent;
+    item.draw(ctx, canvas.width * 0.34);
+    ctx.restore();
+  });
 }
