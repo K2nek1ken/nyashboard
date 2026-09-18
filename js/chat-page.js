@@ -23,6 +23,10 @@ export async function initPage() {
 export function destroyPage() {
   stopKeepingSeen();
   stopPage?.();
+
+  // Подписку закрываем: она держала ссылку на разметку, которой уже нет,
+  // и продолжала рисовать в пустоту. При возврате чат подпишется заново.
+  unsubscribeChat();
 }
 
 // Что закрыть при уходе — заполняется при запуске

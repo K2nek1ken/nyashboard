@@ -191,18 +191,26 @@ function swapPageExtras(freshDoc) {
   const app = document.getElementById("app");
   if (!app) return;
 
-  // убираем то, что осталось от прошлой страницы
+  // Убираем всё, что осталось от прошлой страницы. Помечаем перенесённое:
+  // так видно, что именно принадлежит странице, а что было на месте
+  // изначально — без пометки легко было оставить лишнее.
+  document.querySelectorAll("[data-page-extra]").forEach(el => el.remove());
+
   [...document.body.children].forEach(el => {
     if (el === app || isShellNode(el)) return;
     el.remove();
   });
 
-  // и переносим всё, что есть у новой
+  // Переносим в конец страницы и по порядку. Раньше каждый элемент
+  // вставлялся сразу после #app, и порядок получался обратный —
+  // панели накладывались друг на друга.
   const freshApp = freshDoc.getElementById("app");
-  [...freshDoc.body.children].forEach(el => {
-    if (el === freshApp || isShellNode(el)) return;
-    app.after(el.cloneNode(true));
-  });
+  for (const el of freshDoc.body.children) {
+    if (el === freshApp || isShellNode(el)) continue;
+    const copy = el.cloneNode(true);
+    copy.dataset.pageExtra = "1";
+    document.body.appendChild(copy);
+  }
 }
 
 async function loadPage(page) {

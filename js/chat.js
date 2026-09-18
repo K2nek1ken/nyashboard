@@ -93,7 +93,16 @@ export function subscribeChat() {
   syncChatNickname()
     .then(n => { if (n) nickLabel.textContent = n; })
     .catch(e => console.warn("Ник не подтянулся:", e.message));
-  if (chatUnsub) return;
+  // Подписка переживает переход между вкладками, а разметка — нет.
+  // Поэтому при возврате в чат рисуем накопленное сразу: сама подписка
+  // пришлёт что-то только когда придёт новое сообщение, а до тех пор
+  // экран оставался пустым.
+  if (chatUnsub) {
+    if (lastMessages.length) renderChat(lastMessages);
+    initChatNav(messagesEl);
+    applyMute();
+    return;
+  }
   // Живая подписка только на последние сообщения: грузить всю переписку разом
   // и долго, и дорого по обращениям к базе. Остальное подтягивается порциями
   // при прокрутке вверх.
@@ -136,8 +145,21 @@ export function subscribeChat() {
     });
   }, (err) => {
     console.error(err);
-    messagesEl.innerHTML = `<div class="stub-note">Не смогла загрузить чат — проверь конфиг Firebase</div>`;
+    messagesEl.innerHTML = `<div class="stub-note">Не смогла загрузить чат: ${err.message}</div>`;
   });
+
+  // Если за несколько секунд ничего не пришло — скажем об этом. Пустой
+  // экран без объяснений выглядит как поломка, хотя причина может быть
+  // в связи или в правилах базы.
+  messagesEl.innerHTML = `<div class="stub-note">Загружаю чат…</div>`;
+  setTimeout(() => {
+    if (!lastMessages.length && messagesEl.textContent.includes("Загружаю")) {
+      messagesEl.innerHTML = `<div class="stub-note">
+        Чат не загрузился. Проверь связь и правила базы — сообщения читает
+        коллекция chatMessages.
+      </div>`;
+    }
+  }, 6000);
 
   // Картинка для узора готовится заранее: перекрашивание идёт на холсте,
   // и делать его для каждой цитаты было бы расточительно. Когда готова —
