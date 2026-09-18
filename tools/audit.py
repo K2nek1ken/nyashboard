@@ -212,7 +212,11 @@ def check_orphans():
     declared = {}
     for f in js_files():
         t = read(f)
-        for m in re.finditer(r'^(?:let|const)\s+([A-Za-z_]\w*)\s*=', t, re.M):
+        # Считаем и переменные, и функции: при выносе части файла забыть
+        # можно и то, и другое, а падает одинаково — «is not defined».
+        for m in re.finditer(r'^(?:export\s+)?(?:let|const)\s+([A-Za-z_]\w*)\s*=', t, re.M):
+            declared.setdefault(m.group(1), set()).add(f)
+        for m in re.finditer(r'^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_]\w*)', t, re.M):
             declared.setdefault(m.group(1), set()).add(f)
 
     for f in js_files():
@@ -222,6 +226,9 @@ def check_orphans():
         # использование переменной channels, и таких совпадений больше,
         # чем настоящих находок.
         t = re.sub(r'["\'][^"\'\n]*["\']', '""', t)
+        # Шаблонные строки тоже: в них лежит разметка, и «data-select» оттуда
+        # читалось как использование переменной select.
+        t = re.sub(r'`[^`]*`', '""', t)
 
         local = {m.group(1) for m in re.finditer(r'(?:let|const|var|function|class)\s+([A-Za-z_]\w*)', t)}
 
@@ -241,6 +248,12 @@ def check_orphans():
                 local.add(part.strip().split(":")[-1].strip())
         for m in re.finditer(r'catch\s*\((\w+)\)', t):
             local.add(m.group(1))
+
+        # Деструктуризация из списка: const [{ a }, { b }] = await Promise.all(...)
+        for m in re.finditer(r'\[([^\[\]]*\{[^\[\]]*\}[^\[\]]*)\]\s*=', t):
+            for inner in re.findall(r'\{([^{}]+)\}', m.group(1)):
+                for part in inner.split(","):
+                    local.add(part.strip().split(":")[-1].strip())
         imported = set()
         for m in re.finditer(r'import\s*\{([^}]+)\}', t):
             for part in m.group(1).split(","):

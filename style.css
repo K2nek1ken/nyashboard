@@ -2860,3 +2860,43 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
   padding: 0 2px 6px;
 }
 .chat-tools-row #botHelpBtn { flex-shrink: 0; white-space: nowrap; }
+
+/* ---------- шапка записи на широком экране ----------
+   Подписи (номер, «изменено», время) занимают столько места, что имя
+   автора сжимается до нечитаемого. На широком экране разводим их по
+   двум строкам: сверху служебное, под ним — имя во всю ширину. */
+@media (min-width: 900px) {
+  .post-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 2px;
+  }
+
+  /* аватарка занимает обе строки слева */
+  .post-head > span:first-child {
+    grid-row: span 2;
+    align-self: center;
+  }
+
+  /* служебные подписи — первой строкой, мелко и приглушённо */
+  .post-head .track-nuid,
+  .post-head .post-time,
+  .post-head .wall-badge {
+    order: 1;
+    font-size: 10.5px;
+  }
+
+  /* имя — своей строкой, на всю оставшуюся ширину */
+  .post-head .post-author,
+  .post-head .author-badge {
+    order: 2;
+    flex-basis: auto;
+  }
+  .post-head .post-author {
+    max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* меню остаётся справа сверху */
+  .post-head .kebab { order: 1; margin-left: auto; }
+}

@@ -1,4 +1,4 @@
-import { fetchReplies, wireReplyLikes } from "./replies.js";
+import { fetchReplies, wireReplyLikes, replyRowHtml } from "./replies.js";
 import { escapeHtml } from "./ui.js";
 
 // ============================================================
