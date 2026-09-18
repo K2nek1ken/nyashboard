@@ -57,6 +57,12 @@ function blockedSet() {
 
 const isBlocked = (rule, blocked) => rule.cmd.some(n => blocked.has(n));
 
+// Свои команды подмешиваются к встроенным. Держим их отдельно и обновляем
+// при входе: разбор должен оставаться быстрым и не ходить в базу.
+let customRules = [];
+
+export function setCustomRules(rules) { customRules = rules || []; }
+
 export function parseCommand(text, author, target) {
   const raw = (text || "").trim();
   if (!raw) return null;
@@ -71,8 +77,12 @@ export function parseCommand(text, author, target) {
     .replace(/[!.,?…\s]+$/u, "");
   const lower = clean.toLowerCase();
 
+  // Свои команды идут первыми: человек добавил их сам, значит и ждёт
+  // именно их — даже если имя совпало со встроенной.
+  const all = [...customRules, ...COMMANDS];
+
   // Сначала точное совпадение: сообщение состоит из одной команды.
-  let rule = COMMANDS.find(c => c.cmd.includes(lower));
+  let rule = all.find(c => c.cmd.includes(lower));
   let rest = "";
 
   // Потом команды с продолжением: «дать леща», «казик 10 к».
@@ -80,7 +90,7 @@ export function parseCommand(text, author, target) {
     const space = lower.indexOf(" ");
     if (space > 0) {
       const head = lower.slice(0, space);
-      const candidate = COMMANDS.find(c => c.rest && c.cmd.includes(head));
+      const candidate = all.find(c => c.rest && c.cmd.includes(head));
       if (candidate) {
         rule = candidate;
         rest = clean.slice(space + 1).trim();
@@ -116,9 +126,9 @@ function helpText() {
   const withTarget = [];
   const alone = [];
 
-  for (const rule of COMMANDS) {
+  for (const rule of [...customRules, ...COMMANDS]) {
     if (rule.help || isBlocked(rule, blocked)) continue;
-    const name = rule.cmd[0] + (rule.rest ? " …" : "");
+    const name = rule.cmd[0] + (rule.rest ? " …" : "") + (rule.custom ? "*" : "");
     ((rule.needsTarget ?? !!rule.to) ? withTarget : alone).push(name);
   }
 
@@ -131,7 +141,9 @@ function helpText() {
     "Просто так:",
     alone.join(" · "),
     "",
-    "У многих есть короткая форма: «обними», «погладь», «кусни»."
+    "У многих есть короткая форма: «обними», «погладь», «кусни».",
+    customRules.length ? "\nСо звёздочкой — твои: добавить «+бот имя форма|форма», убрать «-бот имя»."
+                       : "\nСвою команду: «+бот обнимашки обнял|обняла»"
   ].join("\n");
 }
 

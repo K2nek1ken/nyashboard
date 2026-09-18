@@ -165,6 +165,14 @@ export function subscribeChat() {
   // и делать его для каждой цитаты было бы расточительно. Когда готова —
   // перерисовываем, иначе цитаты, нарисованные раньше, остались бы без узора.
   applyMute();
+
+  // Свои команды: загружаются один раз при открытии чата, дальше разбор
+  // работает с ними наравне со встроенными.
+  import("./custom-commands.js").then(async (cc) => {
+    const { setCustomRules } = await import("./bot.js");
+    setCustomRules(cc.asRules(await cc.loadCustomCommands()));
+  }).catch(e => console.warn("Свои команды не загрузились:", e.message));
+
   prepareQuoteImage()
     .then(() => { if (lastMessages.length) renderChat(lastMessages, { keepScroll: true }); })
     .catch(e => console.warn("Узор для цитат:", e.message));
@@ -479,6 +487,34 @@ function applyMute() {
     input.placeholder = `Молчание ещё ${Math.ceil(left / 1000)} с`;
   }
   setTimeout(applyMute, 1000);
+}
+
+// Добавление и удаление своих команд. Возвращает сообщение для человека,
+// если это была такая строка, и ничего — если обычное сообщение.
+async function handleCustomCommand(text) {
+  if (!/^[+-]\s*бот\b/i.test(text.trim())) return null;
+
+  const cc = await import("./custom-commands.js");
+  const { setCustomRules } = await import("./bot.js");
+
+  try {
+    const removing = cc.parseRemoveCommand(text);
+    if (removing) {
+      const key = await cc.removeCustomCommand(removing);
+      setCustomRules(cc.asRules(await cc.loadCustomCommands()));
+      return `Команда «${key}» убрана`;
+    }
+
+    const parsed = cc.parseAddCommand(text);
+    if (!parsed) return "Не поняла. Пример: «+бот обнимашки обнял|обняла»";
+    if (parsed.error) return parsed.error;
+
+    const key = await cc.addCustomCommand(parsed);
+    setCustomRules(cc.asRules(await cc.loadCustomCommands()));
+    return `Команда «${key}» добавлена ♡`;
+  } catch (e) {
+    return e.message;
+  }
 }
 
 function playMeow() {
@@ -930,6 +966,15 @@ export function initChatForm() {
       const speakerName = (asAccount?.checked && currentUserDoc)
         ? currentUserDoc.nickname
         : identity.nickname;
+      // «+бот …» и «-бот …» — управление своими командами. Разбираем до
+      // обычных команд: это не сообщение в чат, а настройка.
+      const custom = await handleCustomCommand(text);
+      if (custom) {
+        input.value = "";
+        showToast(custom);
+        return;
+      }
+
       let parsed = parseCommand(text, speakerName, replySnapshot?.nickname || null);
 
       // Команды с кошельком требуют обращения к базе — доводим их здесь,

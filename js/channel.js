@@ -333,16 +333,23 @@ function wireSettingsModal(channelId) {
     shapeHost.querySelectorAll("[data-shape]").forEach(btn => {
       btn.addEventListener("click", () => {
         pendingChannelShape = btn.dataset.shape;
-        // Саму картинку тоже подставляем: раньше задавалась только форма,
-  // и в настройках было пустое место вместо аватарки.
-  csAvatar.src = channel.avatarUrl || defaultAvatar();
-  csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+        paintChannelAvatar();
         renderChannelShapes();
       });
     });
   }
+
+  // Картинка и форма в одном месте: раньше картинка подставлялась только
+  // при нажатии на форму, а при открытии окна её никто не ставил —
+  // и вместо аватарки было пустое место.
+  function paintChannelAvatar() {
+    if (!csAvatar) return;
+    csAvatar.src = channel.avatarUrl || defaultAvatar();
+    csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+  }
+
   renderChannelShapes();
-  csAvatar.className = `avatar-shaped ${shapeClass(pendingChannelShape)}`;
+  paintChannelAvatar();
 
   // Украшение и цвет — те же, что у профилей: канал такой же участник ленты.
   let pendingChannelAccessory = channel.accessory || "none";
