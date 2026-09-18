@@ -64,8 +64,13 @@ export function subscribeFeed() {
   // Список своих каналов загружает оболочка — он нужен не только ленте,
   // но и странице канала, стенам, поиску по тегу. Раньше он заполнялся
   // только здесь, и на других страницах записи канала нельзя было править.
-  if (!feedListEl) return;
-  if (feedUnsub) return;
+  // Подписка переживает переход между вкладками, а разметка — нет. При
+  // возврате в ленту рисуем накопленное сразу: сама подписка пришлёт что-то
+  // только когда появится новая запись, а до тех пор экран оставался пустым.
+  if (feedUnsub) {
+    if (lastRenderedPosts?.length) renderFeed(rankPosts(lastRenderedPosts));
+    return;
+  }
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
   feedUnsub = onSnapshot(q, (snap) => {
     // Записи «для своих» отсеиваем на месте: база отдаёт список целиком,
