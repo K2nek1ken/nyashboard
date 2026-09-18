@@ -1,5 +1,5 @@
 import { gendered } from "./ui.js";
-import { COMMANDS } from "./bot-commands.js";
+import { COMMANDS } from "./modules/bot-commands.js";
 
 // ============================================================
 //  Движок бота

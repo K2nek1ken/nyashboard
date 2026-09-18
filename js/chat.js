@@ -4,7 +4,7 @@ import {
 } from "./firebase.js";
 import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
 import { getSettings } from "./settings.js";
-import { DECOR_GLYPHS } from "./data-settings.js";
+import { DECOR_GLYPHS } from "./modules/settings.js";
 import { parseCommand, commandNames } from "./bot.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getUserDoc } from "./data.js";

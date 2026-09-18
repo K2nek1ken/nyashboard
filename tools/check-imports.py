@@ -1,6 +1,10 @@
 import re, os
 
+# Файлы модулей лежат в подпапке — их тоже нужно проверять,
+# иначе ошибка там осталась бы незамеченной.
 files = sorted(f for f in os.listdir('.') if f.endswith('.js'))
+if os.path.isdir('modules'):
+    files += sorted('modules/' + f for f in os.listdir('modules') if f.endswith('.js'))
 
 # что каждый модуль экспортирует
 exports = {}

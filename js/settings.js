@@ -6,7 +6,7 @@ const KEY = "nyash_settings";
 // как раньше, поэтому ничего в остальном проекте менять не пришлось.
 export {
   THEMES, QUOTE_DECOR, PARTICLES, GENDERS, TIME_FORMATS, TAB_LABELS, CHAT_IDENTITY, DM_NAMING, TINT_MODES, EMOJI_SOURCES
-} from "./data-settings.js";
+} from "./modules/settings.js";
 
 export const DEFAULTS = {
   theme: "default",

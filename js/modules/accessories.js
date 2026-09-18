@@ -1,4 +1,4 @@
-import { lighten } from "./palette.js";
+import { lighten } from "../palette.js";
 
 // ============================================================
 //  Украшения аватарок

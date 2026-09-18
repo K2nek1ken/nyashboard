@@ -1,5 +1,5 @@
 import { paletteColor } from "./palette.js";
-import { ITEMS } from "./data-accessories.js";
+import { ITEMS } from "./modules/accessories.js";
 
 // Украшения вокруг аватарки. Рисуются отдельным слоем поверх картинки, но ПОД
 // эмодзи-статусом, чтобы статус оставался читаемым.

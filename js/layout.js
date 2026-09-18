@@ -2,7 +2,7 @@ import { ICON } from "./icons.js";
 import { tintImage } from "./tint.js";
 import { goTo } from "./router.js";
 import { getSettings } from "./settings.js";
-import { PARTICLE_GLYPHS } from "./data-settings.js";
+import { PARTICLE_GLYPHS } from "./modules/settings.js";
 import { defaultAvatar } from "./default-avatar.js";
 import { brandIconUri } from "./favicon.js";
 import { showToast } from "./ui.js";
