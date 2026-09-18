@@ -199,6 +199,61 @@ def check_promises():
                 add("Обещание без обработки ошибки", f"{f}:{line} — {m.group(1)}(...)")
 
 
+# ---------- 8. осиротевшие имена после разделения файлов ----------
+def check_orphans():
+    """
+    Когда часть файла выносят в отдельный модуль, легко забыть переменную
+    или константу, которой он пользовался: синтаксис остаётся верным,
+    импорты сходятся, а при запуске — «is not defined».
+
+    Ищем имена, объявленные в одном файле и используемые в другом
+    без импорта.
+    """
+    declared = {}
+    for f in js_files():
+        t = read(f)
+        for m in re.finditer(r'^(?:let|const)\s+([A-Za-z_]\w*)\s*=', t, re.M):
+            declared.setdefault(m.group(1), set()).add(f)
+
+    for f in js_files():
+        t = read(f)
+
+        # Пути импортов и строки убираем: «./channels.js» иначе читается как
+        # использование переменной channels, и таких совпадений больше,
+        # чем настоящих находок.
+        t = re.sub(r'["\'][^"\'\n]*["\']', '""', t)
+
+        local = {m.group(1) for m in re.finditer(r'(?:let|const|var|function|class)\s+([A-Za-z_]\w*)', t)}
+
+        # Имена параметров — тоже свои: без них почти каждый файл выглядел бы
+        # как использующий чужие переменные, и настоящие пропажи терялись
+        # среди сотни ложных.
+        for m in re.finditer(r'(?:function\s*\w*|\))\s*\(([^()]{0,200})\)\s*(?:\{|=>)', t):
+            for part in m.group(1).split(","):
+                local.add(part.strip().split("=")[0].strip().strip("{}[]. "))
+        for m in re.finditer(r'\(([^()]{0,200})\)\s*=>', t):
+            for part in m.group(1).split(","):
+                local.add(part.strip().split("=")[0].strip().strip("{}[]. "))
+        for m in re.finditer(r'\b([a-z]\w*)\s*=>', t):
+            local.add(m.group(1))
+        for m in re.finditer(r'\{([^{}]{0,200})\}\s*=(?!=)', t):
+            for part in m.group(1).split(","):
+                local.add(part.strip().split(":")[-1].strip())
+        for m in re.finditer(r'catch\s*\((\w+)\)', t):
+            local.add(m.group(1))
+        imported = set()
+        for m in re.finditer(r'import\s*\{([^}]+)\}', t):
+            for part in m.group(1).split(","):
+                imported.add(part.strip().split(" as ")[-1].strip())
+
+        for name, owners in declared.items():
+            if f in owners or name in local or name in imported:
+                continue
+            # используется как самостоятельное имя, а не как свойство
+            if re.search(rf'(?<![.\w$"\'])\b{re.escape(name)}\b\s*[(.\[=]', t):
+                add("Имя из другого файла без импорта", f"{f}: {name} (объявлено в {', '.join(sorted(owners))})")
+
+
 # ---------- вывод ----------
 def main():
     check_imports()
@@ -208,6 +263,7 @@ def main():
     check_html()
     check_rules()
     check_promises()
+    check_orphans()
 
     if not problems:
         print("Замечаний нет.")

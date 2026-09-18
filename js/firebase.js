@@ -6,7 +6,7 @@ import {
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
   query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion,
-  arrayRemove, increment, where, getDocs, writeBatch
+  arrayRemove, increment, where, getDocs, writeBatch, deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   getStorage, ref, uploadBytes, getDownloadURL
@@ -32,6 +32,6 @@ export {
   signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, setPersistence,
   collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
   query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion,
-  arrayRemove, increment, where, getDocs, writeBatch,
+  arrayRemove, increment, where, getDocs, writeBatch, deleteField,
   ref, uploadBytes, getDownloadURL
 };

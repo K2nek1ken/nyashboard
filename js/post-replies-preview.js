@@ -9,6 +9,10 @@ import { escapeHtml } from "./ui.js";
 //  запросы на каждую карточку.
 // ============================================================
 
+// Наблюдатель один на все карточки: заводить по одному на каждую — лишняя
+// работа для браузера, а следит он одинаково.
+let replyObserver = null;
+
 export function lazyLoadReplies(postId, card) {
   if (!("IntersectionObserver" in window)) { loadReplyPreview(postId, card); return; }
   if (!replyObserver) {
