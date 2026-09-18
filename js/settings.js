@@ -2,6 +2,12 @@
 // поэтому CSS может реагировать на них без единой строчки JS в стилях.
 const KEY = "nyash_settings";
 
+// Справочники живут отдельно — см. data-settings.js. Отсюда их видно так же,
+// как раньше, поэтому ничего в остальном проекте менять не пришлось.
+export {
+  THEMES, QUOTE_DECOR, PARTICLES, GENDERS, TIME_FORMATS, TAB_LABELS, CHAT_IDENTITY, DM_NAMING, TINT_MODES, EMOJI_SOURCES
+} from "./data-settings.js";
+
 export const DEFAULTS = {
   theme: "default",
   accent: "pink",        // pink | orange | mint
@@ -16,7 +22,9 @@ export const DEFAULTS = {
   logoSound: "",         // имя выбранного звука; сам файл лежит отдельно
   quoteDecor: "flowers", // узор на фоне цитаты в чате
   chatIdentity: "both",  // both | anon | account — что доступно в чате
-  meowReaction: "on",    // отзываться на команду «мяукнуть» звуком
+  meowReaction: "on",
+  blockedCommands: "",       // команды бота, отключённые в этом чате
+  rouletteConfetti: "on",    // конфетти при выигрыше в рулетке    // отзываться на команду «мяукнуть» звуком
   webNotify: "off",      // уведомления браузера, пока вкладка открыта
   particleTint: "silhouette",  // off | silhouette | duotone — как красить частицы
   quoteTint: "silhouette",     // то же для узора на цитатах
@@ -29,45 +37,9 @@ export const DEFAULTS = {
   tabOrder: ["feed", "chat", "friends", "content", "people", "about"]
 };
 
-export const THEMES = {
-  default: "Ночная сирень",
-  midnight: "Полночь",
-  sakura: "Сакура",
-  nothing: "Абсолютное ничего",
-  quiet: "Ночная тишь"
-};
-
-// Символы для фона цитаты в чате — та же логика, что и у частиц фона
-// Порядок такой же, как у частиц: сперва готовые узоры, затем своя картинка,
-// в самом конце — отказ от узора. Разный порядок в соседних списках сбивает.
-export const QUOTE_DECOR = {
-  stars:   "Звёздочки",
-  flowers: "Цветочки",
-  leaves:  "Листья",
-  petals:  "Лепестки",
-  custom:  "Своя картинка",
-  none:    "Без узора"
-};
-
 // Акценты — та же палитра, что у рамок аватарок: один список оттенков на всё
 // оформление, чтобы цвета сайта и профиля были из одного набора.
 export { PALETTE as ACCENT_PALETTE } from "./palette.js";
-
-export const PARTICLES = {
-  stars:   "Звёздочки",
-  flowers: "Цветочки",
-  leaves:  "Кленовые листья",
-  sakura:  "Цветы сакуры",
-  petals:  "Лепестки сакуры",
-  custom:  "Своя картинка",
-  off:     "Без частиц"
-};
-
-export const GENDERS = {
-  m: "Мужской",
-  f: "Женский",
-  x: "Не указывать"
-};
 
 // Список смещений вместо справочника городов: короче, понятнее и не требует
 // тащить базу часовых поясов ради одной строчки настроек.
@@ -90,46 +62,6 @@ export const TIMEZONES = (() => {
   }
   return list;
 })();
-
-export const TIME_FORMATS = {
-  relative: "Относительное («5 мин назад»)",
-  exact:    "Точное (дата и время)"
-};
-
-// Ключи должны совпадать с NAV_ITEMS в layout.js
-export const TAB_LABELS = {
-  feed:    "Лента",
-  chat:    "Чат",
-  friends: "Друзья",
-  content: "Контент",
-  people:  "Люди",
-  about:   "Возможности"
-};
-
-export const CHAT_IDENTITY = {
-  both:    "Аноним и аккаунт",
-  anon:    "Только анонимный ник",
-  account: "Только от аккаунта"
-};
-
-export const DM_NAMING = {
-  nickname: "Ником",
-  neutral:  "«Собеседник»",
-  custom:   "Своим словом"
-};
-
-// Способы перекрашивания своих картинок.
-export const TINT_MODES = {
-  silhouette: "Силуэтом",
-  duotone:    "С деталями",
-  off:        "Как есть"
-};
-
-export const EMOJI_SOURCES = {
-  noto:   "Noto (грузится с CDN, лёгкий)",
-  apple:  "Apple (локальный файл, +8 МБ)",
-  system: "Системные (ничего не грузится)"
-};
 
 export function getSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY)) }; }
@@ -172,7 +104,6 @@ export function applySettings(settings = getSettings()) {
   root.dataset.tz = settings.timezone;
   ensureNotoLink(settings.emoji === "noto");
 }
-
 
 // ============================================================
 //  Сохранение и восстановление настроек

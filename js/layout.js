@@ -2,6 +2,7 @@ import { ICON } from "./icons.js";
 import { tintImage } from "./tint.js";
 import { goTo } from "./router.js";
 import { getSettings } from "./settings.js";
+import { PARTICLE_GLYPHS } from "./data-settings.js";
 import { defaultAvatar } from "./default-avatar.js";
 import { brandIconUri } from "./favicon.js";
 import { showToast } from "./ui.js";
@@ -181,13 +182,7 @@ export function initStarfield() {
   // с тем, что человек выбрал в настройках, и не превращаются в снежинки из-за
   // моей интерпретации. Текстовые символы красятся акцентом, цветные эмодзи
   // остаются собственных цветов — для лепестков и листьев это как раз к месту.
-  const GLYPHS = {
-    stars:   null,        // звёзды рисуем векторно: символ ★ выглядит грубее
-    petals:  null,        // лепестки — своя картинка, см. petalImage
-    flowers: "\u2740",    // ❀ — крупнее и аккуратнее, чем ✿
-    leaves:  "\uD83C\uDF41",  // 🍁
-    sakura:  "\uD83C\uDF38"   // 🌸
-  };
+  const GLYPHS = PARTICLE_GLYPHS;
 
   // Лепесток сакуры по эскизу Неко: два эллипса, обрезанные масками, дают
   // характерную форму с выемкой. Рисуем через картинку, потому что повторять

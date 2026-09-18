@@ -10,6 +10,9 @@ import { goTo } from "./router.js";
 import { wireImageZoom } from "./lightbox.js";
 import { askText, askConfirm } from "./dialog.js";
 import { uploadImages } from "./storage.js";
+import { lazyLoadReplies, loadReplyPreview } from "./post-replies-preview.js";
+import { renderPostTracks, renderPostArtworks } from "./post-attachments.js";
+import { columnCount, layoutPosts, balanceColumns, revealSequentially } from "./feed-layout.js";
 import { showToast, escapeHtml, timeAgo, gendered } from "./ui.js";
 import { ICON, SVG_ICON } from "./icons.js";
 import { fetchReplies, sendReply, replyRowHtml, wireReplyLikes } from "./replies.js";
@@ -148,18 +151,6 @@ export function subscribeFeed() {
     });
     observer.observe(feedListEl);
   }
-}
-
-// Записи появляются по очереди сверху вниз, а не все разом: так список
-// выглядит живым и глазу проще зацепиться за первую карточку, пока
-// подтягиваются остальные. Задержка небольшая и с потолком — иначе на длинной
-// ленте нижние карточки ждали бы неприлично долго.
-function revealSequentially(container) {
-  const cards = container.querySelectorAll(".post-card");
-  cards.forEach((card, i) => {
-    card.classList.add("appearing");
-    setTimeout(() => card.classList.remove("appearing"), Math.min(i * 45, 600));
-  });
 }
 
 // Оформление автора (украшение, цвет ника, форма аватарки) копируется в запись
@@ -318,65 +309,6 @@ function updatePostCard(post) {
 // сколько места реально есть, столько колонок и будет.
 const MIN_COLUMN = 330;   // уже этого запись читается плохо
 
-function columnCount(container) {
-  // Ширина берётся у самого списка, но в момент первой отрисовки он может быть
-  // ещё нулевым — тогда опираемся на окно за вычетом колонки навигации.
-  let width = container?.clientWidth || 0;
-  if (!width) {
-    const sidebar = window.innerWidth >= 900 ? 320 : 0;
-    width = Math.max(0, window.innerWidth - sidebar - 80);
-  }
-  if (!width) return 1;
-  return Math.max(1, Math.min(3, Math.floor(width / MIN_COLUMN)));
-}
-
-// Примерная высота записи. Точную до отрисовки знать нельзя, но для раскладки
-// хватает оценки: важно лишь понимать, какая запись заметно выше остальных.
-function estimateHeight(p) {
-  let h = 110;                                  // шапка, кнопки, поле ответа
-  const text = p.text || "";
-  h += Math.min(320, Math.ceil(text.length / 48) * 21);   // строки текста
-  if ((p.imageUrls?.length || p.imageUrl) ? 1 : 0) h += 250;  // карусель фиксированной высоты
-  if (/#U3\d{6}/i.test(text)) h += 90;           // прикреплённый трек
-  return h;
-}
-
-// Раскладка по колонкам. Записи идут по порядку, но каждая следующая ложится
-// в самую короткую колонку — иначе две записи с фотографиями подряд попадали
-// в одну и вытягивали её вдвое, оставляя рядом пустоту.
-//
-// Порядок чтения при этом сохраняется: первые записи всё равно занимают начала
-// колонок слева направо, потому что пустая колонка всегда самая короткая.
-function layoutPosts(container, posts, buildHtml) {
-  const cols = columnCount(container);
-  if (cols === 1) {
-    container.innerHTML = posts.map(buildHtml).join("");
-    container.classList.remove("has-columns");
-    return;
-  }
-
-  const buckets = Array.from({ length: cols }, () => []);
-  const heights = new Array(cols).fill(0);
-
-  posts.forEach(p => {
-    // из равных по высоте выбираем самую левую — так первые записи
-    // раскладываются слева направо, как и читаются
-    let target = 0;
-    for (let i = 1; i < cols; i++) {
-      if (heights[i] < heights[target] - 1) target = i;
-    }
-    buckets[target].push(buildHtml(p));
-    heights[target] += estimateHeight(p);
-  });
-
-  container.innerHTML = buckets
-    .map(items => `<div class="feed-column">${items.join("")}</div>`)
-    .join("");
-  // Помечаем классом, а не полагаемся на проверку вложенности в стилях:
-  // так поведение одинаково во всех браузерах.
-  container.classList.add("has-columns");
-}
-
 function renderFeed(posts) {
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
@@ -394,32 +326,6 @@ function renderFeed(posts) {
     const actual = feedListEl.querySelectorAll(".feed-column").length || 1;
     if (shouldBe !== actual && lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
   });
-}
-
-// Оценка высоты приблизительная, поэтому после отрисовки смотрим, что вышло
-// на самом деле, и если одна колонка сильно длиннее — переносим в короткую
-// нижние записи. Двигаем только с конца: верх ленты трогать нельзя, там
-// самое важное, и записи не должны прыгать под уже читающим человеком.
-function balanceColumns(container) {
-  const columns = [...container.querySelectorAll(".feed-column")];
-  if (columns.length < 2) return;
-
-  for (let pass = 0; pass < 4; pass++) {
-    const heights = columns.map(c => c.offsetHeight);
-    const tallest = heights.indexOf(Math.max(...heights));
-    const shortest = heights.indexOf(Math.min(...heights));
-    const gap = heights[tallest] - heights[shortest];
-
-    // перекос меньше высоты средней записи выравнивать незачем
-    if (gap < 260) return;
-
-    const last = columns[tallest].lastElementChild;
-    if (!last) return;
-    // перенос не должен сделать короткую колонку длиннее длинной
-    if (last.offsetHeight > gap) return;
-
-    columns[shortest].appendChild(last);
-  }
 }
 
 // Управляющие каналов знают свои каналы из общего списка — он загружается
@@ -691,125 +597,7 @@ export function wirePostCard(p, container = document) {
   lazyLoadReplies(p.id, card);
 }
 
-// Треки, упомянутые в тексте записи, показываем карточками под ней: ссылка
-// вида #U3XXXXXX превращается в проигрыватель, а не остаётся набором символов.
-// Работы из «Творчества» по их номеру — как треки, только картинкой.
-async function renderPostArtworks(p, card) {
-  const ids = [...new Set(((p.text || "").match(/#U5\d{6}/gi) || []))]
-    .map(t => t.slice(1).toUpperCase()).slice(0, 3);
-  if (!ids.length) { card.querySelector(".post-artworks")?.remove(); return; }
-  // при повторной отрисовке прежние карточки убираем, иначе они удвоятся
-  card.querySelector(".post-artworks")?.remove();
-
-  try {
-    const { resolveNuid } = await import("./nuid.js");
-    const { getArtwork } = await import("./art.js");
-    const { openLightbox } = await import("./lightbox.js");
-
-    const works = [];
-    for (const nuid of ids) {
-      const hit = await resolveNuid(nuid);
-      if (hit?.type !== "art") continue;
-      const art = await getArtwork(hit.uid);
-      if (art) works.push(art);
-    }
-    if (!works.length) return;
-
-    const host = document.createElement("div");
-    host.className = "post-artworks";
-    host.innerHTML = works.map(a => `
-      <div class="art-attached">
-        <img src="${a.imageUrl}" alt="${escapeHtml(a.title)}" loading="lazy">
-        <div class="art-attached-body">
-          <div class="art-attached-title">${escapeHtml(a.title)}</div>
-          ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
-          <span class="track-nuid" data-copy-nuid="${a.publicUid || ""}">${a.publicUid || ""}</span>
-        </div>
-      </div>`).join("");
-
-    // Ставим после кнопки «показать полностью», если она есть: иначе работа
-    // вклинивалась между текстом и кнопкой, и кнопка оказывалась под ней.
-    const anchor = card.querySelector(".expandBtn") || card.querySelector(".post-text") || card;
-    anchor.insertAdjacentElement("afterend", host);
-    host.querySelectorAll("img").forEach((img, i) => {
-      img.addEventListener("click", () => openLightbox(img.src, works.map(w => w.imageUrl), i));
-    });
-  } catch (e) {
-    console.warn("Работы не подгрузились:", e.message);
-  }
-}
-
-async function renderPostTracks(p, card) {
-  const host = card.querySelector(`[data-post-tracks="${p.id}"]`);
-  if (!host) return;
-  const ids = [...new Set((p.text || "").match(/#U3\d{6}/gi) || [])]
-    .map(t => t.slice(1).toUpperCase());
-
-  // Если после правки трека в тексте не осталось — убираем и карточку.
-  if (!ids.length) { host.innerHTML = ""; return; }
-
-  try {
-    const { resolveNuid } = await import("./nuid.js");
-    const { getTrack } = await import("./music.js");
-    const { trackCardHtml, wireTrackCards } = await import("./music-ui.js");
-
-    const tracks = [];
-    for (const nuid of ids.slice(0, 3)) {     // не больше трёх на запись
-      const hit = await resolveNuid(nuid);
-      if (hit?.type !== "track") continue;
-      const track = await getTrack(hit.uid);
-      if (track) tracks.push(track);
-    }
-    if (!tracks.length) return;
-
-    // Отметка «в любимом» должна быть видна и здесь, а не только в разделе
-    // музыки: иначе непонятно, добавлен трек или нет.
-    const { loadFavorites } = await import("./music.js");
-    const favIds = currentUser
-      ? new Set((await loadFavorites().catch(() => [])).map(t => t.id))
-      : new Set();
-
-    host.innerHTML = tracks.map(t => trackCardHtml(t, { favorite: favIds.has(t.id) })).join("");
-    wireTrackCards(host, tracks, () => renderPostTracks(p, card));
-  } catch (e) {
-    console.warn("Треки записи не загрузились:", e.message);
-  }
-}
-
 let replyObserver = null;
-function lazyLoadReplies(postId, card) {
-  if (!("IntersectionObserver" in window)) { loadReplyPreview(postId, card); return; }
-  if (!replyObserver) {
-    replyObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        replyObserver.unobserve(entry.target);
-        loadReplyPreview(entry.target.dataset.id, entry.target);
-      });
-    }, { rootMargin: "300px" });   // с запасом, чтобы подгрузилось до появления
-  }
-  replyObserver.observe(card);
-}
-
-// Превью топ-3 самых залайканных ответов, реддит-стайл отступ слева.
-// Кнопка "показать все N" ведёт на отдельную страницу поста (post.html?id=...).
-async function loadReplyPreview(postId, card) {
-  const box = card.querySelector(`.replies-preview[data-preview-for="${postId}"]`);
-  if (!box) return;
-  try {
-    const all = await fetchReplies(postId);
-    if (!all.length) { box.innerHTML = ""; return; }
-    const top3 = all.slice(0, 3);
-    box.innerHTML = top3.map(replyRowHtml).join("") +
-      (all.length > 3
-        ? `<a class="showMoreReplies" href="post.html?id=${postId}">показать все ${all.length} ответов &#8594;</a>`
-        : "");
-    wireReplyLikes(box, top3);
-  } catch (e) {
-    console.error(e);
-    box.innerHTML = `<div class="muted">Не смогла загрузить ответы: ${escapeHtml(e.message)}</div>`;
-  }
-}
 
 // Отметка ставится по актуальному состоянию документа, а не по тому, что
 // лежит в памяти страницы. Раньше при устаревших данных клиент считал, что
@@ -1152,7 +940,6 @@ async function revealRepostAuthor(p, container) {
   }
 }
 
-
 // Закрывает живую подписку на ленту. Нужна при переходе на другую вкладку:
 // без неё каждая открытая лента продолжала бы слушать базу, и подписки
 // копились бы с каждым переходом.
@@ -1160,7 +947,6 @@ export function unsubscribeFeed() {
   if (feedUnsub) { feedUnsub(); feedUnsub = null; }
   lastRenderedPosts = null;
 }
-
 
 // Отказ базы приходит по-английски и человеку ничего не объясняет.
 // Переводим самое частое, остальное показываем как есть.
@@ -1177,7 +963,6 @@ function friendlyError(e) {
   }
   return "Ошибка: " + msg;
 }
-
 
 // Сбрасывает запомненное оформление канала: после его изменения лента должна
 // показать новое, а не то, что осталось в памяти с прошлой загрузки.

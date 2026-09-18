@@ -356,6 +356,20 @@ service cloud.firestore {
                && request.auth.uid == get(/databases/$(database)/documents/channelSecrets/$(channelId)).data.creatorUid);
     }
 
+    // Кошельки для игры. Баланс правится только собственный, и только
+    // через прибавку — подставить себе произвольное число нельзя.
+    // Подарок другому разрешён: он приходит от того, кто дарит.
+    match /wallets/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.balance == 100
+        && request.resource.data.keys().hasOnly(['balance', 'bonusAt', 'createdAt']);
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['balance', 'bonusAt'])
+        && request.resource.data.balance >= 0;
+    }
+
     // ===================== ПОСТЫ ЛЕНТЫ =====================
     // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
     // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null

@@ -1,117 +1,52 @@
 import { gendered } from "./ui.js";
+import { COMMANDS } from "./bot-commands.js";
 
 // ============================================================
-//  Бот чата
+//  Движок бота
 //
-//  Работает целиком на клиенте: сообщение разбирается перед отправкой, и если
-//  это команда — вместо обычного сообщения отправляется готовая фраза с
-//  пометкой, что её собрал бот. Ни сервера, ни Cloud Functions, ни копейки.
+//  Здесь только разбор: как понять, что человек написал команду, как
+//  подставить имена и склонить глагол. Сами команды лежат в bot-commands.js —
+//  их можно править, не заглядывая сюда.
 //
-//  Честное следствие такого подхода: логика лежит в браузере, поэтому
-//  технически её можно обойти и отправить что угодно вручную. Для шуточных
-//  команд это неважно — тут нечего защищать.
+//  Работает целиком в браузере: сообщение разбирается перед отправкой, и если
+//  это команда — вместо обычного сообщения уходит готовая фраза с пометкой
+//  бота. Ни сервера, ни оплаты.
 //
-//  Команда срабатывает, если сообщение начинается со слова из списка и при
-//  этом оно отправлено в ответ на чьё-то сообщение (кроме команд без цели).
+//  Честное следствие: логика в браузере, значит её можно обойти и отправить
+//  что угодно вручную. Для шуточных команд это неважно — тут нечего защищать.
+//  Всё, где важна честность (кошелёк, ставки), проверяется правилами базы.
 // ============================================================
 
-// Прошедшее время с учётом пола: «обнял» / «обняла» / «обнял(а)».
-const past = (m, f) => gendered(m, f, `${m}(${f.slice(m.length) || "а"})`);
+// Склонение по полу: «обнял|обняла» → нужная форма.
+// Для гостей без указанного пола получается «обнял(а)».
+function conjugate(form) {
+  const [m, f] = String(form).split("|");
+  if (!f) return m;
+  const both = m + "(" + (f.startsWith(m) ? f.slice(m.length) : f) + ")";
+  return gendered(m, f, both);
+}
 
-const COMMANDS = [
-  // ---------- тёплое ----------
-  { names: ["обнять", "обними", "обнимашки"], needsTarget: true,
-    text: (a, b) => `${a} ${past("обнял", "обняла")} ${b} ♡` },
+// Собирает готовую фразу из описания команды.
+function build(rule, kind, author, target, rest) {
+  const recipe = rule[kind];
+  if (typeof recipe === "function") return recipe(author, target, rest);
 
-  { names: ["погладить", "погладь"], needsTarget: true,
-    text: (a, b) => `${a} ${past("погладил", "погладила")} ${b}` },
+  const verb = conjugate(recipe);
+  const tail = rule.tail ? ` ${rule.tail}` : "";
+  return kind === "self"
+    ? `${author} ${verb}${tail}`
+    : `${author} ${verb} ${target}${tail}`;
+}
 
-  { names: ["пат-пат", "патпат", "пат"], needsTarget: true,
-    text: (a, b) => `${a} делает ${b} пат-пат ♡ (๑˃ᴗ˂)ﾉ` },
+// Какие команды отключены. Список задаёт владелец в настройках через запятую.
+function blockedSet() {
+  try {
+    const raw = JSON.parse(localStorage.getItem("nyash_settings") || "{}").blockedCommands || "";
+    return new Set(raw.split(/[,\n]/).map(x => x.trim().toLowerCase()).filter(Boolean));
+  } catch { return new Set(); }
+}
 
-  { names: ["поцеловать", "поцелуй", "чмок"], needsTarget: true,
-    text: (a, b) => `${a} ${past("поцеловал", "поцеловала")} ${b} ♡` },
-
-  { names: ["покормить", "покорми"], needsTarget: true,
-    text: (a, b) => `${a} ${past("покормил", "покормила")} ${b}` },
-
-  { names: ["кусь", "куснуть", "кусни"], needsTarget: true,
-    text: (a, b) => `${a} делает ${b} кусь! (＾• ω •＾)` },
-
-  { names: ["укусить", "укуси"], needsTarget: true,
-    text: (a, b) => `${a} ${past("укусил", "укусила")} ${b}` },
-
-  { names: ["облизать", "оближи"], needsTarget: true,
-    text: (a, b) => `${a} ${past("облизал", "облизала")} ${b}` },
-
-  // ---------- шуточная расправа ----------
-  { names: ["ударить", "ударь"], needsTarget: true,
-    text: (a, b) => `${a} ${past("ударил", "ударила")} ${b}` },
-
-  { names: ["уебать", "уебал"], needsTarget: true,
-    text: (a, b) => `${a} ${past("уебал", "уебала")} ${b}` },
-
-  { names: ["шлёпнуть", "шлепнуть", "шлёпни", "шлепни"], needsTarget: true,
-    text: (a, b) => `${a} ${past("шлёпнул", "шлёпнула")} ${b}` },
-
-  { names: ["выпороть", "выпори"], needsTarget: true,
-    text: (a, b) => `${a} ${past("выпорол", "выпорола")} ${b}` },
-
-  { names: ["убить", "убей"], needsTarget: true,
-    text: (a, b) => `${a} ${past("убил", "убила")} ${b}` },
-
-  { names: ["расстрелять", "расстреляй"], needsTarget: true,
-    text: (a, b) => `${a} ${past("расстрелял", "расстреляла")} ${b}` },
-
-  { names: ["зарубить", "заруби"], needsTarget: true,
-    text: (a, b) => `${a} ${past("зарубил", "зарубила")} ${b}` },
-
-  { names: ["сжечь", "сожги"], needsTarget: true,
-    text: (a, b) => `${a} ${past("сжёг", "сожгла")} ${b}` },
-
-  { names: ["отравить", "отрави"], needsTarget: true,
-    text: (a, b) => `${a} ${past("отравил", "отравила")} ${b}` },
-
-  { names: ["взорвать", "взорви"], needsTarget: true,
-    text: (a, b) => `${a} ${past("взорвал", "взорвала")} ${b}` },
-
-  { names: ["уничтожить", "уничтожь"], needsTarget: true,
-    text: (a, b) => `${a} ${past("уничтожил", "уничтожила")} ${b}` },
-
-  { names: ["порвать", "порви"], needsTarget: true,
-    text: (a, b) => `${a} ${past("порвал", "порвала")} ${b}` },
-
-  { names: ["кастрировать", "кастрируй"], needsTarget: true,
-    text: (a, b) => `${a} ${past("кастрировал", "кастрировала")} ${b}` },
-
-  { names: ["закопать", "закопай"], needsTarget: true,
-    text: (a, b) => `${a} ${past("закопал", "закопала")} ${b}` },
-
-  { names: ["повесить", "повесь"], needsTarget: true,
-    text: (a, b) => `${a} ${past("повесил", "повесила")} ${b}` },
-
-  // ---------- прочее ----------
-  { names: ["связать", "свяжи"], needsTarget: true,
-    text: (a, b) => `${a} ${past("связал", "связала")} ${b}` },
-
-  { names: ["арестовать", "арестуй"], needsTarget: true,
-    text: (a, b) => `${a} ${past("арестовал", "арестовала")} ${b}` },
-
-  { names: ["продать", "продай"], needsTarget: true,
-    text: (a, b) => `${a} ${past("продал", "продала")} ${b} за ${Math.floor(Math.random() * 500) + 10}¢` },
-
-  // «дать леща», «дать ядерную боеголовку» — что угодно после слова
-  { names: ["дать", "дай"], needsTarget: true, takesRest: true,
-    text: (a, b, rest) => rest
-      ? `${a} ${past("дал", "дала")} ${rest} ${b}`
-      : `${a} ${past("дал", "дала")} что-то ${b}` },
-
-  // ---------- без цели ----------
-  { names: ["мяу", "мяукнуть"], needsTarget: false,
-    text: (a) => `${a} ${past("мяукнул", "мяукнула")}` },
-
-  { names: ["команды", "помощь", "хелп"], needsTarget: false, isHelp: true }
-];
+const isBlocked = (rule, blocked) => rule.cmd.some(n => blocked.has(n));
 
 export function parseCommand(text, author, target) {
   const raw = (text || "").trim();
@@ -122,44 +57,54 @@ export function parseCommand(text, author, target) {
   const lower = clean.toLowerCase();
 
   // Сначала точное совпадение: сообщение состоит из одной команды.
-  let cmd = COMMANDS.find(c => c.names.includes(lower));
+  let rule = COMMANDS.find(c => c.cmd.includes(lower));
   let rest = "";
 
-  // Потом команды с продолжением: «дать леща». Берём первое слово и смотрим,
-  // не команда ли это — остальное уходит в текст.
-  if (!cmd) {
-    const firstSpace = lower.indexOf(" ");
-    if (firstSpace > 0) {
-      const head = lower.slice(0, firstSpace);
-      const candidate = COMMANDS.find(c => c.takesRest && c.names.includes(head));
+  // Потом команды с продолжением: «дать леща», «казик 10 к».
+  if (!rule) {
+    const space = lower.indexOf(" ");
+    if (space > 0) {
+      const head = lower.slice(0, space);
+      const candidate = COMMANDS.find(c => c.rest && c.cmd.includes(head));
       if (candidate) {
-        cmd = candidate;
-        rest = clean.slice(firstSpace + 1).trim();
+        rule = candidate;
+        rest = clean.slice(space + 1).trim();
       }
     }
   }
 
-  if (!cmd) return null;
+  if (!rule) return null;
 
-  // Список команд — отдельный случай: цель не нужна, и текст собирается сам.
-  if (cmd.isHelp) return { text: helpText() };
+  // Отключённая команда ведёт себя так, будто её нет: сообщение уйдёт
+  // обычным текстом, а не превратится в ошибку.
+  if (isBlocked(rule, blockedSet())) return null;
 
-  if (cmd.needsTarget && !target) {
+  if (rule.help) return { text: helpText() };
+
+  // Цель нужна всем командам с «to», кроме тех, что помечены иначе.
+  const needsTarget = rule.needsTarget ?? !!rule.to;
+  if (needsTarget && !target) {
     return { error: `Команда «${lower}» работает только в ответ на чьё-то сообщение` };
   }
-  return { text: cmd.text(author, target, rest) };
+
+  // Команды с кошельком требуют базы — отдаём их наверх.
+  if (rule.runs) return { async: rule.runs, rest, author, target };
+
+  const kind = rule.self ? "self" : "to";
+  return { text: build(rule, kind, author, target, rest) };
 }
 
-// Список команд по «.команды». Собирается из самого списка, чтобы не
-// расходиться с ним: добавил команду — она сразу здесь.
+// Список команд по «.команды». Собирается из самого набора, поэтому
+// не расходится с ним: добавил команду — она сразу здесь.
 function helpText() {
+  const blocked = blockedSet();
   const withTarget = [];
   const alone = [];
 
-  for (const c of COMMANDS) {
-    if (c.isHelp) continue;
-    const name = c.names[0] + (c.takesRest ? " <что-нибудь>" : "");
-    (c.needsTarget ? withTarget : alone).push(name);
+  for (const rule of COMMANDS) {
+    if (rule.help || isBlocked(rule, blocked)) continue;
+    const name = rule.cmd[0] + (rule.rest ? " …" : "");
+    ((rule.needsTarget ?? !!rule.to) ? withTarget : alone).push(name);
   }
 
   return [
@@ -175,7 +120,53 @@ function helpText() {
   ].join("\n");
 }
 
-// Все названия команд — нужны подсказке при наборе.
+// Все названия — нужны подсказке при наборе.
 export function commandNames() {
-  return COMMANDS.flatMap(c => c.names);
+  return COMMANDS.flatMap(c => c.cmd);
+}
+
+// ============================================================
+//  Команды, которым нужна база
+// ============================================================
+
+export async function runAsyncCommand(kind, { rest, author, target, targetUid }) {
+  const casino = await import("./casino.js");
+  const past = (m, f) => conjugate(`${m}|${f}`);
+
+  try {
+    switch (kind) {
+      case "balance": {
+        const w = await casino.getWallet();
+        return { text: `У ${author} на счету ${w.balance}¢` };
+      }
+      case "bonus": {
+        const amount = await casino.dailyBonus();
+        const w = await casino.getWallet();
+        return { text: `${author} ${past("получил", "получила")} бонус: +${amount}¢ (всего ${w.balance}¢)` };
+      }
+      case "gift": {
+        if (!targetUid) return { error: "Подарить можно только вошедшему — у гостя нет кошелька" };
+        const given = await casino.giftCoins(targetUid, parseInt(rest, 10));
+        return { text: `${author} ${past("подарил", "подарила")} ${target} ${given}¢` };
+      }
+      case "roulette": {
+        const dead = casino.russianRoulette() === "dead";
+        return dead
+          ? { text: `${author} ${past("крутанул", "крутанула")} барабан… выстрел. Минута молчания`, effect: "dead" }
+          : { text: `${author} ${past("крутанул", "крутанула")} барабан… щелчок. Повезло!`, effect: "alive" };
+      }
+      case "casino": {
+        const r = await casino.spinRoulette(rest);
+        const sign = r.delta >= 0 ? "+" : "";
+        return { text: [
+          `Выпало ${r.number} (${r.color})`,
+          ...r.lines,
+          `Итог: ${sign}${r.delta}¢ · на счету ${r.balance}¢`
+        ].join("\n") };
+      }
+    }
+  } catch (e) {
+    return { error: e.message };
+  }
+  return null;
 }

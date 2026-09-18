@@ -145,6 +145,12 @@ export function initSettingsPage() {
           select("chatIdentity", CHAT_IDENTITY, s.chatIdentity))}
         ${row("Отзываться на «мяукнуть»", "звук и подсказка, когда кто-то мяукает",
           toggle("meowReaction", s.meowReaction === "on"))}
+        ${row("Отключённые команды бота",
+          "через запятую — какие команды не работают в чате",
+          `<input class="inlineEdit" id="blockedCommandsInput" style="max-width:180px;"
+                  placeholder="например: секс, трахнуть" value="${escapeHtml(s.blockedCommands || "")}">`)}
+        ${row("Конфетти в рулетке", "когда повезло и выжил",
+          toggle("rouletteConfetti", s.rouletteConfetti !== "off"))}
         ${row("Как подписывать собеседника", "в личных переписках",
           select("dmNaming", DM_NAMING, s.dmNaming))}
         ${s.dmNaming === "custom" ? row("Своё слово", "чем заменить имя собеседника",
@@ -250,7 +256,8 @@ export function initSettingsPage() {
         const isOn = btn.classList.contains("on");
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
                          showAbout: ["on", "off"], recommendations: ["on", "off"],
-                         meowReaction: ["on", "off"], hourlyDigest: ["on", "off"] };
+                         meowReaction: ["on", "off"], hourlyDigest: ["on", "off"],
+                         rouletteConfetti: ["on", "off"] };
 
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);
@@ -306,6 +313,12 @@ export function initSettingsPage() {
       showToast("Картинка убрана");
       render();
       import("./chat.js").then(({ prepareQuoteImage }) => prepareQuoteImage()).catch(() => {});
+    });
+
+    const blockedInput = host.querySelector("#blockedCommandsInput");
+    blockedInput?.addEventListener("change", () => {
+      setSetting("blockedCommands", blockedInput.value.trim());
+      showToast("Сохранено ♡");
     });
 
     const soundInput = host.querySelector("#logoSoundInput");

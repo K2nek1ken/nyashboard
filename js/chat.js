@@ -4,7 +4,8 @@ import {
 } from "./firebase.js";
 import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
 import { getSettings } from "./settings.js";
-import { parseCommand, listCommands } from "./bot.js";
+import { DECOR_GLYPHS } from "./data-settings.js";
+import { parseCommand, commandNames } from "./bot.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getUserDoc } from "./data.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
@@ -141,6 +142,7 @@ export function subscribeChat() {
   // Картинка для узора готовится заранее: перекрашивание идёт на холсте,
   // и делать его для каждой цитаты было бы расточительно. Когда готова —
   // перерисовываем, иначе цитаты, нарисованные раньше, остались бы без узора.
+  applyMute();
   prepareQuoteImage()
     .then(() => { if (lastMessages.length) renderChat(lastMessages, { keepScroll: true }); })
     .catch(e => console.warn("Узор для цитат:", e.message));
@@ -166,18 +168,13 @@ export function subscribeChat() {
 // Лепесток — не символ, а настоящая форма из assets/petal.svg. Он подставляется
 // маской, поэтому красится текущим акцентом так же, как обычные символы.
 // Остальное — обычные глифы.
-const DECOR_GLYPHS = {
-  flowers: "\u2740",         // ❀
-  stars:   "\u2726",         // ✦
-  leaves:  "\uD83C\uDF41"     // 🍁
-};
+
 const SHAPE_DECOR = new Set(["petals"]);
 
 // Своя картинка для узора: подготавливается один раз и дальше берётся готовой.
 // Подготовка нужна потому, что картинку надо перекрасить, а это делается
 // на холсте — каждый раз для каждой цитаты было бы расточительно.
 let quoteImageUrl = null;
-
 
 export async function prepareQuoteImage() {
   if (getSettings().quoteDecor !== "custom") { quoteImageUrl = null; return; }
@@ -408,6 +405,35 @@ async function renderChatArtworks(container, msgs) {
   } catch (e) {
     console.warn("Работы в чате не загрузились:", e.message);
   }
+}
+
+// Молчание после проигрыша в рулетке. Держится в этом браузере: обойти
+// можно, но это игра, а не наказание — важна сама механика.
+function muteSelf(seconds) {
+  const until = Date.now() + seconds * 1000;
+  try { localStorage.setItem("nyash_mute_until", String(until)); } catch {}
+  applyMute();
+}
+
+function applyMute() {
+  let until = 0;
+  try { until = Number(localStorage.getItem("nyash_mute_until")) || 0; } catch {}
+
+  const form = document.getElementById("chatForm");
+  const input = document.getElementById("chatInput");
+  const left = until - Date.now();
+
+  if (left <= 0) {
+    input?.removeAttribute("disabled");
+    if (input) input.placeholder = "Сообщение...";
+    return;
+  }
+
+  if (input) {
+    input.setAttribute("disabled", "disabled");
+    input.placeholder = `Молчание ещё ${Math.ceil(left / 1000)} с`;
+  }
+  setTimeout(applyMute, 1000);
 }
 
 function playMeow() {
@@ -807,7 +833,7 @@ export function initChatForm() {
   });
 
   document.getElementById("botHelpBtn")?.addEventListener("click", () => {
-    const cmds = listCommands();
+    const cmds = commandNames();
     const withTarget = cmds.filter(c => c.needsTarget).map(c => c.name).join(", ");
     const plain = cmds.filter(c => !c.needsTarget).map(c => c.name).join(", ");
     askConfirm("Команды бота", {
@@ -858,7 +884,29 @@ export function initChatForm() {
       const speakerName = (asAccount?.checked && currentUserDoc)
         ? currentUserDoc.nickname
         : identity.nickname;
-      const parsed = parseCommand(text, speakerName, replySnapshot?.nickname || null);
+      let parsed = parseCommand(text, speakerName, replySnapshot?.nickname || null);
+
+      // Команды с кошельком требуют обращения к базе — доводим их здесь,
+      // чтобы сам разбор остался быстрым и работал без сети.
+      if (parsed?.async) {
+        const { runAsyncCommand } = await import("./bot.js");
+        parsed = await runAsyncCommand(parsed.async, {
+          rest: parsed.rest,
+          author: speakerName,
+          target: replySnapshot?.nickname || null,
+          targetUid: replySnapshot?.authorUid || null
+        });
+
+        // Выбывшему из русской рулетки — минута молчания, и конфетти тому,
+        // кому повезло (если не выключено в настройках).
+        if (parsed?.effect === "dead") muteSelf(60);
+        if (parsed?.effect === "alive" && getSettings().rouletteConfetti !== "off") {
+          import("./confetti.js").then(({ burstConfetti }) =>
+            burstConfetti(window.innerWidth / 2, window.innerHeight * 0.4)
+          ).catch(() => {});
+        }
+      }
+
       if (parsed?.error) { showToast(parsed.error); return; }
 
       const imageUrls = images.length ? await uploadImages(images) : [];
@@ -931,7 +979,6 @@ export function initChatForm() {
     }
   });
 }
-
 
 // см. unsubscribeFeed: то же самое для общего чата
 export function unsubscribeChat() {
