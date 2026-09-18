@@ -5,7 +5,7 @@ import { showToast, escapeHtml } from "./ui.js";
 // иначе добавленное в модуле до настроек не доходило.
 import {
   PARTICLES as PARTICLE_ITEMS, QUOTE_DECOR as DECOR_ITEMS,
-  previewHtml, paintPreviewCanvases
+  previewHtml, paintPreviewCanvases, paintOwnPreview
 } from "./modules/particles.js";
 import { goTo } from "./router.js";
 import { refreshDefaultAvatars } from "./default-avatar.js";
@@ -210,6 +210,8 @@ export function initSettingsPage() {
     `;
 
     paintPreviewCanvases(host);
+    paintOwnPreview(host.querySelector("#particlePreview")?.parentElement || host, "particle");
+    paintOwnPreview(host.querySelector("#decorPreview")?.parentElement || host, "quote");
 
     wireSelects(host, (key, value) => {
       setSetting(key, value);

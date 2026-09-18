@@ -101,7 +101,7 @@ export const QUOTE_DECOR = {
   leaves:  { label: "Листья",    glyph: "\uD83C\uDF41" },
   petals:  { label: "Лепестки",  shape: true },       // рисуется фигурой, см. chat.js
   kaomoji: { label: "Лени фейс", glyph: "( ͡o ͜ʖ ͡o)", scale: 0.42 },
-  custom:  { label: "Своя картинка", image: true },
+  custom:  { label: "Своя картинка", image: true, fromSettings: true },
   none:    { label: "Без узора" }
 };
 
@@ -156,7 +156,11 @@ export function previewHtml(dict, key) {
   // Картинка из папки проекта
   if (item.preview) return `<img src="${item.preview}" alt="" class="particle-img">`;
 
-  // Лепестки и своя картинка рисуются по-особому — у них своя заготовка
+  // Своя картинка: место под неё, сама подставится следом — она лежит
+  // в хранилище браузера, и достать её сразу, при сборке разметки, нельзя.
+  if (item.fromSettings) return `<span class="particle-own" data-own-preview></span>`;
+
+  // Лепесток рисуется по-особому — у него своя заготовка
   if (item.image) return `<span class="petal-preview"></span>`;
 
   if (item.glyph) {
@@ -202,4 +206,49 @@ export function paintPreviewCanvases(root = document, color = null) {
     item.draw(ctx, canvas.width * 0.34);
     ctx.restore();
   });
+}
+
+
+// Подставляет в превью ту самую картинку, которую человек выбрал, —
+// показывать заготовку лепестка вместо своего рисунка нелогично.
+// Красится так же, как будет краситься на фоне: превью должно совпадать
+// с тем, что получится.
+export async function paintOwnPreview(root = document, which = "particle") {
+  const slot = root.querySelector("[data-own-preview]");
+  if (!slot) return;
+
+  try {
+    const store = await import("../logo-sound.js");
+    const rec = which === "quote"
+      ? await store.getQuoteImage()
+      : await store.getParticleImage();
+
+    if (!rec?.blob) {
+      slot.textContent = "\u2014";      // ничего не выбрано
+      slot.title = "картинка не выбрана";
+      return;
+    }
+
+    const img = new Image();
+    img.src = URL.createObjectURL(rec.blob);
+    await img.decode().catch(() => {});
+
+    const { getSettings } = await import("../settings.js");
+    const mode = which === "quote"
+      ? (getSettings().quoteTint || "silhouette")
+      : (getSettings().particleTint || "silhouette");
+
+    const accent = getComputedStyle(document.documentElement)
+      .getPropertyValue("--accent").trim() || "#e88fd0";
+
+    const { tintImage } = await import("../tint.js");
+    const painted = tintImage(img, accent, mode);
+
+    slot.innerHTML = "";
+    painted.className = "particle-img";
+    slot.appendChild(painted);
+  } catch (e) {
+    console.warn("Превью своей картинки не собралось:", e.message);
+    slot.textContent = "\u2014";
+  }
 }
