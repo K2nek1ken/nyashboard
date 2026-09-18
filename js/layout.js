@@ -2,7 +2,7 @@ import { ICON } from "./icons.js";
 import { tintImage } from "./tint.js";
 import { goTo } from "./router.js";
 import { getSettings } from "./settings.js";
-import { PARTICLE_GLYPHS } from "./modules/settings.js";
+import { PARTICLES as PARTICLE_ITEMS } from "./modules/particles.js";
 import { defaultAvatar } from "./default-avatar.js";
 import { brandIconUri } from "./favicon.js";
 import { showToast } from "./ui.js";
@@ -182,7 +182,6 @@ export function initStarfield() {
   // с тем, что человек выбрал в настройках, и не превращаются в снежинки из-за
   // моей интерпретации. Текстовые символы красятся акцентом, цветные эмодзи
   // остаются собственных цветов — для лепестков и листьев это как раз к месту.
-  const GLYPHS = PARTICLE_GLYPHS;
 
   // Лепесток сакуры по эскизу Неко: два эллипса, обрезанные масками, дают
   // характерную форму с выемкой. Рисуем через картинку, потому что повторять
@@ -227,23 +226,14 @@ export function initStarfield() {
     petalImage.src = "data:image/svg+xml," + encodeURIComponent(svg.replace(/\s+/g, " "));
   }
 
-  function drawGlyph(s, glyph) {
-    ctx.font = `${s.size * 2.4}px "Monaspace Neon NF", "Noto Color Emoji", sans-serif`;
+  // Рисует символ или короткий текст. Каомодзи в разы шире одного значка,
+  // поэтому у частицы можно задать свой масштаб — иначе «( ͡o ͜ʖ ͡o)»
+  // при том же размере растянулось бы через пол-экрана.
+  function drawGlyph(s, glyph, scale = 1) {
+    ctx.font = `${s.size * 2.4 * scale}px "Monaspace Neon NF", "Noto Color Emoji", sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(glyph, 0, 0);
-  }
-
-  function drawVectorStar(s) {
-    ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const r = i % 2 === 0 ? s.size : s.size * 0.45;
-      const a = (Math.PI / 5) * i - Math.PI / 2;
-      const px = Math.cos(a) * r, py = Math.sin(a) * r;
-      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
   }
 
   function drawStar(s) {
@@ -252,20 +242,27 @@ export function initStarfield() {
     ctx.rotate(s.angle);
     ctx.globalAlpha = s.alpha;
     ctx.fillStyle = starColor;
-    const glyph = GLYPHS[particleKind];
     // Источником бывает и картинка, и холст (у гифок — он, потому что кадр
     // обновляется). У холста нет признака «загружено», и проверка на него
     // отбрасывала анимированные вовсе — вместо них рисовались звёздочки.
-    const usesImage = particleKind === "petals" || particleKind === "custom";
-    if (usesImage && isDrawable(petalImage)) {
-      const sz = s.size * 3.4;
-      ctx.drawImage(petalImage, -sz / 2, -sz / 2, sz, sz);
+    // Как рисовать — сказано в самом описании частицы (см. modules/particles.js).
+    // Своя фигура, символ или картинка: движок не знает заранее, какие
+    // частицы бывают, и новые подхватываются без правок здесь.
+    const item = PARTICLE_ITEMS[particleKind];
+
+    if (item?.image) {
+      if (isDrawable(petalImage)) {
+        const sz = s.size * 3.4;
+        ctx.drawImage(petalImage, -sz / 2, -sz / 2, sz, sz);
+      }
+      // Пока картинка грузится, ничего не подставляем: другая фигура
+      // вместо выбранной выглядит как поломка.
+      ctx.restore();
+      return;
     }
-    // Пока своя картинка ещё грузится, ничего не подставляем: звёздочки
-    // вместо выбранной картинки выглядели как поломка.
-    else if (usesImage) { ctx.restore(); return; }
-    else if (glyph) drawGlyph(s, glyph);
-    else drawVectorStar(s);
+
+    if (item?.draw) item.draw(ctx, s.size);
+    else if (item?.glyph) drawGlyph(s, item.glyph, item.scale ?? 1);
     ctx.restore();
   }
 

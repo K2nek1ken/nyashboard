@@ -5,8 +5,18 @@ const KEY = "nyash_settings";
 // Справочники живут отдельно — см. data-settings.js. Отсюда их видно так же,
 // как раньше, поэтому ничего в остальном проекте менять не пришлось.
 export {
-  THEMES, QUOTE_DECOR, PARTICLES, GENDERS, TIME_FORMATS, TAB_LABELS, CHAT_IDENTITY, DM_NAMING, TINT_MODES, EMOJI_SOURCES
+  THEMES, GENDERS, TIME_FORMATS, TAB_LABELS, CHAT_IDENTITY, DM_NAMING, TINT_MODES, EMOJI_SOURCES
 } from "./modules/settings.js";
+
+// Частицы и узоры — в своём модуле: там можно задать и фигуру, не только
+// название. Наружу видны так же, как раньше.
+// Наружу отдаём подписи — их ждут выпадающие списки. Сами описания
+// с фигурами берутся напрямую из модуля теми, кому они нужны.
+import { PARTICLES as PARTICLE_ITEMS, QUOTE_DECOR as DECOR_ITEMS, labelsOf }
+  from "./modules/particles.js";
+
+export const PARTICLES = labelsOf(PARTICLE_ITEMS);
+export const QUOTE_DECOR = labelsOf(DECOR_ITEMS);
 
 export const DEFAULTS = {
   theme: "default",

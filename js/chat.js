@@ -4,7 +4,7 @@ import {
 } from "./firebase.js";
 import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
 import { getSettings } from "./settings.js";
-import { DECOR_GLYPHS } from "./modules/settings.js";
+import { QUOTE_DECOR as DECOR_ITEMS } from "./modules/particles.js";
 import { parseCommand, commandNames } from "./bot.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getUserDoc } from "./data.js";
@@ -191,7 +191,6 @@ export function subscribeChat() {
 // маской, поэтому красится текущим акцентом так же, как обычные символы.
 // Остальное — обычные глифы.
 
-const SHAPE_DECOR = new Set(["petals"]);
 
 // Своя картинка для узора: подготавливается один раз и дальше берётся готовой.
 // Подготовка нужна потому, что картинку надо перекрасить, а это делается
@@ -228,13 +227,13 @@ export async function prepareQuoteImage() {
 
 function decorHtml() {
   const kind = getSettings().quoteDecor || "flowers";
-  const isShape = SHAPE_DECOR.has(kind);
-  const isImage = kind === "custom";
-  const glyph = DECOR_GLYPHS[kind];
+  const isShape = !!DECOR_ITEMS[kind]?.shape;
+  const isImage = !!DECOR_ITEMS[kind]?.image;
+  const glyph = DECOR_ITEMS[kind]?.glyph;
   if (!glyph && !isShape && !isImage) return "";        // выбран вариант «без узора»
   // Пока своя картинка не готова, рисуем цветочки: пустая цитата выглядит
   // как поломка, а так узор просто сменится, когда картинка подгрузится.
-  const fallbackGlyph = isImage && !quoteImageUrl ? DECOR_GLYPHS.flowers : null;
+  const fallbackGlyph = isImage && !quoteImageUrl ? DECOR_ITEMS.flowers?.glyph : null;
 
   // Цитата стала выше, поэтому узоров больше и лежат они свободнее:
   // прежняя сетка рассчитывалась на полоску в пару строк.
