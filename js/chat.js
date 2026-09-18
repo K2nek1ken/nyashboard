@@ -5,7 +5,7 @@ import {
 import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
 import { getSettings } from "./settings.js";
 import { QUOTE_DECOR as DECOR_ITEMS } from "./modules/particles.js";
-import { parseCommand, commandNames } from "./bot.js";
+import { parseCommand } from "./bot.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getUserDoc } from "./data.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
@@ -225,7 +225,19 @@ export async function prepareQuoteImage() {
   }
 }
 
-function decorHtml() {
+// Узор одинаков для одной цитаты: он собирается из случайных смещений,
+// и при каждой отрисовке получался новый — фон менялся на глазах при
+// отправке или удалении соседнего сообщения.
+const decorCache = new Map();
+
+function decorHtml(seed = null) {
+  if (seed !== null && decorCache.has(seed)) return decorCache.get(seed);
+  const html = buildDecor(seed);
+  if (seed !== null) decorCache.set(seed, html);
+  return html;
+}
+
+function buildDecor(seed = null) {
   const kind = getSettings().quoteDecor || "flowers";
   const isShape = !!DECOR_ITEMS[kind]?.shape;
   const isImage = !!DECOR_ITEMS[kind]?.image;
@@ -242,14 +254,26 @@ function decorHtml() {
   const isImageDecor = getSettings().quoteDecor === "custom";
   const cols = isImageDecor ? 5 : 7;
   const rows = 2;
+
+  // Расположение зависит от сообщения, а не от случая: одна и та же цитата
+  // всегда выглядит одинаково, даже если список перерисовали.
+  let state = 0;
+  for (let i = 0; i < String(seed ?? "").length; i++) {
+    state = (state * 31 + String(seed).charCodeAt(i)) >>> 0;
+  }
+  const rnd = () => {
+    if (seed === null) return rnd();
+    state = (state * 1103515245 + 12345) >>> 0;
+    return (state % 10000) / 10000;
+  };
   const out = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (Math.random() < 0.18) continue;    // местами пропускаем — живее
-      const x = (c + 0.5) / cols * 100 + (Math.random() - 0.5) * 9;
-      const y = (r + 0.5) / rows * 100 + (Math.random() - 0.5) * 30;
-      const rot = Math.floor(Math.random() * 360);
-      const scale = (0.6 + Math.random() * 0.8).toFixed(2);
+      if (rnd() < 0.18) continue;    // местами пропускаем — живее
+      const x = (c + 0.5) / cols * 100 + (rnd() - 0.5) * 9;
+      const y = (r + 0.5) / rows * 100 + (rnd() - 0.5) * 30;
+      const rot = Math.floor(rnd() * 360);
+      const scale = (0.6 + rnd() * 0.8).toFixed(2);
       const style = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;` +
                     `transform:translate(-50%,-50%) rotate(${rot}deg) scale(${scale})`;
       out.push(fallbackGlyph
@@ -269,7 +293,7 @@ function quoteHtml(m) {
   const text = m.replyToText || "(сообщение удалено)";
   return `
     <div class="chat-reply-quote" data-jump="${m.replyToId}">
-      <span class="petals">${decorHtml()}</span>
+      <span class="petals">${decorHtml(m.replyToId || m.id)}</span>
       <b>${escapeHtml(m.replyToNickname || "???")}</b>
       <span class="quote-text">${escapeHtml(text.slice(0, 90))}${text.length > 90 ? "…" : ""}</span>
     </div>`;
@@ -531,7 +555,9 @@ function renderChat(msgs, { keepScroll = false } = {}) {
     // Своим считается и сообщение бота, вызванное тобой: удалить его можно,
     // а вот изменить — нет, иначе легко подделать выданную ботом фразу.
     const owned = isOwned("chatMessage", m.id)
-      || (currentUser && m.authorUid === currentUser.uid);
+      || (currentUser && m.authorUid === currentUser.uid)
+      // сообщение бота принадлежит тому, кто вызвал команду
+      || (currentUser && m.invokedByUid === currentUser.uid);
     const canManage = owned && !m.isBot;    // правка
     const canDelete = owned;                // удаление
     const kebabItems = [
@@ -853,14 +879,13 @@ export function initChatForm() {
     }
   });
 
-  document.getElementById("botHelpBtn")?.addEventListener("click", () => {
-    const cmds = commandNames();
-    const withTarget = cmds.filter(c => c.needsTarget).map(c => c.name).join(", ");
-    const plain = cmds.filter(c => !c.needsTarget).map(c => c.name).join(", ");
+  document.getElementById("botHelpBtn")?.addEventListener("click", async () => {
+    // Список собирает сам движок — тот же, что отвечает на «.команды».
+    // Раньше здесь была своя сборка, и после смены формата она выдавала
+    // строку из одних запятых.
+    const { commandsHelp } = await import("./bot.js");
     askConfirm("Команды бота", {
-      hint: `В ответ на чьё-то сообщение: ${withTarget}. ` +
-            `Просто так: ${plain}. ` +
-            `Напиши команду первым словом — бот сам соберёт фразу.`,
+      hint: commandsHelp(),
       okLabel: "Понятно"
     });
   });
@@ -959,6 +984,11 @@ export function initChatForm() {
                 : useAccount ? currentUserDoc.nickname
                 : identity.nickname,
         isBot: !!parsed,
+        // Кто вызвал команду. Само сообщение подписано ботом, но убрать его
+        // должен уметь тот, кто его вызвал — даже после перезахода в аккаунт.
+        // Раньше право держалось только на отметке в браузере, а она к
+        // аккаунту не привязана: вышел и зашёл — и своё же не удалить.
+        invokedByUid: parsed ? (currentUser?.uid || null) : null,
         text: parsed ? parsed.text : text,
         imageUrls,
         createdAt: serverTimestamp()

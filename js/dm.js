@@ -81,6 +81,40 @@ export async function editMessage(chatId, msgId, text) {
 
 export async function deleteMessage(chatId, msgId) {
   await deleteDoc(doc(db, "dmChats", chatId, "messages", msgId));
+
+  // Превью переписки хранится отдельно, в самом чате: иначе список
+  // пришлось бы собирать из последних сообщений каждой переписки разом.
+  // Значит после удаления его нужно обновить вручную — иначе удалённое
+  // так и висит в списке.
+  await refreshChatPreview(chatId);
+}
+
+// Пересобирает подпись переписки по последнему оставшемуся сообщению.
+async function refreshChatPreview(chatId) {
+  try {
+    const snap = await getDocs(query(
+      collection(db, "dmChats", chatId, "messages"),
+      orderBy("createdAt", "desc"), limit(1)
+    ));
+
+    if (snap.empty) {
+      // Сообщений не осталось — подпись пустая, а не «последнее удалённое».
+      await updateDoc(doc(db, "dmChats", chatId), {
+        lastText: "", lastSender: null, lastAt: serverTimestamp()
+      });
+      return;
+    }
+
+    const last = snap.docs[0].data();
+    await updateDoc(doc(db, "dmChats", chatId), {
+      lastText: (last.text || (last.imageUrl ? "фото" : "")).slice(0, 120),
+      lastSender: last.senderUid || null,
+      lastAt: last.createdAt || serverTimestamp()
+    });
+  } catch (e) {
+    // Не обновилось — не страшно: подпись поправится со следующим сообщением.
+    console.warn("Подпись переписки не обновилась:", e.message);
+  }
 }
 
 export function otherParticipant(chat) {

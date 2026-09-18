@@ -21,15 +21,24 @@ import { COMMANDS } from "./modules/bot-commands.js";
 // Для гостей без указанного пола получается «обнял(а)».
 function conjugate(form) {
   const [m, f] = String(form).split("|");
+
+  // Одна форма — значит она и нужна, как написана. Это удобно для слов
+  // без рода: «крутанул барабан» склоняется, а «мяу» — нет.
   if (!f) return m;
   const both = m + "(" + (f.startsWith(m) ? f.slice(m.length) : f) + ")";
   return gendered(m, f, both);
 }
 
+// Склонение по полу для команд со своим текстом: past("дал", "дала").
+export const past = (m, f) => conjugate(`${m}|${f}`);
+
 // Собирает готовую фразу из описания команды.
 function build(rule, kind, author, target, rest) {
   const recipe = rule[kind];
-  if (typeof recipe === "function") return recipe(author, target, rest);
+
+  // Своим текстом тоже нужно склонение: четвёртым даём помощника,
+  // чтобы можно было написать past("дал", "дала").
+  if (typeof recipe === "function") return recipe(author, target, rest, past);
 
   const verb = conjugate(recipe);
   const tail = rule.tail ? ` ${rule.tail}` : "";
@@ -126,6 +135,11 @@ function helpText() {
   ].join("\n");
 }
 
+// Список команд для окна подсказки — тот же текст, что и по «.команды».
+export function commandsHelp() {
+  return helpText();
+}
+
 // Все названия — нужны подсказке при наборе.
 export function commandNames() {
   return COMMANDS.flatMap(c => c.cmd);
@@ -164,10 +178,17 @@ export async function runAsyncCommand(kind, { rest, author, target, targetUid })
       case "casino": {
         const r = await casino.spinRoulette(rest);
         const sign = r.delta >= 0 ? "+" : "";
+
+        // Пишем как рассказывают: кто поставил, что выпало, чем кончилось.
+        // Раньше был сухой перечень без имени — в общем чате непонятно,
+        // чей это результат.
+        const bets = r.lines.length === 1
+          ? r.lines[0]
+          : r.lines.join(", ");
+
         return { text: [
-          `Выпало ${r.number} (${r.color})`,
-          ...r.lines,
-          `Итог: ${sign}${r.delta}¢ · на счету ${r.balance}¢`
+          `${author} ${past("поставил", "поставила")} ${bets}. Выпало ${r.number} (${r.color})`,
+          `${sign}${r.delta}¢, остаток: ${r.balance}¢`
         ].join("\n") };
       }
     }

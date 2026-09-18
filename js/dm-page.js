@@ -67,7 +67,10 @@ function render(msgs) {
     // Сообщение бота — ничьё: оно встаёт по центру и подписывается им самим,
     // как в общем чате. Удалить его может тот, чья команда его вызвала,
     // а изменить нельзя никому — иначе легко подделать выданную им фразу.
-    const fromMe = m.senderUid === currentUser?.uid;
+    // Сообщение бота принадлежит тому, кто вызвал команду — иначе после
+    // перезахода своё же становится не убрать.
+    const fromMe = m.senderUid === currentUser?.uid
+                || (m.isBot && m.invokedByUid === currentUser?.uid);
     const mine = fromMe && !m.isBot;
     const canEdit = mine;
     const items = [
@@ -296,6 +299,7 @@ async function init() {
       const imageUrl = pendingImage ? await uploadImage(pendingImage) : null;
       await sendMessage(chatId, parsed ? parsed.text : text, imageUrl, {
         isBot: !!parsed,
+        invokedByUid: parsed ? (currentUser?.uid || null) : null,
         replyTo: replyingTo
       });
       replyingTo = null;
@@ -335,6 +339,18 @@ let stopPage = null;
 
 window.addEventListener("DOMContentLoaded", async () => {
   const { initRouter } = await import("./router.js");
-  await initPage();
+
+  // Сбой вкладки не должен ронять всё остальное. Раньше ошибка здесь
+  // прерывала загрузку целиком: роутер не запускался, обработчики входа
+  // не навешивались — и человек не мог даже войти в аккаунт, пока
+  // не уходил на другую вкладку.
+  try {
+    await initPage();
+  } catch (e) {
+    console.error("Вкладка не запустилась:", e);
+    const { showPageError } = await import("./page-error.js");
+    showPageError(e);
+  }
+
   initRouter({ initPage, destroyPage });
 });

@@ -488,8 +488,18 @@ service cloud.firestore {
       allow update: if request.auth != null &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'publicUid', 'imageUrls']) &&
         request.auth.uid == get(/databases/$(database)/documents/chatMessageSecrets/$(msgId)).data.ownerUid;
-      allow delete: if request.auth != null &&
-        request.auth.uid == get(/databases/$(database)/documents/chatMessageSecrets/$(msgId)).data.ownerUid;
+      // Удалить может тот, кто отправил (по записи о владении — она привязана
+      // к сессии), автор от аккаунта, или тот, кто вызвал команду бота.
+      //
+      // Последнее важно после перезахода: сессия тогда другая, запись
+      // о владении на неё не указывает, и своё же сообщение бота
+      // становилось не удалить.
+      allow delete: if request.auth != null && (
+        request.auth.uid == get(/databases/$(database)/documents/chatMessageSecrets/$(msgId)).data.ownerUid
+        || (resource.data.authorUid != null && request.auth.uid == resource.data.authorUid)
+        || (resource.data.get('invokedByUid', null) != null
+            && request.auth.uid == resource.data.invokedByUid)
+      );
     }
 
     // ===================== СЕКРЕТ ВЛАДЕНИЯ КАНАЛОМ =====================

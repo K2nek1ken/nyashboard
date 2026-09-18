@@ -191,6 +191,18 @@ initShell();   // один раз на всю жизнь страницы
 
 window.addEventListener("DOMContentLoaded", async () => {
   const { initRouter } = await import("./router.js");
-  await initPage();
+
+  // Сбой вкладки не должен ронять всё остальное. Раньше ошибка здесь
+  // прерывала загрузку целиком: роутер не запускался, обработчики входа
+  // не навешивались — и человек не мог даже войти в аккаунт, пока
+  // не уходил на другую вкладку.
+  try {
+    await initPage();
+  } catch (e) {
+    console.error("Вкладка не запустилась:", e);
+    const { showPageError } = await import("./page-error.js");
+    showPageError(e);
+  }
+
   initRouter({ initPage, destroyPage });
 });

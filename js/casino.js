@@ -149,7 +149,8 @@ export async function spinRoulette(text) {
     const hit = b.match(number);
     const gain = hit ? b.amount * b.payout : 0;
     won += gain;
-    lines.push(`${b.amount}¢ на ${b.kind} — ${hit ? `+${gain}¢` : "мимо"}`);
+    // «10¢ на нечётное — мимо» / «10¢ на красное — +20¢»
+    lines.push(`${b.amount}¢ на ${b.kind}${hit ? ` — +${gain}¢` : " — мимо"}`);
   }
 
   const delta = won - total;
