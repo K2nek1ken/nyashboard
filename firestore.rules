@@ -40,7 +40,11 @@ service cloud.firestore {
           .data.get('nuidVisibility', 'friends') == 'everyone' ||
         (get(/databases/$(database)/documents/users/$(userId))
            .data.get('nuidVisibility', 'friends') == 'friends' &&
-         exists(/databases/$(database)/documents/users/$(userId)/friends/$(request.auth.uid)))
+         // Дружба должна быть взаимной. Раньше хватало записи в списке
+         // владельца номера: убрав человека у себя, ты оставался в его
+         // списке — и продолжал видеть его номер сколько угодно.
+         exists(/databases/$(database)/documents/users/$(userId)/friends/$(request.auth.uid)) &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(userId)))
       );
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update, delete: if false;
