@@ -806,7 +806,12 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   const wheels = messagesEl.querySelectorAll("[data-spin]:empty");
   if (wheels.length) {
     import("./roulette-wheel.js").then(({ mountWheel }) => {
-      wheels.forEach(el => mountWheel(el, Number(el.dataset.spin)));
+      // Ключ — сам идентификатор сообщения: по нему колесо узнаёт себя
+      // после перерисовки и продолжает с того же места.
+      wheels.forEach(el => {
+        const id = el.closest(".chat-msg")?.dataset.id || null;
+        mountWheel(el, Number(el.dataset.spin), id);
+      });
     }).catch(() => {});
 
     setTimeout(() => renderChat(lastMessages, { keepScroll: true }), SPIN_TOTAL);

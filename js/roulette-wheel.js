@@ -32,9 +32,22 @@ const SHRINK_MS = 560;     // уходит
 // Место создаёт сам чат при отрисовке, а не эта функция: разметка там
 // пересоздаётся при каждом обновлении, и колесо, вставленное со стороны,
 // стиралось первым же новым сообщением — успевало мелькнуть и пропасть.
-export function mountWheel(slot, number) {
+// Когда какое колесо начало крутиться. Разметка чата пересоздаётся
+// по нескольку раз подряд, и без этой памяти колесо заводилось заново
+// при каждой перерисовке — дёргалось и начинало сначала.
+const startedAt = new Map();
+
+export function mountWheel(slot, number, key = null) {
   if (!slot || slot.dataset.mounted) return;
   slot.dataset.mounted = "1";
+
+  // Сколько это колесо уже крутится. Для нового — ноль.
+  const id = key || slot.dataset.spin;
+  if (!startedAt.has(id)) startedAt.set(id, Date.now());
+  const elapsed = Date.now() - startedAt.get(id);
+
+  // Докрутилось ещё до того, как дошли руки его показать.
+  if (elapsed >= SPIN_MS + HOLD_MS) { slot.remove(); return; }
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     slot.remove();
@@ -51,17 +64,29 @@ export function mountWheel(slot, number) {
 
   // Сколько осталось крутиться: сообщение могло прийти с задержкой,
   // и досматривать полное вращение с опозданием было бы странно.
+  const target = 360 * 8 + (360 - index * step);
+  const left = Math.max(120, SPIN_MS - elapsed);
+
+  // Если колесо уже крутилось, начинаем не с нуля, а с той точки, до которой
+  // оно должно было дойти. Так перерисовка не сбрасывает вращение —
+  // оно просто продолжается.
+  const progress = Math.min(1, elapsed / SPIN_MS);
+  const from = target * easeOut(progress);
+
+  wheel.style.transform = `rotate(${from}deg)`;
+  ball.style.transform = `rotate(${-360 * 11 * easeOut(progress)}deg)`;
+
   requestAnimationFrame(() => {
     slot.classList.remove("appearing");
 
-    wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.12,.72,.15,1)`;
-    wheel.style.transform = `rotate(${360 * 8 + (360 - index * step)}deg)`;
+    wheel.style.transition = `transform ${left}ms cubic-bezier(.12,.72,.15,1)`;
+    wheel.style.transform = `rotate(${target}deg)`;
 
-    ball.style.transition = `transform ${SPIN_MS - 300}ms cubic-bezier(.1,.7,.2,1)`;
+    ball.style.transition = `transform ${Math.max(100, left - 300)}ms cubic-bezier(.1,.7,.2,1)`;
     ball.style.transform = `rotate(${-360 * 11}deg)`;
   });
 
-  setTimeout(() => slot.classList.add("done"), SPIN_MS + HOLD_MS);
+  setTimeout(() => slot.classList.add("done"), (SPIN_MS + HOLD_MS) - elapsed);
 }
 
 // Крутит колесо на месте сообщения: текст пока скрыт, вместо него колесо.
@@ -150,6 +175,12 @@ export function spinWheel(number) {
       setTimeout(() => { box.remove(); resolve(); }, SHRINK_MS);
     }, SPIN_MS + HOLD_MS);           // пауза на «вот оно»
   });
+}
+
+// Замедление к концу — то же, что в самой анимации. Нужно, чтобы вычислить,
+// где колесо должно быть сейчас, если оно уже какое-то время крутится.
+function easeOut(t) {
+  return 1 - Math.pow(1 - t, 3);
 }
 
 function wheelSvg() {
