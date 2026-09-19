@@ -612,12 +612,19 @@ function decorateBotNames(text, msgs) {
 // Решается по времени самого сообщения, а не по памяти вкладки: тогда
 // колесо видят все, кто открыл чат в эти секунды, и оно не исчезает
 // при перерисовке списка.
-const SPIN_TOTAL = 4500;   // столько длится показ колеса целиком
+// Длительность берём у самого колеса — см. WHEEL_TOTAL_MS в roulette-wheel.js.
+// Пока она была записана здесь отдельным числом, два значения расходились,
+// и колесо успевало запуститься по второму разу.
+let spinTotal = 4500;   // запасное значение, пока модуль не подгрузился
+let spinRepaint = null; // перерисовка по окончании показа — одна на все колёса
+import("./roulette-wheel.js")
+  .then(({ WHEEL_TOTAL_MS }) => { spinTotal = WHEEL_TOTAL_MS; })
+  .catch(() => {});
 
 function spinningNow(m) {
   if (m.spinNumber === null || m.spinNumber === undefined) return false;
   const at = m.createdAt?.toMillis?.() || Date.now();
-  return Date.now() - at < SPIN_TOTAL;
+  return Date.now() - at < spinTotal;
 }
 
 function playMeow() {
@@ -803,6 +810,10 @@ function renderChat(msgs, { keepScroll = false } = {}) {
 
   // Раскручиваем колёса, которые только что попали на экран, и заводим
   // перерисовку на момент остановки — чтобы на их месте появился текст.
+  //
+  // Перерисовку ставим одну на все колёса: раньше каждая отрисовка заводила
+  // свою, и их накапливалось несколько — отсюда лишние обновления в первые
+  // мгновения после отправки.
   const wheels = messagesEl.querySelectorAll("[data-spin]:empty");
   if (wheels.length) {
     import("./roulette-wheel.js").then(({ mountWheel }) => {
@@ -814,7 +825,19 @@ function renderChat(msgs, { keepScroll = false } = {}) {
       });
     }).catch(() => {});
 
-    setTimeout(() => renderChat(lastMessages, { keepScroll: true }), SPIN_TOTAL);
+    // Отсчёт ведём от времени сообщения, а не от момента отрисовки:
+    // иначе каждая перерисовка отодвигала бы конец показа.
+    const oldest = Math.min(...[...wheels].map(el => {
+      const id = el.closest(".chat-msg")?.dataset.id;
+      const msg = msgs.find(m => m.id === id);
+      return msg?.createdAt?.toMillis?.() || Date.now();
+    }));
+
+    clearTimeout(spinRepaint);
+    spinRepaint = setTimeout(
+      () => renderChat(lastMessages, { keepScroll: true }),
+      Math.max(120, spinTotal - (Date.now() - oldest))
+    );
   }
   wireCarousels(messagesEl);
   wireImageZoom(messagesEl);
