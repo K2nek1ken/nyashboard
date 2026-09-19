@@ -113,7 +113,12 @@ export function subscribeChat() {
     // склеиваем с ранее подгруженной историей, без повторов
     const seenIds = new Set(fresh.map(m => m.id));
     lastMessages = [...olderMessages.filter(m => !seenIds.has(m.id)), ...fresh];
-    // Метки — тоже украшение: их отсутствие не должно мешать показать чат.
+    // Рисуем сразу, не дожидаясь ничего постороннего. Раньше отрисовка
+    // шла после загрузки меток, и если та подвисала — чат навсегда
+    // оставался с надписью «загружаю».
+    renderChat(lastMessages);
+
+    // Метки — украшение: приходят следом и обновляют уже показанное.
     refreshBadges(lastMessages)
       .catch(e => console.warn("Метки собеседников:", e.message))
       .then(() => {
@@ -151,7 +156,11 @@ export function subscribeChat() {
   // Если за несколько секунд ничего не пришло — скажем об этом. Пустой
   // экран без объяснений выглядит как поломка, хотя причина может быть
   // в связи или в правилах базы.
-  messagesEl.innerHTML = `<div class="stub-note">Загружаю чат…</div>`;
+  // Заглушка только если рисовать пока нечего: иначе она затирала
+  // уже показанные сообщения.
+  if (!messagesEl.children.length) {
+    messagesEl.innerHTML = `<div class="stub-note">Загружаю чат…</div>`;
+  }
   setTimeout(() => {
     if (!lastMessages.length && messagesEl.textContent.includes("Загружаю")) {
       messagesEl.innerHTML = `<div class="stub-note">
@@ -610,9 +619,20 @@ async function refreshBadges(msgs) {
   });
 }
 
+// Какие сообщения уже показывались. Нужно, чтобы отличить действительно
+// новое от перерисованного: список пересобирается целиком при любом
+// изменении, и без этого «появлялось» бы всё разом при каждом обновлении.
+const shownIds = new Set();
+
 function renderChat(msgs, { keepScroll = false } = {}) {
   const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
   const wasAtBottom = !keepScroll && (nearBottom || messagesEl.childElementCount === 0);
+
+  // Первая отрисовка — без появления: иначе при открытии чата вся история
+  // въезжала бы на экран разом.
+  const first = shownIds.size === 0;
+  const fresh = first ? new Set() : new Set(msgs.filter(m => !shownIds.has(m.id)).map(m => m.id));
+  msgs.forEach(m => shownIds.add(m.id));
   messagesEl.innerHTML = msgs.map(m => {
     // Сообщения бота править нельзя даже автору команды: иначе можно
     // подделать чужую фразу, выданную ботом.
@@ -1023,9 +1043,13 @@ export function initChatForm() {
 
         // Колесо крутится до объявления результата: число уже известно,
         // но показать его сразу — значит убрать из игры саму игру.
+        //
+        // Крутится на месте будущего сообщения, а не поверх экрана: так его
+        // видят все, кто в чате, а не только тот, кто играл. И не мешает
+        // читать остальное.
         if (parsed?.wheel !== undefined) {
-          const { spinWheel } = await import("./roulette-wheel.js");
-          await spinWheel(parsed.wheel);
+          parsed.spinAfter = parsed.wheel;
+          delete parsed.wheel;
         }
 
         // Выбывшему из русской рулетки — минута молчания, и конфетти тому,
@@ -1088,6 +1112,14 @@ export function initChatForm() {
       const ref = await addDoc(collection(db, "chatMessages"), payload);
       await setDoc(doc(db, "chatMessageSecrets", ref.id), { ownerUid: auth.currentUser.uid });
       markOwned("chatMessage", ref.id);
+
+      // Колесо на месте только что отправленного сообщения: пока крутится,
+      // текст скрыт — как будто бот думает. Видят все, кто в чате.
+      if (parsed?.spinAfter !== undefined) {
+        import("./roulette-wheel.js")
+          .then(({ spinInPlace }) => spinInPlace(messagesEl, ref.id, parsed.spinAfter))
+          .catch(e => console.warn("Колесо не показалось:", e.message));
+      }
 
       // Идентификатор сообщения: по нему можно дать ссылку или упомянуть
       // сообщение в другом месте. Записывается отдельно, потому что нужен

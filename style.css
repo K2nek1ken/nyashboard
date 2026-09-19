@@ -497,6 +497,13 @@ button, input, textarea { font-family: inherit; color: inherit; }
     display: flex; flex-direction: column; align-items: center;
   }
   #app > * { width: 100%; max-width: 1080px; }
+
+  /* Когда места достаточно, содержимое встаёт по центру экрана, а не по
+     центру области справа от колонки: иначе оно всегда чуть смещено вправо,
+     и на широком мониторе это читается как «прижато к шапке». */
+  @media (min-width: 1500px) {
+    #app > * { margin-right: 320px; }
+  }
   /* лента и стена канала — двухколоночная сетка, чтобы не было полосы
      контента посреди пустого экрана */
   /* Колонки собираются в разметке, а не средствами стилей.
@@ -2933,4 +2940,57 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 
 @media (prefers-reduced-motion: reduce) {
   .roulette-overlay { display: none; }
+}
+
+/* предупреждение о слишком большом архиве */
+.zip-warn {
+  background: color-mix(in oklab, var(--danger) 14%, var(--card));
+  border-left: 3px solid var(--danger); border-radius: 0 8px 8px 0;
+  padding: 8px 10px; font-size: 11.5px; line-height: 1.45; margin: 10px 0 0;
+}
+
+/* колесо на месте сообщения бота */
+.wheel-inline {
+  width: 130px; aspect-ratio: 1; margin: 2px 0;
+  transform-origin: center;
+}
+.wheel-inline.done {
+  transition: transform .32s cubic-bezier(.5,0,.75,0), opacity .32s ease;
+  transform: scale(0) rotate(30deg); opacity: 0;
+}
+
+/* ============================================================
+   Появление новых сообщений
+
+   На телефоне выезжают сбоку — своё справа, чужое слева: так видно,
+   кто написал, ещё до того как прочитал.
+
+   На компьютере снизу: там сообщения занимают меньше ширины экрана,
+   и боковое движение читалось бы как рывок в сторону.
+   ============================================================ */
+@keyframes msgFromLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes msgFromRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes msgFromBelow {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.chat-msg.just-came { animation: msgFromLeft .26s cubic-bezier(.2,.8,.3,1); }
+.chat-msg.just-came.is-mine { animation-name: msgFromRight; }
+.chat-msg.just-came.is-bot { animation-name: msgFromBelow; }
+
+@media (min-width: 900px) {
+  .chat-msg.just-came,
+  .chat-msg.just-came.is-mine,
+  .chat-msg.just-came.is-bot { animation-name: msgFromBelow; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-msg.just-came { animation: none; }
 }

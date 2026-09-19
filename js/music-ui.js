@@ -340,6 +340,12 @@ function openZipUpload(zipFile, onDone) {
         Название, исполнитель и обложка берутся из тегов файлов.
         Треки загружаются по очереди — это может занять время.
       </p>
+      ${zipFile.size > 300 * 1024 * 1024 ? `
+        <p class="zip-warn">
+          Архив на ${Math.round(zipFile.size / 1024 / 1024)} МБ — слишком велик.
+          Браузер читает его целиком в память, и на таком файле вкладка падает.
+          Раздели примерно по 300 МБ.
+        </p>` : ""}
 
       <div data-status class="zip-status hidden"></div>
 
@@ -384,6 +390,9 @@ function openZipUpload(zipFile, onDone) {
       onDone?.();
     } catch (e) {
       console.error(e);
+      // Показываем причину прямо в окне и возвращаем кнопки: раньше при
+      // сбое окно просто застывало, и было непонятно — то ли работает,
+      // то ли сломалось.
       status.innerHTML = `<div class="zip-line" style="color:var(--danger)">${escapeHtml(e.message)}</div>`;
       startBtn.disabled = false;
       startBtn.textContent = "Попробовать снова";

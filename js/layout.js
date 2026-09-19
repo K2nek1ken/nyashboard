@@ -160,8 +160,15 @@ export function initStarfield() {
     lastWidth = window.innerWidth;
     if (!widthChanged && stars.length) return;
 
-    // на узких экранах частиц меньше — и чтобы не сорить, и чтобы не грузить батарею
-    const count = window.innerWidth < 900 ? 18 : 42;
+    // Плотность одинаковая на любом экране: раньше на широком мониторе
+    // те же сорок частиц расходились так редко, что появлялись заметные
+    // пустоты — особенно вверху по центру.
+    //
+    // На узких намеренно реже: и чтобы не сорить, и чтобы не грузить батарею.
+    const perPixel = window.innerWidth < 900 ? 1 / 22000 : 1 / 34000;
+    const count = Math.round(
+      Math.min(90, Math.max(18, window.innerWidth * window.innerHeight * perPixel))
+    );
     stars = Array.from({ length: count }, () => spawn(true));
   }
 
@@ -171,7 +178,9 @@ export function initStarfield() {
       y: anywhere ? Math.random() * window.innerHeight : -20,
       size: 4 + Math.random() * 7,
       speed: 0.12 + Math.random() * 0.28,
-      drift: 0.06 + Math.random() * 0.18,   // горизонтальный снос — движение по диагонали
+      // Снос в обе стороны: раньше все частицы уносило вправо, и слева
+      // со временем становилось пусто, а справа густо.
+      drift: (0.06 + Math.random() * 0.18) * (Math.random() < 0.5 ? -1 : 1),
       angle: Math.random() * Math.PI * 2,
       spin: (Math.random() - 0.5) * 0.012,  // вращение вокруг своей оси
       alpha: 0.10 + Math.random() * 0.22

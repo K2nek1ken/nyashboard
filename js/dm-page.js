@@ -29,6 +29,22 @@ let pendingImage = null;
 let replyingTo = null;
 let otherUid = null;
 let otherUser = null;
+const shownIds = new Set();
+
+// Как называть собеседника: его ником, нейтрально или своим словом.
+// Если ты переименовал его для себя — это имя главнее всего.
+//
+// Нужно в двух местах — при отрисовке и при отправке команды боту, —
+// поэтому живёт здесь, а не внутри одной из них: раньше отправка
+// обращалась к имени из чужой области и падала.
+function displayName() {
+  const settings = getSettings();
+  const alias = getAlias(otherUid);
+  return alias
+    || (settings.dmNaming === "neutral" ? "собеседник"
+      : settings.dmNaming === "custom" ? (settings.dmCustomName || "собеседник")
+      : (otherUser?.nickname || "собеседник"));
+}
 
 function renderReplyBar() {
   const host = document.getElementById("dmReplyHost");
@@ -54,14 +70,12 @@ function render(msgs) {
   const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
   const wasAtBottom = nearBottom || el.childElementCount === 0;
 
-  // Как называть собеседника: его ником, нейтрально или своим словом.
-  // Если ты переименовал его для себя — это имя главнее всего.
-  const settings = getSettings();
-  const alias = getAlias(otherUid);
-  const theirName = alias
-    || (settings.dmNaming === "neutral" ? "собеседник"
-      : settings.dmNaming === "custom" ? (settings.dmCustomName || "собеседник")
-      : (otherUser?.nickname || "собеседник"));
+  const theirName = displayName();
+
+  // Отличаем новые сообщения от перерисованных — см. тот же приём в chat.js.
+  const firstPaint = shownIds.size === 0;
+  const fresh = firstPaint ? new Set() : new Set(msgs.filter(m => !shownIds.has(m.id)).map(m => m.id));
+  msgs.forEach(m => shownIds.add(m.id));
 
   el.innerHTML = msgs.map(m => {
     // Сообщение бота — ничьё: оно встаёт по центру и подписывается им самим,
@@ -83,7 +97,7 @@ function render(msgs) {
       ] : [])
     ];
     return `
-      <div class="chat-msg ${mine ? "is-mine" : ""} ${m.isBot ? "is-bot" : ""}" data-id="${m.id}">
+      <div class="chat-msg ${mine ? "is-mine" : ""} ${m.isBot ? "is-bot" : ""} ${fresh.has(m.id) ? "just-came" : ""}" data-id="${m.id}">
         <div class="chat-msg-head">
           ${m.isBot
             ? `<span class="person-chip">${avatarHtml({}, 22, "", "bot")}meowbot</span>`
@@ -293,7 +307,7 @@ async function init() {
       // Команды бота работают и в личке — раньше они разбирались только
       // в общем чате, хотя логика одна и та же.
       const myName = currentUserDoc?.nickname || "ты";
-      const parsed = parseCommand(text, myName, replyingTo ? theirName : null);
+      const parsed = parseCommand(text, myName, replyingTo ? displayName() : null);
       if (parsed?.error) { showToast(parsed.error); return; }
 
       const imageUrl = pendingImage ? await uploadImage(pendingImage) : null;

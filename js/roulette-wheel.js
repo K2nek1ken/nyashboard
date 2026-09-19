@@ -22,6 +22,47 @@ const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 const SPIN_MS = 2600;      // столько крутится
 const SHRINK_MS = 320;     // столько исчезает
 
+// Крутит колесо на месте сообщения: текст пока скрыт, вместо него колесо.
+// Так его видят все в чате, а не только тот, кто играл.
+export function spinInPlace(container, msgId, number) {
+  const find = () => container?.querySelector(`.chat-msg[data-id="${msgId}"] .txt`);
+
+  // Сообщение появляется не мгновенно — ждём, пока подписка его принесёт.
+  let tries = 0;
+  const attach = () => {
+    const row = find();
+    if (!row) {
+      if (++tries < 40) return setTimeout(attach, 100);
+      return;   // не дождались — просто покажем текст
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const text = row.innerHTML;
+    row.innerHTML = `<div class="wheel-inline">${wheelSvg()}</div>`;
+
+    const wheel = row.querySelector(".roulette-svg");
+    const ball = row.querySelector("[data-ball]");
+    const index = Math.max(0, WHEEL.indexOf(number));
+    const step = 360 / WHEEL.length;
+
+    requestAnimationFrame(() => {
+      wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.17,.67,.2,1)`;
+      wheel.style.transform = `rotate(${360 * 5 + (360 - index * step)}deg)`;
+      ball.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.2,.6,.25,1)`;
+      ball.style.transform = `rotate(${-360 * 7}deg)`;
+    });
+
+    setTimeout(() => {
+      const box = row.querySelector(".wheel-inline");
+      if (box) box.classList.add("done");
+      setTimeout(() => { row.innerHTML = text; }, SHRINK_MS);
+    }, SPIN_MS + 350);
+  };
+
+  attach();
+}
+
 export function spinWheel(number) {
   return new Promise((resolve) => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -86,7 +127,5 @@ function wheelSvg() {
         <circle cx="50" cy="12" r="3.4" fill="#fff"/>
       </g>
 
-      <!-- указатель сверху: показывает, какой сектор считается выпавшим -->
-      <polygon points="50,2 46,10 54,10" fill="${accent}"/>
     </svg>`;
 }
