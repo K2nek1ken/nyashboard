@@ -2932,10 +2932,10 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 .roulette-svg { width: 100%; height: 100%; display: block; }
 
 /* исчезает, сжимаясь в точку — а не пропадает рывком */
-.roulette-overlay.done { animation: overlayOut .32s ease forwards; }
+.roulette-overlay.done { animation: overlayOut .56s ease forwards; }
 .roulette-overlay.done .roulette-wheel {
-  transition: transform .32s cubic-bezier(.5,0,.75,0), opacity .32s ease;
-  transform: scale(0) rotate(30deg); opacity: 0;
+  transition: transform .56s cubic-bezier(.45,0,.7,.2), opacity .56s ease;
+  transform: scale(0) rotate(28deg); opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2949,14 +2949,28 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
   padding: 8px 10px; font-size: 11.5px; line-height: 1.45; margin: 10px 0 0;
 }
 
-/* колесо на месте сообщения бота */
+/* ---------- колесо на месте сообщения бота ----------
+   Появляется мягко и так же уходит: резкое возникновение и мгновенное
+   исчезновение сбивали ощущение, что колесо и правда крутилось. */
 .wheel-inline {
-  width: 130px; aspect-ratio: 1; margin: 2px 0;
+  width: 150px; aspect-ratio: 1; margin: 2px 0;
   transform-origin: center;
+  transition: transform .42s cubic-bezier(.2,.8,.3,1), opacity .42s ease;
+  transform: scale(1); opacity: 1;
 }
+
+/* состояние до появления — от него и начинается движение */
+.wheel-inline.appearing {
+  transform: scale(.72) rotate(-18deg);
+  opacity: 0;
+  transition: none;
+}
+
+/* уход длиннее появления: так он читается как завершение, а не как обрыв */
 .wheel-inline.done {
-  transition: transform .32s cubic-bezier(.5,0,.75,0), opacity .32s ease;
-  transform: scale(0) rotate(30deg); opacity: 0;
+  transition: transform .56s cubic-bezier(.45,0,.7,.2), opacity .56s ease;
+  transform: scale(0) rotate(28deg);
+  opacity: 0;
 }
 
 /* ============================================================

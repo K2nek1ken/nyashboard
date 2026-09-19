@@ -19,8 +19,13 @@ const WHEEL = [
 ];
 const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 
-const SPIN_MS = 2600;      // столько крутится
-const SHRINK_MS = 320;     // столько исчезает
+// Сколько что длится. Вращение намеренно небыстрое: рулетка должна
+// ощущаться как рулетка, а не как мигнувшая картинка. Замедление
+// к концу делает «остановку» заметной — на ней и держится ожидание.
+const APPEAR_MS = 420;     // колесо проявляется и раскручивается
+const SPIN_MS = 3200;      // крутится
+const HOLD_MS = 700;       // стоит на выпавшем числе — чтобы успеть увидеть
+const SHRINK_MS = 560;     // уходит
 
 // Крутит колесо на месте сообщения: текст пока скрыт, вместо него колесо.
 // Так его видят все в чате, а не только тот, кто играл.
@@ -39,25 +44,33 @@ export function spinInPlace(container, msgId, number) {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const text = row.innerHTML;
-    row.innerHTML = `<div class="wheel-inline">${wheelSvg()}</div>`;
+    row.innerHTML = `<div class="wheel-inline appearing">${wheelSvg()}</div>`;
 
+    const box = row.querySelector(".wheel-inline");
     const wheel = row.querySelector(".roulette-svg");
     const ball = row.querySelector("[data-ball]");
     const index = Math.max(0, WHEEL.indexOf(number));
     const step = 360 / WHEEL.length;
 
+    // Появление и раскрутка идут одновременно: колесо будто уже крутилось,
+    // когда его показали. Если сначала показать неподвижное, а потом
+    // тронуть — виден рывок.
     requestAnimationFrame(() => {
-      wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.17,.67,.2,1)`;
-      wheel.style.transform = `rotate(${360 * 5 + (360 - index * step)}deg)`;
-      ball.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.2,.6,.25,1)`;
-      ball.style.transform = `rotate(${-360 * 7}deg)`;
+      box.classList.remove("appearing");
+
+      wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.12,.72,.15,1)`;
+      wheel.style.transform = `rotate(${360 * 8 + (360 - index * step)}deg)`;
+
+      // Шарик крутится в другую сторону и останавливается чуть раньше
+      // колеса — как будто докатывается по нему.
+      ball.style.transition = `transform ${SPIN_MS - 300}ms cubic-bezier(.1,.7,.2,1)`;
+      ball.style.transform = `rotate(${-360 * 11}deg)`;
     });
 
     setTimeout(() => {
-      const box = row.querySelector(".wheel-inline");
-      if (box) box.classList.add("done");
+      box.classList.add("done");
       setTimeout(() => { row.innerHTML = text; }, SHRINK_MS);
-    }, SPIN_MS + 350);
+    }, SPIN_MS + HOLD_MS);
   };
 
   attach();
@@ -83,22 +96,22 @@ export function spinWheel(number) {
     const step = 360 / WHEEL.length;
     // Несколько полных оборотов сверху — чтобы вращение читалось как вращение,
     // а не как поворот на четверть.
-    const target = 360 * 5 + (360 - index * step);
+    const target = 360 * 8 + (360 - index * step);
 
     requestAnimationFrame(() => {
-      wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.17,.67,.2,1)`;
+      wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.12,.72,.15,1)`;
       wheel.style.transform = `rotate(${target}deg)`;
 
       // Шарик крутится в другую сторону: так видно, что он катится по колесу,
       // а не приклеен к нему.
-      ball.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.2,.6,.25,1)`;
-      ball.style.transform = `rotate(${-360 * 7}deg)`;
+      ball.style.transition = `transform ${SPIN_MS - 300}ms cubic-bezier(.1,.7,.2,1)`;
+      ball.style.transform = `rotate(${-360 * 11}deg)`;
     });
 
     setTimeout(() => {
       box.classList.add("done");     // сжимается в точку
       setTimeout(() => { box.remove(); resolve(); }, SHRINK_MS);
-    }, SPIN_MS + 350);               // короткая пауза на «вот оно»
+    }, SPIN_MS + HOLD_MS);           // пауза на «вот оно»
   });
 }
 
