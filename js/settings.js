@@ -33,6 +33,7 @@ export const DEFAULTS = {
   quoteDecor: "flowers", // узор на фоне цитаты в чате
   chatIdentity: "both",  // both | anon | account — что доступно в чате
   meowReaction: "on",
+  botNameLinks: "on",        // имена в сообщениях бота — ссылками на профиль
   blockedCommands: "",       // команды бота, отключённые в этом чате
   rouletteConfetti: "on",    // конфетти при выигрыше в рулетке    // отзываться на команду «мяукнуть» звуком
   webNotify: "off",      // уведомления браузера, пока вкладка открыта

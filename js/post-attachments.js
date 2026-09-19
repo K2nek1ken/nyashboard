@@ -1,5 +1,18 @@
 import { escapeHtml } from "./ui.js";
 
+// Что уже загружали — держим в памяти. Разметка пересоздаётся при каждой
+// перерисовке списка, и отметка «загружено» на ней теряется: без этого
+// прикреплённое запрашивалось заново на каждое новое сообщение и успевало
+// мигнуть, пока грузится.
+const attachmentCache = new Map();
+
+async function remember(key, load) {
+  if (attachmentCache.has(key)) return attachmentCache.get(key);
+  const value = await load();
+  attachmentCache.set(key, value);
+  return value;
+}
+
 // ============================================================
 //  Прикреплённое к записи
 //

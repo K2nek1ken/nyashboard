@@ -2369,7 +2369,10 @@ html[data-theme="nothing"] .navBtn.has-new::after,
 html[data-theme="nothing"] .chat-nav-count { background: #ad2831; color: #fff; }
 
 /* Частицы и узоры приглушены: в этой теме фон должен быть пустым */
-html[data-theme="nothing"] #starfield { opacity: 0.35; }
+/* Частицы в этой теме рисуются красным по чёрному и почти сливаются
+   с фоном. Приглушать их ещё и прозрачностью незачем — наоборот,
+   поднимаем, иначе их просто не видно. */
+html[data-theme="nothing"] #starfield { opacity: 0.85; }
 html[data-theme="nothing"] .chat-reply-quote {
   background: #141414; border-left-color: #ad2831;
 }
@@ -2899,4 +2902,35 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 
   /* меню остаётся справа сверху */
   .post-head .kebab { order: 1; margin-left: auto; }
+}
+
+/* имя человека в сообщении бота — ссылка на его профиль */
+.bot-name { font-weight: 600; text-decoration: none; color: var(--accent-2); }
+.bot-name:hover { text-decoration: underline; }
+
+/* ---------- колесо рулетки ---------- */
+.roulette-overlay {
+  position: fixed; inset: 0; z-index: 150;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 6, 12, 0.72);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  animation: overlayIn .2s ease;
+  pointer-events: none;
+}
+.roulette-wheel {
+  width: min(70vw, 280px); aspect-ratio: 1;
+  transform-origin: center;
+  filter: drop-shadow(0 12px 40px rgba(0,0,0,.6));
+}
+.roulette-svg { width: 100%; height: 100%; display: block; }
+
+/* исчезает, сжимаясь в точку — а не пропадает рывком */
+.roulette-overlay.done { animation: overlayOut .32s ease forwards; }
+.roulette-overlay.done .roulette-wheel {
+  transition: transform .32s cubic-bezier(.5,0,.75,0), opacity .32s ease;
+  transform: scale(0) rotate(30deg); opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roulette-overlay { display: none; }
 }

@@ -190,18 +190,24 @@ export async function runAsyncCommand(kind, { rest, author, target, targetUid })
       case "casino": {
         const r = await casino.spinRoulette(rest);
         const sign = r.delta >= 0 ? "+" : "";
+        const put = past("поставил", "поставила");
 
-        // Пишем как рассказывают: кто поставил, что выпало, чем кончилось.
-        // Раньше был сухой перечень без имени — в общем чате непонятно,
-        // чей это результат.
-        const bets = r.lines.length === 1
-          ? r.lines[0]
-          : r.lines.join(", ");
+        // Разлиновка: сначала что поставили и чем кончилось, отдельной
+        // строкой — что выпало и как изменился счёт. Так читается сразу,
+        // без выискивания чисел в сплошном тексте.
+        const bets = r.lines.map(b =>
+          `${b.amount}¢ на ${b.kind} (x${b.payout}) — ${b.hit ? `выигрыш +${b.gain}¢` : "мимо"}`
+        );
 
-        return { text: [
-          `${author} ${past("поставил", "поставила")} ${bets}. Выпало ${r.number} (${r.color})`,
-          `${sign}${r.delta}¢, остаток: ${r.balance}¢`
-        ].join("\n") };
+        return {
+          // Число отдаём наверх: колесо должно остановиться ровно на нём,
+          // а не выбирать своё — иначе картинка и результат разойдутся.
+          wheel: r.number,
+          text: [
+            `${author} ${put} ${bets.join("; ")}`,
+            `выпало: ${r.number} (${r.color}). ${sign}${r.delta}¢, остаток: ${r.balance}¢`
+          ].join("\n")
+        };
       }
     }
   } catch (e) {

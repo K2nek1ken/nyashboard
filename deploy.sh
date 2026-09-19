@@ -148,6 +148,37 @@ fi
 
 git commit -m "$MSG"
 
+# ---------- правила базы ----------
+# Раньше это было отдельным действием, и порядок получался неудобный:
+# выложить, применить правила, выложить ещё раз — чтобы сборка на GitHub
+# увидела свежие файлы. Теперь всё за один заход.
+if [ -f "$REPO_DIR/firestore.rules" ] && command -v firebase >/dev/null 2>&1; then
+  # Скобки считаем до отправки: сломанные правила Firebase отвергнет,
+  # но лучше узнать об этом здесь, чем на середине выкладки.
+  open_count=$(tr -cd '{' < "$REPO_DIR/firestore.rules" | wc -c)
+  close_count=$(tr -cd '}' < "$REPO_DIR/firestore.rules" | wc -c)
+
+  if [ "$open_count" != "$close_count" ]; then
+    echo "⚠ В правилах не сходятся скобки ($open_count и $close_count) — пропускаю их."
+    echo "  Файлы всё равно выложу, правила применишь отдельно."
+  else
+    RULES_PROJECT="${FIREBASE_PROJECT:-}"
+    [ -z "$RULES_PROJECT" ] && [ -f "$REPO_DIR/js/config.js" ] &&       RULES_PROJECT=$(grep -o 'projectId:[[:space:]]*"[^"]*"' "$REPO_DIR/js/config.js" | head -1 | cut -d'"' -f2)
+
+    if [ -n "$RULES_PROJECT" ]; then
+      echo "→ Применяю правила базы («$RULES_PROJECT»)..."
+      if firebase deploy --only firestore:rules --project "$RULES_PROJECT"; then
+        echo "→ Правила применены"
+      else
+        # Не прерываемся: файлы выложить всё равно нужно, а правила
+        # можно применить следом отдельной командой.
+        echo "⚠ Правила не применились. Файлы выложу, правила — отдельно:"
+        echo "    bash \"$REPO_DIR/deploy-rules.sh\""
+      fi
+    fi
+  fi
+fi
+
 echo "→ Пушу..."
 if ! git push; then
   die "push не прошёл.
@@ -168,10 +199,3 @@ if command -v firebase >/dev/null 2>&1; then
   fi
 fi
 
-# Правила базы отправляются отдельно: git их только хранит, применяет Firebase.
-# Напоминаем, если они изменились в этой выкладке.
-if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "firestore.rules"; then
-  echo
-  echo "⚠ Правила базы изменились. Их нужно применить отдельно:"
-  echo "    bash "$REPO_DIR/deploy-rules.sh""
-fi

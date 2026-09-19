@@ -20,11 +20,11 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="icon" href="assets/favicon.svg?v=202609182128" type="image/svg+xml" sizes="any">
-  <link rel="apple-touch-icon" href="assets/favicon.svg?v=202609182128">
+  <link rel="icon" href="assets/favicon.svg?v=202609191203" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="assets/favicon.svg?v=202609191203">
   <link rel="manifest" href="site.webmanifest">
   <meta name="theme-color" content="#17131c">
-  <link rel="stylesheet" href="style.css?v=202609182128">
+  <link rel="stylesheet" href="style.css?v=202609191203">
 </head>
 <body class="chat-page-body">
 
@@ -38,6 +38,11 @@
 
 <div class="chat-floating-bar">
   <div class="chat-floating-inner">
+    <!-- Своя строка, всегда видимая: строка с ником скрывается, когда
+         человек пишет только от аккаунта, и кнопка пропадала вместе с ней. -->
+    <div class="chat-tools-row">
+      <button id="botHelpBtn" type="button" class="chat-hint-btn">команды</button>
+    </div>
     <div class="chat-nick-row">
       <span>ник: <b id="chatNickLabel">гость</b></span>
       <span id="changeChatNickBtn" class="nf" title="сменить ник">&#xf040;</span>
@@ -91,6 +96,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/chat-page.js?v=202609182128"></script>
+<script type="module" src="js/chat-page.js?v=202609191203"></script>
 </body>
 </html>

@@ -22,6 +22,10 @@ import { getSettings } from "./settings.js";
 const STATE_KEY = "nyash_notify_state";
 const DIGEST_PERIOD = 60 * 60 * 1000;      // сводка раз в час
 
+// Насколько свежим должно быть событие, чтобы о нём стоило сообщать.
+// Всё, что старше, человек почти наверняка уже видел.
+const FRESH_WINDOW = 30 * 60 * 1000;
+
 function readState() {
   try { return JSON.parse(localStorage.getItem(STATE_KEY)) || {}; }
   catch { return {}; }
@@ -96,8 +100,14 @@ export async function checkPersonalEvents() {
       ));
       const fresh = replies.docs.filter(d => {
         const r = d.data();
+        const at = r.createdAt?.toMillis?.() || 0;
         return r.authorUid !== currentUser.uid
-          && (r.createdAt?.toMillis?.() || 0) > (seen.repliesAt || Date.now());
+          && at > (seen.repliesAt || Date.now())
+          // И не старше получаса: о том, что случилось давно, сообщать
+          // поздно — человек это уже прочитал и, может быть, ответил.
+          // Раньше такое всплывало при первом заходе после перерыва
+          // и выглядело как уведомление из прошлого.
+          && at > Date.now() - FRESH_WINDOW;
       });
 
       if (fresh.length && seen.repliesAt !== undefined) {
@@ -120,7 +130,8 @@ export async function checkPersonalEvents() {
         const r = d.data();
         return r.authorUid !== currentUser.uid
           && tag.test(r.text || "")
-          && (r.createdAt?.toMillis?.() || 0) > seen.mentionsAt;
+          && (r.createdAt?.toMillis?.() || 0) > seen.mentionsAt
+          && (r.createdAt?.toMillis?.() || 0) > Date.now() - FRESH_WINDOW;
       });
       if (mentions.length) {
         bump("mentions", mentions.length, (n) =>
@@ -154,7 +165,8 @@ export async function checkPersonalEvents() {
       return Math.max(max, data.lastAt?.toMillis?.() || 0);
     }, 0);
 
-    if (seen.dmAt !== undefined && lastIncoming > seen.dmAt) {
+    if (seen.dmAt !== undefined && lastIncoming > seen.dmAt
+        && lastIncoming > Date.now() - FRESH_WINDOW) {
       bump("dm", 1, (n) =>
         n === 1 ? "Новое сообщение в личке" : `Новые сообщения в личке (${n})`);
     }

@@ -80,7 +80,7 @@ async function loadOlderMessages() {
   const snap = await getDocs(q);
   if (snap.empty) { oldestDoc = null; return []; }   // дошли до начала переписки
   oldestDoc = snap.docs[snap.docs.length - 1];
-  return snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
+  return sortByTime(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }
 let replyingTo = null;   // { id, nickname, text }
 let lastMessages = [];
@@ -108,7 +108,7 @@ export function subscribeChat() {
   // при прокрутке вверх.
   const q = query(collection(db, "chatMessages"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
   chatUnsub = onSnapshot(q, (snap) => {
-    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
+    const fresh = sortByTime(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     oldestDoc = snap.docs[snap.docs.length - 1] || oldestDoc;
     // склеиваем с ранее подгруженной историей, без повторов
     const seenIds = new Set(fresh.map(m => m.id));
@@ -374,9 +374,14 @@ async function renderChatTracks(container, msgs) {
       const ids = [...new Set((m.text.match(/#U3\d{6}/gi) || []))].map(t => t.slice(1).toUpperCase());
       const tracks = [];
       for (const nuid of ids.slice(0, 2)) {
-        const hit = await resolveNuid(nuid);
-        if (hit?.type !== "track") continue;
-        const track = await getTrack(hit.uid);
+        // Берём из памяти, если уже загружали: иначе каждое новое сообщение
+        // в чате перезапрашивало все прикреплённые треки заново.
+        let track = chatAttachCache.get(nuid);
+        if (track === undefined) {
+          const hit = await resolveNuid(nuid);
+          track = hit?.type === "track" ? await getTrack(hit.uid) : null;
+          chatAttachCache.set(nuid, track);
+        }
         if (track) tracks.push(track);
       }
       if (!tracks.length) continue;
@@ -414,6 +419,11 @@ function keepInputClearance() {
 }
 
 // Работы из «Творчества», упомянутые номером — картинкой под сообщением.
+// Загруженные работы и треки держим в памяти: разметка чата пересоздаётся
+// при каждом новом сообщении, и без этого всё прикреплённое перезапрашивалось
+// заново — успевало мигнуть и «станцевать».
+const chatAttachCache = new Map();
+
 async function renderChatArtworks(container, msgs) {
   const withArt = msgs.filter(m => /#U5\d{6}/i.test(m.text || ""));
   if (!withArt.length) return;
@@ -432,9 +442,12 @@ async function renderChatArtworks(container, msgs) {
         .map(t => t.slice(1).toUpperCase()).slice(0, 2);
       const works = [];
       for (const nuid of ids) {
-        const hit = await resolveNuid(nuid);
-        if (hit?.type !== "art") continue;
-        const art = await getArtwork(hit.uid);
+        let art = chatAttachCache.get(nuid);
+        if (art === undefined) {
+          const hit = await resolveNuid(nuid);
+          art = hit?.type === "art" ? await getArtwork(hit.uid) : null;
+          chatAttachCache.set(nuid, art);
+        }
         if (art) works.push(art);
       }
       if (!works.length) continue;
@@ -492,7 +505,10 @@ function applyMute() {
 // Добавление и удаление своих команд. Возвращает сообщение для человека,
 // если это была такая строка, и ничего — если обычное сообщение.
 async function handleCustomCommand(text) {
-  if (!/^[+-]\s*бот\b/i.test(text.trim())) return null;
+  // Граница слова здесь не годится: она считает границей только латиницу
+  // и цифры, а после кириллической «т» её нет — условие не срабатывало
+  // никогда, и «+бот …» уходило в чат обычным текстом.
+  if (!/^[+-]\s*бот(?=\s|$)/i.test(text.trim())) return null;
 
   const cc = await import("./custom-commands.js");
   const { setCustomRules } = await import("./bot.js");
@@ -515,6 +531,21 @@ async function handleCustomCommand(text) {
   } catch (e) {
     return e.message;
   }
+}
+
+// Порядок сообщений по времени отправки.
+//
+// Время проставляет сервер, и пока подтверждение не пришло, у свежего
+// сообщения его просто нет. Такие сообщения оказывались не на своём месте,
+// а после подтверждения прыгали — особенно заметно на ответах бота, которые
+// уходят сразу следом за командой и теряли с ней связь.
+//
+// Поэтому у неподтверждённых берём текущее время: они и есть самые новые.
+function sortByTime(list) {
+  const now = Date.now();
+  return list
+    .map(m => ({ ...m, _at: m.createdAt?.toMillis?.() ?? now }))
+    .sort((a, b) => a._at - b._at);
 }
 
 function playMeow() {
@@ -653,7 +684,9 @@ function renderChat(msgs, { keepScroll = false } = {}) {
       ${quoteHtml(m)}
       ${m.text ? `<div class="txt ${/мяукнул/i.test(m.text) ? "meow-again" : ""}"
                        ${/мяукнул/i.test(m.text) ? 'title="нажми, чтобы услышать"' : ""}
-                  >${linkifyMentions(escapeHtml(m.text))}</div>` : ""}
+                  >${m.isBot
+                      ? decorateBotNames(m.text, msgs)
+                      : linkifyMentions(escapeHtml(m.text))}</div>` : ""}
       ${imagesToHtml(chatImages(m))}
     </div>`;
   }).join("");
@@ -987,6 +1020,13 @@ export function initChatForm() {
           target: replySnapshot?.nickname || null,
           targetUid: replySnapshot?.authorUid || null
         });
+
+        // Колесо крутится до объявления результата: число уже известно,
+        // но показать его сразу — значит убрать из игры саму игру.
+        if (parsed?.wheel !== undefined) {
+          const { spinWheel } = await import("./roulette-wheel.js");
+          await spinWheel(parsed.wheel);
+        }
 
         // Выбывшему из русской рулетки — минута молчания, и конфетти тому,
         // кому повезло (если не выключено в настройках).

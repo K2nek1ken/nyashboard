@@ -139,6 +139,8 @@ export function initSettingsPage() {
           select("chatIdentity", CHAT_IDENTITY, s.chatIdentity))}
         ${row("Отзываться на «мяукнуть»", "звук и подсказка, когда кто-то мяукает",
           toggle("meowReaction", s.meowReaction === "on"))}
+        ${row("Имена в сообщениях бота", "показывать цветом и ссылкой на профиль",
+          toggle("botNameLinks", s.botNameLinks !== "off"))}
         ${row("Отключённые команды бота",
           "через запятую — какие команды не работают в чате",
           `<input class="inlineEdit" id="blockedCommandsInput" style="max-width:180px;"
@@ -257,7 +259,7 @@ export function initSettingsPage() {
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
                          showAbout: ["on", "off"], recommendations: ["on", "off"],
                          meowReaction: ["on", "off"], hourlyDigest: ["on", "off"],
-                         rouletteConfetti: ["on", "off"] };
+                         rouletteConfetti: ["on", "off"], botNameLinks: ["on", "off"] };
 
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);

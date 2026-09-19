@@ -103,9 +103,29 @@ export function parseBets(text) {
     if (!allIn && (!Number.isInteger(amount) || amount <= 0)) continue;
     if (!target) continue;
 
-    // ставка на конкретное число
+    // Диапазон: «10-20». Выплата тем больше, чем уже диапазон —
+    // как и на настоящем колесе, где ставка на один номер даёт больше всего.
+    const range = /^(\d{1,2})[-–—](\d{1,2})$/.exec(target);
+    if (range) {
+      const from = Math.min(+range[1], +range[2]);
+      const to = Math.max(+range[1], +range[2]);
+      if (from >= 0 && to <= 36) {
+        const count = to - from + 1;
+        bets.push({
+          amount,
+          kind: `${from}–${to}`,
+          match: (n) => n >= from && n <= to,
+          // 36 делим на число попаданий: ставка на половину колеса даёт
+          // около двойного, на один номер — тридцатишестикратный.
+          payout: Math.max(2, Math.floor(36 / count))
+        });
+        continue;
+      }
+    }
+
+    // ставка на конкретное число, включая зеро
     const asNumber = parseInt(target, 10);
-    if (!isNaN(asNumber) && asNumber >= 0 && asNumber <= 36 && target !== "0") {
+    if (!isNaN(asNumber) && String(asNumber) === target && asNumber >= 0 && asNumber <= 36) {
       bets.push({ amount, kind: "число " + asNumber, match: (n) => n === asNumber, payout: 36 });
       continue;
     }
@@ -149,8 +169,7 @@ export async function spinRoulette(text) {
     const hit = b.match(number);
     const gain = hit ? b.amount * b.payout : 0;
     won += gain;
-    // «10¢ на нечётное — мимо» / «10¢ на красное — +20¢»
-    lines.push(`${b.amount}¢ на ${b.kind}${hit ? ` — +${gain}¢` : " — мимо"}`);
+    lines.push({ amount: b.amount, kind: b.kind, payout: b.payout, hit, gain });
   }
 
   const delta = won - total;
