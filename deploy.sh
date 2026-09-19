@@ -152,7 +152,19 @@ git commit -m "$MSG"
 # Раньше это было отдельным действием, и порядок получался неудобный:
 # выложить, применить правила, выложить ещё раз — чтобы сборка на GitHub
 # увидела свежие файлы. Теперь всё за один заход.
-if [ -f "$REPO_DIR/firestore.rules" ] && command -v firebase >/dev/null 2>&1; then
+# Применяем, только если правила действительно изменились: иначе каждая
+# выкладка тратила бы время на отправку того же самого.
+#
+# Сравниваем с предыдущим коммитом, а не с рабочей копией: коммит уже
+# сделан выше, и сравнение с ним всегда показывало бы «не менялось».
+RULES_CHANGED=1
+if git -C "$REPO_DIR" rev-parse HEAD~1 >/dev/null 2>&1; then
+  if git -C "$REPO_DIR" diff --quiet HEAD~1 HEAD -- firestore.rules 2>/dev/null; then
+    RULES_CHANGED=0
+  fi
+fi
+
+if [ "$RULES_CHANGED" = "1" ] && [ -f "$REPO_DIR/firestore.rules" ] && command -v firebase >/dev/null 2>&1; then
   # Скобки считаем до отправки: сломанные правила Firebase отвергнет,
   # но лучше узнать об этом здесь, чем на середине выкладки.
   open_count=$(tr -cd '{' < "$REPO_DIR/firestore.rules" | wc -c)
@@ -179,6 +191,10 @@ if [ -f "$REPO_DIR/firestore.rules" ] && command -v firebase >/dev/null 2>&1; th
   fi
 fi
 
+if [ "$RULES_CHANGED" = "0" ]; then
+  echo "→ Правила не менялись — применять нечего"
+fi
+
 echo "→ Пушу..."
 if ! git push; then
   die "push не прошёл.
@@ -190,12 +206,4 @@ fi
 
 echo "✓ Готово: $MSG"
 echo "  GitHub Pages обновится примерно через минуту."
-
-# ---------- правила Firestore, если менялись ----------
-if command -v firebase >/dev/null 2>&1; then
-  if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q 'firestore.rules'; then
-    echo "→ firestore.rules изменились, деплою..."
-    firebase deploy --only firestore:rules || echo "  (не вышло — задеплой вручную)"
-  fi
-fi
 

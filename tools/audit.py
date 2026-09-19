@@ -343,6 +343,32 @@ def check_missing_calls():
             add("Вызов несуществующей функции", f"{f}:{line} — {name}()")
 
 
+# ---------- 10. повторяющиеся действия в скриптах ----------
+def check_script_dupes():
+    """
+    В скриптах публикации легко оставить два блока, делающих одно и то же:
+    один дописали сверху, второй остался снизу. На глаз это незаметно,
+    а выполняется дважды.
+    """
+    import glob
+    for path in sorted(glob.glob(os.path.join(ROOT, "*.sh"))):
+        name = os.path.basename(path)
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.readlines()
+
+        # команды, которые не должны встречаться дважды
+        # Только то, что осмысленно делать один раз за запуск. Распаковку
+        # и чтение из архива сюда не берём: их бывает несколько, и это
+        # нормально — заглянуть в архив, потом распаковать.
+        watched = ["firebase deploy", "git push", "git commit -m"]
+        for cmd in watched:
+            hits = [i + 1 for i, l in enumerate(lines)
+                    if cmd in l and not l.strip().startswith("#")]
+            if len(hits) > 1:
+                add("Повтор действия в скрипте",
+                    f"{name}: «{cmd}» на строках {', '.join(map(str, hits))}")
+
+
 # ---------- вывод ----------
 def main():
     check_imports()
@@ -354,6 +380,7 @@ def main():
     check_promises()
     check_orphans()
     check_missing_calls()
+    check_script_dupes()
 
     if not problems:
         print("Замечаний нет.")
