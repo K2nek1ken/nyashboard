@@ -27,6 +27,43 @@ const SPIN_MS = 3200;      // крутится
 const HOLD_MS = 700;       // стоит на выпавшем числе — чтобы успеть увидеть
 const SHRINK_MS = 560;     // уходит
 
+// Ставит колесо в подготовленное место и раскручивает его.
+//
+// Место создаёт сам чат при отрисовке, а не эта функция: разметка там
+// пересоздаётся при каждом обновлении, и колесо, вставленное со стороны,
+// стиралось первым же новым сообщением — успевало мелькнуть и пропасть.
+export function mountWheel(slot, number) {
+  if (!slot || slot.dataset.mounted) return;
+  slot.dataset.mounted = "1";
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    slot.remove();
+    return;
+  }
+
+  slot.innerHTML = wheelSvg();
+  slot.classList.add("appearing");
+
+  const wheel = slot.querySelector(".roulette-svg");
+  const ball = slot.querySelector("[data-ball]");
+  const index = Math.max(0, WHEEL.indexOf(number));
+  const step = 360 / WHEEL.length;
+
+  // Сколько осталось крутиться: сообщение могло прийти с задержкой,
+  // и досматривать полное вращение с опозданием было бы странно.
+  requestAnimationFrame(() => {
+    slot.classList.remove("appearing");
+
+    wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.12,.72,.15,1)`;
+    wheel.style.transform = `rotate(${360 * 8 + (360 - index * step)}deg)`;
+
+    ball.style.transition = `transform ${SPIN_MS - 300}ms cubic-bezier(.1,.7,.2,1)`;
+    ball.style.transform = `rotate(${-360 * 11}deg)`;
+  });
+
+  setTimeout(() => slot.classList.add("done"), SPIN_MS + HOLD_MS);
+}
+
 // Крутит колесо на месте сообщения: текст пока скрыт, вместо него колесо.
 // Так его видят все в чате, а не только тот, кто играл.
 export function spinInPlace(container, msgId, number) {

@@ -2954,6 +2954,9 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
    исчезновение сбивали ощущение, что колесо и правда крутилось. */
 .wheel-inline {
   width: 150px; aspect-ratio: 1; margin: 2px 0;
+  /* Место занимает сразу, ещё до того как в него встало колесо:
+     иначе сообщение прыгало бы при появлении. */
+  display: block;
   transform-origin: center;
   transition: transform .42s cubic-bezier(.2,.8,.3,1), opacity .42s ease;
   transform: scale(1); opacity: 1;

@@ -605,6 +605,19 @@ function decorateBotNames(text, msgs) {
   return out;
 }
 
+// Крутится ли колесо у этого сообщения прямо сейчас.
+//
+// Решается по времени самого сообщения, а не по памяти вкладки: тогда
+// колесо видят все, кто открыл чат в эти секунды, и оно не исчезает
+// при перерисовке списка.
+const SPIN_TOTAL = 4500;   // столько длится показ колеса целиком
+
+function spinningNow(m) {
+  if (m.spinNumber === null || m.spinNumber === undefined) return false;
+  const at = m.createdAt?.toMillis?.() || Date.now();
+  return Date.now() - at < SPIN_TOTAL;
+}
+
 function playMeow() {
   showToast("мяу!");
   try {
@@ -752,9 +765,11 @@ function renderChat(msgs, { keepScroll = false } = {}) {
       ${quoteHtml(m)}
       ${m.text ? `<div class="txt ${/мяукнул/i.test(m.text) ? "meow-again" : ""}"
                        ${/мяукнул/i.test(m.text) ? 'title="нажми, чтобы услышать"' : ""}
-                  >${m.isBot
-                      ? decorateBotNames(m.text, msgs)
-                      : linkifyMentions(escapeHtml(m.text))}</div>` : ""}
+                  >${spinningNow(m)
+                      ? `<div class="wheel-inline" data-spin="${m.spinNumber}"></div>`
+                      : m.isBot
+                        ? decorateBotNames(m.text, msgs)
+                        : linkifyMentions(escapeHtml(m.text))}</div>` : ""}
       ${imagesToHtml(chatImages(m))}
     </div>`;
   }).join("");
@@ -763,6 +778,17 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   if (wasAtBottom) window.scrollTo({ top: document.body.scrollHeight });
 
   wireMentions(messagesEl);
+
+  // Раскручиваем колёса, которые только что попали на экран, и заводим
+  // перерисовку на момент остановки — чтобы на их месте появился текст.
+  const wheels = messagesEl.querySelectorAll("[data-spin]:empty");
+  if (wheels.length) {
+    import("./roulette-wheel.js").then(({ mountWheel }) => {
+      wheels.forEach(el => mountWheel(el, Number(el.dataset.spin)));
+    }).catch(() => {});
+
+    setTimeout(() => renderChat(lastMessages, { keepScroll: true }), SPIN_TOTAL);
+  }
   wireCarousels(messagesEl);
   wireImageZoom(messagesEl);
   // «мяу» можно услышать в любой момент, а не только когда мяукнули при тебе
@@ -1095,8 +1121,12 @@ export function initChatForm() {
         // Крутится на месте будущего сообщения, а не поверх экрана: так его
         // видят все, кто в чате, а не только тот, кто играл. И не мешает
         // читать остальное.
+        // Число кладём в само сообщение. Тогда колесо показывает каждый,
+        // кто видит его свежим, — и оно переживает перерисовку списка:
+        // раньше колесо жило в разметке и стиралось первым же обновлением
+        // чата, успевая мелькнуть на долю секунды.
         if (parsed?.wheel !== undefined) {
-          parsed.spinAfter = parsed.wheel;
+          parsed.spinNumber = parsed.wheel;
           delete parsed.wheel;
         }
 
@@ -1146,6 +1176,10 @@ export function initChatForm() {
         // Раньше право держалось только на отметке в браузере, а она к
         // аккаунту не привязана: вышел и зашёл — и своё же не удалить.
         invokedByUid: parsed ? (currentUser?.uid || null) : null,
+        // Выпавшее число: по нему чат показывает колесо, пока сообщение
+        // свежее. Хранится в сообщении, а не в памяти вкладки, — иначе
+        // его видел бы только тот, кто играл.
+        spinNumber: parsed?.spinNumber ?? null,
         text: parsed ? parsed.text : text,
         imageUrls,
         createdAt: serverTimestamp()
@@ -1160,14 +1194,6 @@ export function initChatForm() {
       const ref = await addDoc(collection(db, "chatMessages"), payload);
       await setDoc(doc(db, "chatMessageSecrets", ref.id), { ownerUid: auth.currentUser.uid });
       markOwned("chatMessage", ref.id);
-
-      // Колесо на месте только что отправленного сообщения: пока крутится,
-      // текст скрыт — как будто бот думает. Видят все, кто в чате.
-      if (parsed?.spinAfter !== undefined) {
-        import("./roulette-wheel.js")
-          .then(({ spinInPlace }) => spinInPlace(messagesEl, ref.id, parsed.spinAfter))
-          .catch(e => console.warn("Колесо не показалось:", e.message));
-      }
 
       // Идентификатор сообщения: по нему можно дать ссылку или упомянуть
       // сообщение в другом месте. Записывается отдельно, потому что нужен
