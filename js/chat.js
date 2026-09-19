@@ -694,9 +694,20 @@ function applyMessages(host, html, msgs) {
     const old = have.get(id);
 
     if (!old) {
-      // новое сообщение — вставляем на своё место
+      // Новое сообщение. Класс появления ставим уже после вставки,
+      // отдельным кадром: если он записан прямо в разметке, браузер
+      // считает элемент «всегда таким» и анимацию не проигрывает.
+      const shouldAppear = fresh.classList.contains("just-came");
+      fresh.classList.remove("just-came");
+
       if (prev) prev.after(fresh);
       else host.prepend(fresh);
+
+      if (shouldAppear) {
+        requestAnimationFrame(() => fresh.classList.add("just-came"));
+        setTimeout(() => fresh.classList.remove("just-came"), 400);
+      }
+
       prev = fresh;
       continue;
     }
@@ -1052,10 +1063,14 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   renderChatArtworks(messagesEl, msgs);
 
   messagesEl.querySelectorAll(".meow-again").forEach(el => {
+    if (el.dataset.wired) return;
+    el.dataset.wired = "1";
     el.addEventListener("click", () => playMeow());
   });
 
   messagesEl.querySelectorAll("[data-channel]").forEach(el => {
+    if (el.dataset.wired) return;
+    el.dataset.wired = "1";
     el.addEventListener("click", async (e) => {
       e.stopPropagation();
       const { openChannelPreview } = await import("./person-preview.js");
@@ -1089,6 +1104,13 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   messagesEl.querySelectorAll(".chat-msg").forEach(row => {
     const msgId = row.dataset.id;
     const msg = msgs.find(m => m.id === msgId);
+
+    // Сообщения теперь не пересоздаются при обновлении — значит и вешать
+    // обработчики на них нужно один раз. Иначе их набиралось по нескольку,
+    // и меню открывалось и тут же закрывалось само.
+    if (row.dataset.wired) return;
+    row.dataset.wired = "1";
+
     wireKebab(row, {
       replyMsg: () => startReply(msg),
       copyLink: () => {

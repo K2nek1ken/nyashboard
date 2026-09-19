@@ -190,7 +190,15 @@ export async function runAsyncCommand(kind, { rest, author, target, targetUid, a
         const list = await casino.spinHistory();
         if (!list.length) return { quiet: "Рулетку ещё никто не крутил" };
 
-        const marks = { red: "\u{1F534}", black: "\u26AB", zero: "\u{1F7E2}" };
+        // У чёрного кружка приходится просить цветной вид отдельно:
+        // в шрифте сайта есть свой чёрно-белый глиф, и он перебивает
+        // эмодзи — вместо кружка выходила мелкая точка.
+        // «\uFE0F» — как раз такая просьба.
+        const marks = {
+          red:   "\u{1F534}",
+          black: "\u26AB\uFE0F",
+          zero:  "\u{1F7E2}"
+        };
         const rows = list.map(n => `${n}${marks[casino.colorOf(n)]}`).join("\n");
 
         // История общая, поэтому уходит сообщением: её интересно видеть всем.

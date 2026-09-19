@@ -2987,11 +2987,15 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
    начинает дёргаться из стороны в сторону, и читать труднее.
    ============================================================ */
 @keyframes msgFromBelow {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(22px) scale(.985); }
   to   { opacity: 1; transform: none; }
 }
 
-.chat-msg.just-came { animation: msgFromBelow .26s cubic-bezier(.2,.8,.3,1); }
+/* Движение чуть длиннее и заметнее: на 0.26с и четырнадцати пикселях
+   его попросту не успеваешь увидеть. */
+.chat-msg.just-came {
+  animation: msgFromBelow .34s cubic-bezier(.2,.8,.3,1);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .chat-msg.just-came { animation: none; }
@@ -3075,4 +3079,12 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton-line { animation: none; }
+}
+
+/* Эмодзи в сообщениях бота рисуем шрифтом эмодзи, а не шрифтом сайта:
+   у Monaspace есть свои чёрно-белые глифы для некоторых знаков, и они
+   перебивали цветные. */
+.chat-msg.is-bot .txt {
+  font-family: "Monaspace Neon NF", "Noto Color Emoji", "Apple Color Emoji",
+               "Segoe UI Emoji", sans-serif;
 }
