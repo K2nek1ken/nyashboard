@@ -3007,6 +3007,11 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
    Колесо растворяется, сообщение плавно принимает свой размер, и только
    потом проступает текст. Если всё сразу — получается скачок: высота
    меняется рывком, а буквы возникают из ниоткуда. */
+/* Меняется и высота, и ширина: сообщение с колесом узкое и квадратное,
+   а с текстом — широкое. Без перехода по ширине пузырь дёргался вбок. */
+.chat-msg.morph-box {
+  transition: max-width .34s cubic-bezier(.2,.8,.3,1);
+}
 .chat-msg .txt.morphing {
   overflow: hidden;
   transition: height .34s cubic-bezier(.2,.8,.3,1);
@@ -3028,3 +3033,46 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 /* Текст под колесом: ждёт своей очереди, пока колесо крутится. */
 .wheel-text { display: none; }
 .wheel-text.shown { display: inline; }
+
+/* Проявление истории при открытии чата: снизу вверх, без движения —
+   переписка уже была здесь, она не «приезжает», а становится видной. */
+@keyframes historyIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.chat-msg.history-in { animation: historyIn .3s ease backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-msg.history-in { animation: none; }
+}
+
+/* ---------- заготовки на месте загружаемых сообщений ----------
+   Серые пустые пузыри, пока история едет. Показывают, что работа идёт,
+   и заранее занимают место — страница не дёргается, когда придут
+   настоящие сообщения. */
+.skeleton-group { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 10px; }
+
+.msg-skeleton {
+  background: var(--card); border-radius: var(--radius);
+  padding: 10px 12px; max-width: 68%;
+}
+.skeleton-line {
+  height: 11px; border-radius: 6px; margin: 5px 0;
+  background: linear-gradient(90deg,
+    var(--card-hover) 0%,
+    color-mix(in oklab, var(--card-hover) 55%, var(--text)) 50%,
+    var(--card-hover) 100%);
+  background-size: 200% 100%;
+  animation: skeletonSweep 1.3s ease-in-out infinite;
+  opacity: .45;
+}
+.skeleton-line.short { width: 38%; }
+
+@keyframes skeletonSweep {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line { animation: none; }
+}

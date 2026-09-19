@@ -75,9 +75,17 @@ function wireHistoryLoader() {
   window.addEventListener("scroll", async () => {
     if (loadingOlder || window.scrollY > 120 || !oldestDoc) return;
     loadingOlder = true;
+
+    // Пока история едет, показываем на её месте пустые заготовки.
+    // Так видно, что она грузится, и страница не прыгает: место под
+    // сообщения занято заранее.
+    showSkeletons(messagesEl);
+
     const heightBefore = document.body.scrollHeight;
     try {
       const older = await loadOlderMessages();
+      hideSkeletons(messagesEl);
+
       if (older.length) {
         olderMessages = [...older, ...olderMessages];
         lastMessages = [...older, ...lastMessages];
@@ -87,6 +95,7 @@ function wireHistoryLoader() {
         window.scrollTo({ top: document.body.scrollHeight - heightBefore + window.scrollY });
       }
     } catch (e) {
+      hideSkeletons(messagesEl);
       console.warn("История не догрузилась:", e.message);
     } finally {
       loadingOlder = false;
@@ -627,6 +636,171 @@ function spinningNow(m) {
   return Date.now() - at < spinTotal;
 }
 
+// Кладёт сообщения на страницу, не пересоздавая те, что уже там.
+//
+// Раньше разметка заменялась целиком при каждом обновлении. Из-за этого
+// анимация появления стартовала заново и сбрасывалась через доли секунды —
+// выглядело так, будто сообщения возникают из ниоткуда. По той же причине
+// дёргалось колесо рулетки и заново подгружалось всё прикреплённое.
+//
+// Теперь сравниваем по одному: что было — остаётся на месте, новое
+// добавляется, исчезнувшее убирается. Меняем только то, что правда
+// изменилось.
+function applyMessages(host, html, msgs) {
+  const next = document.createElement("div");
+  next.innerHTML = html;
+
+  const have = new Map(
+    [...host.children].map(el => [el.dataset.id, el])
+  );
+
+  // Запоминаем, где сейчас стоит каждое сообщение. Когда появится новое,
+  // соседи сдвинутся — и мы проиграем этот сдвиг движением, а не рывком.
+  //
+  // Приём известный: замерить до, поменять, замерить после и показать
+  // разницу. Браузер уже всё переставил, а глазу кажется, что вещи
+  // разъехались плавно.
+  const before = new Map();
+  for (const [id, el] of have) before.set(id, el.getBoundingClientRect().top);
+
+  const wanted = [...next.children];
+  const keep = new Set(wanted.map(el => el.dataset.id));
+
+  // убираем то, чего больше нет
+  for (const [id, el] of have) {
+    if (!keep.has(id)) el.remove();
+  }
+
+  let prev = null;
+  for (const fresh of wanted) {
+    const id = fresh.dataset.id;
+    const old = have.get(id);
+
+    if (!old) {
+      // новое сообщение — вставляем на своё место
+      if (prev) prev.after(fresh);
+      else host.prepend(fresh);
+      prev = fresh;
+      continue;
+    }
+
+    // Уже есть. Разметку целиком не подменяем: это стирает всё живое
+    // внутри — крутящееся колесо, открытую карусель, подгруженный трек.
+    // Вместо этого правим по частям, и только те, что правда изменились.
+    patchMessage(old, fresh);
+    prev = old;
+  }
+
+  playShift(host, before);
+}
+
+// Мягко проявляет историю при открытии чата — снизу вверх, с небольшим
+// запозданием у каждого следующего. Не «эффект ради эффекта»: без него
+// переписка возникает разом, и непонятно, загрузилась она или ещё нет.
+function revealHistory(host) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const rows = [...host.children].reverse();   // снизу вверх
+  rows.forEach((el, i) => {
+    // Задержка нарастает, но упирается в потолок: при сотне сообщений
+    // ждать последнего пришлось бы несколько секунд.
+    el.style.animationDelay = `${Math.min(i * 22, 320)}ms`;
+    el.classList.add("history-in");
+  });
+
+  setTimeout(() => {
+    rows.forEach(el => {
+      el.classList.remove("history-in");
+      el.style.animationDelay = "";
+    });
+  }, 900);
+}
+
+// Пустые заготовки на месте ещё не пришедших сообщений.
+//
+// Три штуки: достаточно, чтобы место было занято и страница не дёрнулась,
+// и не столько, чтобы это выглядело как настоящая переписка.
+function showSkeletons(host) {
+  if (host.querySelector(".msg-skeleton")) return;
+
+  const widths = [72, 54, 86];   // разной длины — иначе похоже на таблицу
+  const box = document.createElement("div");
+  box.className = "skeleton-group";
+  box.innerHTML = widths.map(w => `
+    <div class="msg-skeleton">
+      <div class="skeleton-line" style="width:${w}%"></div>
+      <div class="skeleton-line short"></div>
+    </div>`).join("");
+
+  host.prepend(box);
+}
+
+function hideSkeletons(host) {
+  host.querySelector(".skeleton-group")?.remove();
+}
+
+// Обновляет сообщение по частям.
+//
+// Меняется обычно немногое: подпись времени («только что» → «5 мин назад»),
+// отметка «изменено», иногда текст. Пересобирать ради этого всё сообщение —
+// значит терять то, что внутри уже живёт своей жизнью: проигрыватель,
+// открытую картинку, крутящееся колесо.
+const PARTS = [".txt", ".chat-msg-head", ".chat-reply-quote", ".chat-images"];
+
+function patchMessage(oldEl, freshEl) {
+  // Колесо крутится — не трогаем сообщение вовсе, пока не остановится.
+  if (oldEl.querySelector("[data-spin]")) return;
+
+  for (const part of PARTS) {
+    const a = oldEl.querySelector(part);
+    const b = freshEl.querySelector(part);
+
+    if (!a && b) { oldEl.appendChild(b.cloneNode(true)); continue; }
+    if (a && !b) { a.remove(); continue; }
+    if (!a || !b) continue;
+
+    if (a.innerHTML !== b.innerHTML) a.innerHTML = b.innerHTML;
+    if (a.className !== b.className) a.className = b.className;
+  }
+
+  // Класс самого сообщения: «своё», «от бота». Меняется редко, но бывает —
+  // например, когда подгрузился профиль автора.
+  const keepAppear = oldEl.classList.contains("just-came")
+                  || oldEl.classList.contains("history-in");
+  if (!keepAppear && oldEl.className !== freshEl.className) {
+    oldEl.className = freshEl.className;
+  }
+}
+
+// Доигрывает сдвиг соседей после вставки нового сообщения.
+function playShift(host, before) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  for (const el of host.children) {
+    const was = before.get(el.dataset.id);
+    if (was === undefined) continue;          // новое — у него своя анимация
+
+    const now = el.getBoundingClientRect().top;
+    const shift = was - now;
+    if (Math.abs(shift) < 2) continue;        // не сдвинулось
+
+    // Ставим элемент туда, где он был, и отпускаем: он сам доедет на место.
+    el.style.transition = "none";
+    el.style.transform = `translateY(${shift}px)`;
+
+    requestAnimationFrame(() => {
+      el.style.transition = "transform .24s cubic-bezier(.2,.8,.3,1)";
+      el.style.transform = "";
+    });
+
+    // Убираем следы, иначе они помешают следующему обновлению.
+    setTimeout(() => {
+      el.style.transition = "";
+      el.style.transform = "";
+    }, 260);
+  }
+}
+
 function playMeow() {
   showToast("мяу!");
   try {
@@ -704,8 +878,9 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
   const wasAtBottom = !keepScroll && (nearBottom || messagesEl.childElementCount === 0);
 
-  // Первая отрисовка — без появления: иначе при открытии чата вся история
-  // въезжала бы на экран разом.
+  // Первая отрисовка: история не въезжает снизу — это выглядело бы так,
+  // будто всё написали только что. Вместо этого она мягко проступает,
+  // от нижних сообщений к верхним: взгляд и так начинает снизу.
   const first = shownAt.size === 0;
   const now = Date.now();
 
@@ -713,7 +888,10 @@ function renderChat(msgs, { keepScroll = false } = {}) {
     msgs.filter(m => now - (shownAt.get(m.id) ?? now) < APPEAR_MS).map(m => m.id)
   );
   msgs.forEach(m => { if (!shownAt.has(m.id)) shownAt.set(m.id, now); });
-  messagesEl.innerHTML = msgs.map(m => {
+
+  // Собираем разметку, но в страницу кладём по-умному — см. applyMessages
+  // ниже: существующие сообщения не пересоздаются.
+  const html = msgs.map(m => {
     // Сообщения бота править нельзя даже автору команды: иначе можно
     // подделать чужую фразу, выданную ботом.
     // Своим считается и сообщение от аккаунта, отправленное с другого
@@ -797,6 +975,12 @@ function renderChat(msgs, { keepScroll = false } = {}) {
       ${imagesToHtml(chatImages(m))}
     </div>`;
   }).join("");
+
+  applyMessages(messagesEl, html, msgs);
+
+  // Проявление истории при открытии чата.
+  if (first && msgs.length) revealHistory(messagesEl);
+
   // Мотаем вниз только если человек и так был внизу. Иначе при чтении старой
   // переписки каждое чужое сообщение дёргало бы страницу вниз из-под пальцев.
   if (wasAtBottom) window.scrollTo({ top: document.body.scrollHeight });

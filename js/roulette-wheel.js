@@ -243,12 +243,21 @@ function morphToText(slot) {
   const to = box.offsetHeight;         // сколько займёт текст
   if (Math.abs(to - from) < 2) { box.classList.add("text-in"); return; }
 
+  // Ширину пузыря тоже ведём: с колесом он узкий, с текстом шире.
+  const bubble = box.closest(".chat-msg");
+  const wFrom = bubble?.offsetWidth;
+
   box.style.height = from + "px";
   box.classList.add("morphing");
+  if (bubble && wFrom) {
+    bubble.style.maxWidth = wFrom + "px";
+    bubble.classList.add("morph-box");
+  }
 
   requestAnimationFrame(() => {
     box.style.height = to + "px";
     box.classList.add("text-in");
+    if (bubble) bubble.style.maxWidth = "";   // вернётся к своему размеру плавно
   });
 
   // Высоту снимаем после перехода: оставленная жёсткой, она сломала бы
@@ -256,5 +265,6 @@ function morphToText(slot) {
   setTimeout(() => {
     box.style.height = "";
     box.classList.remove("morphing", "text-in");
+    bubble?.classList.remove("morph-box");
   }, 380);
 }
