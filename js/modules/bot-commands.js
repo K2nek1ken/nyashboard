@@ -116,6 +116,7 @@ export const COMMANDS = [
   { cmd: ["рулетка"],                          runs: "roulette" },
   { cmd: ["казик", "казино"],                  runs: "casino", rest: true },
   { cmd: ["баланс", "кошелёк", "кошелек"],     runs: "balance" },
+  { cmd: ["к.история", "история", "выпадения"], runs: "history" },
   { cmd: ["бонус"],                            runs: "bonus" },
   { cmd: ["подарить", "подари"],               runs: "gift", rest: true, needsTarget: true },
 

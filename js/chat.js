@@ -1136,8 +1136,17 @@ export function initChatForm() {
           rest: parsed.rest,
           author: speakerName,
           target: replySnapshot?.nickname || null,
-          targetUid: replySnapshot?.authorUid || null
+          targetUid: replySnapshot?.authorUid || null,
+          // Пишешь под анонимным ником — значит и баланс показывать
+          // в общем чате нельзя: по нему видно, кто ты.
+          anonymous: !(asAccount?.checked && currentUserDoc)
         });
+
+        // То, что предназначено только тебе: остаток, история.
+        if (parsed?.quiet) {
+          showToast(parsed.quiet);
+          if (!parsed.text) { input.value = ""; return; }
+        }
 
         // Колесо крутится до объявления результата: число уже известно,
         // но показать его сразу — значит убрать из игры саму игру.

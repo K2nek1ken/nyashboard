@@ -380,6 +380,17 @@ service cloud.firestore {
         && request.resource.data.balance >= 0;
     }
 
+    // Общая история выпадений рулетки. Читают все, дописывает любой
+    // вошедший — но не больше десяти чисел и только числа: подменить
+    // историю на что-то другое нельзя.
+    match /casino/history {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.data.keys().hasOnly(['spins'])
+        && request.resource.data.spins is list
+        && request.resource.data.spins.size() <= 10;
+    }
+
     // ===================== ПОСТЫ ЛЕНТЫ =====================
     // Создать может любой (даже гость) обычный пост (channelId == null, автор либо не
     // указан, либо это ты сам), либо пост ОТ ИМЕНИ КАНАЛА — тогда автор всегда null

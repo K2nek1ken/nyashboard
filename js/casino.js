@@ -174,7 +174,13 @@ export async function spinRoulette(text) {
   }
 
   const delta = won - total;
+
   await updateDoc(doc(db, "wallets", currentUser.uid), { balance: increment(delta) });
+
+  // Выпадение уходит в общую историю чата, а не в свой кошелёк: смысл её
+  // в том, чтобы видеть, что выпадало у всех. Не записалось — не страшно,
+  // игра от этого не ломается.
+  await pushToHistory(number).catch(e => console.warn("История:", e.message));
 
   return { number, color, lines, total, won, delta, balance: balance + delta };
 }
@@ -182,4 +188,37 @@ export async function spinRoulette(text) {
 // Русская рулетка: один шанс из семи. Без ставок и без денег.
 export function russianRoulette() {
   return Math.floor(Math.random() * 7) === 0 ? "dead" : "alive";
+}
+
+
+// ---------- общая история ----------
+//
+// Одна на весь чат: интересно именно то, что выпадало у всех, а не у тебя
+// одного. Лежит в одном документе — так её можно прочитать за одно
+// обращение, и место она занимает крошечное.
+
+const HISTORY_SIZE = 10;
+const HISTORY_DOC = () => doc(db, "casino", "history");
+
+async function pushToHistory(number) {
+  const snap = await getDoc(HISTORY_DOC());
+  const spins = snap.exists() ? (snap.data().spins || []) : [];
+  const next = [number, ...spins].slice(0, HISTORY_SIZE);
+
+  await setDoc(HISTORY_DOC(), { spins: next }, { merge: true });
+}
+
+export async function spinHistory() {
+  try {
+    const snap = await getDoc(HISTORY_DOC());
+    return snap.exists() ? (snap.data().spins || []) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Цвет числа — нужен, чтобы показать историю цветными кружками.
+export function colorOf(n) {
+  if (n === 0) return "zero";
+  return isRed(n) ? "red" : "black";
 }

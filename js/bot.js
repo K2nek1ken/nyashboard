@@ -161,7 +161,19 @@ export function commandNames() {
 //  Команды, которым нужна база
 // ============================================================
 
-export async function runAsyncCommand(kind, { rest, author, target, targetUid }) {
+// Показывать ли баланс в самом сообщении.
+//
+// Кошелёк привязан к аккаунту, а ник в чате может быть анонимным — и по
+// продолжающемуся остатку видно, что за разными именами один человек.
+// Поэтому под анонимом баланс уходит в подсказку, видную только тебе.
+function balanceIsPublic(anonymous) {
+  if (anonymous) return false;
+  try {
+    return JSON.parse(localStorage.getItem("nyash_settings") || "{}").publicBalance !== "off";
+  } catch { return true; }
+}
+
+export async function runAsyncCommand(kind, { rest, author, target, targetUid, anonymous }) {
   const casino = await import("./casino.js");
   const past = (m, f) => conjugate(`${m}|${f}`);
 
@@ -169,7 +181,20 @@ export async function runAsyncCommand(kind, { rest, author, target, targetUid })
     switch (kind) {
       case "balance": {
         const w = await casino.getWallet();
-        return { text: `У ${author} на счету ${w.balance}¢` };
+        return balanceIsPublic(anonymous)
+          ? { text: `У ${author} на счету ${w.balance}¢` }
+          : { quiet: `На счету ${w.balance}¢` };   // только тебе
+      }
+
+      case "history": {
+        const list = await casino.spinHistory();
+        if (!list.length) return { quiet: "Рулетку ещё никто не крутил" };
+
+        const marks = { red: "\u{1F534}", black: "\u26AB", zero: "\u{1F7E2}" };
+        const rows = list.map(n => `${n}${marks[casino.colorOf(n)]}`).join("\n");
+
+        // История общая, поэтому уходит сообщением: её интересно видеть всем.
+        return { text: ["Последние выпадения", rows].join("\n") };
       }
       case "bonus": {
         const amount = await casino.dailyBonus();
@@ -201,14 +226,20 @@ export async function runAsyncCommand(kind, { rest, author, target, targetUid })
           `${b.amount}¢ на ${b.kind} (x${b.payout}) — ${b.hit ? "вин" : "луз"}`
         );
 
+        const open = balanceIsPublic(anonymous);
+
         return {
           // Число отдаём наверх: колесо должно остановиться ровно на нём,
           // а не выбирать своё — иначе картинка и результат разойдутся.
           wheel: r.number,
           text: [
             `${author} ${put} ${bets.join("; ")}`,
-            `выпало: ${r.number} (${r.color}). ${sign}${r.delta}¢, остаток: ${r.balance}¢`
-          ].join("\n")
+            open
+              ? `выпало: ${r.number} (${r.color}). ${sign}${r.delta}¢, остаток: ${r.balance}¢`
+              : `выпало: ${r.number} (${r.color}). ${sign}${r.delta}¢`
+          ].join("\n"),
+          // Остаток — только себе, если баланс скрыт.
+          quiet: open ? null : `Остаток: ${r.balance}¢`
         };
       }
     }

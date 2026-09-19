@@ -145,6 +145,8 @@ export function initSettingsPage() {
           "через запятую — какие команды не работают в чате",
           `<input class="inlineEdit" id="blockedCommandsInput" style="max-width:180px;"
                   placeholder="например: секс, трахнуть" value="${escapeHtml(s.blockedCommands || "")}">`)}
+        ${row("Показывать остаток в чате", "иначе он будет виден только тебе",
+          toggle("publicBalance", s.publicBalance !== "off"))}
         ${row("Конфетти в рулетке", "когда повезло и выжил",
           toggle("rouletteConfetti", s.rouletteConfetti !== "off"))}
         ${row("Как подписывать собеседника", "в личных переписках",
@@ -259,7 +261,7 @@ export function initSettingsPage() {
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
                          showAbout: ["on", "off"], recommendations: ["on", "off"],
                          meowReaction: ["on", "off"], hourlyDigest: ["on", "off"],
-                         rouletteConfetti: ["on", "off"], botNameLinks: ["on", "off"] };
+                         rouletteConfetti: ["on", "off"], botNameLinks: ["on", "off"], publicBalance: ["on", "off"] };
 
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);
