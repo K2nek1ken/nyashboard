@@ -34,8 +34,30 @@ let messagesEl = null;
 let nickLabel = null;
 
 function grabElements() {
+  // Убираем задвоившуюся разметку, если она есть.
+  //
+  // При переходах между вкладками закреплённые части страницы переносятся
+  // заново, и от прошлого захода может остаться копия. Тогда getElementById
+  // отдаёт первую — а видно на экране последнюю: сообщения приходили,
+  // рисовались в невидимую копию, и чат навсегда оставался с надписью
+  // «загружаю».
+  dropDuplicates("chatMessages");
+  dropDuplicates("chatForm");
+  dropDuplicates("chatNickLabel");
+  dropDuplicates("botHelpBtn");
+
+  const bars = document.querySelectorAll(".chat-floating-bar");
+  for (let i = 0; i < bars.length - 1; i++) bars[i].remove();
+
   messagesEl = document.getElementById("chatMessages");
   nickLabel = document.getElementById("chatNickLabel");
+}
+
+// Оставляет последний элемент с таким идентификатором: он и есть настоящий,
+// перенесённый вместе с текущей страницей.
+function dropDuplicates(id) {
+  const all = document.querySelectorAll(`[id="${id}"]`);
+  for (let i = 0; i < all.length - 1; i++) all[i].remove();
 }
 let chatUnsub = null;
 let pendingChatImages = [];

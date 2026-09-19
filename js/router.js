@@ -207,7 +207,18 @@ function swapPageExtras(freshDoc) {
   const freshApp = freshDoc.getElementById("app");
   for (const el of freshDoc.body.children) {
     if (el === freshApp || isShellNode(el)) continue;
+
+    // Перед вставкой убираем всё, что уже носит такой же идентификатор:
+    // иначе на странице оказывались две одинаковые панели, и код работал
+    // с первой, а человек видел вторую.
     const copy = el.cloneNode(true);
+    for (const node of [copy, ...copy.querySelectorAll("[id]")]) {
+      if (!node.id) continue;
+      document.querySelectorAll(`[id="${node.id}"]`).forEach(old => {
+        if (!old.closest("#app")) old.remove();
+      });
+    }
+
     copy.dataset.pageExtra = "1";
     document.body.appendChild(copy);
   }
