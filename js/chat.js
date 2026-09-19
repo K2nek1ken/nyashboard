@@ -10,7 +10,7 @@ import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getUserDoc } from "./data.js";
 import { relationBadge, badgeHtml, nameHtml } from "./person.js";
 import { avatarHtml } from "./avatar.js";
-import { CHANNEL_COLOR } from "./palette.js";
+import { CHANNEL_COLOR, paletteColor } from "./palette.js";
 import { loadFriends } from "./friends.js";
 import { openPersonPreview } from "./person-preview.js";
 import { initChatNav, trackMentions } from "./chat-nav.js";
@@ -577,6 +577,32 @@ function sortByTime(list) {
   return list
     .map(m => ({ ...m, _at: m.createdAt?.toMillis?.() ?? now }))
     .sort((a, b) => a._at - b._at);
+}
+
+// Имена в тексте бота: показываем цветом владельца и, если он вошёл,
+// делаем ссылкой на профиль. Так видно, что это тот самый человек,
+// а не кто-то взявший похожий ник.
+function decorateBotNames(text, msgs) {
+  if (getSettings().botNameLinks === "off") return escapeHtml(text);
+
+  // Собираем имена, которые встречались в чате, с их владельцами. Берём
+  // только вошедших: у гостя ник не закреплён, ссылаться не на кого.
+  const known = new Map();
+  for (const m of msgs) {
+    if (m.isBot || !m.authorUid || !m.nickname) continue;
+    known.set(m.nickname, { uid: m.authorUid, color: m.authorNickColor || null });
+  }
+
+  let out = escapeHtml(text);
+  for (const [name, who] of known) {
+    const safe = escapeHtml(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const color = who.color ? ` style="color:${paletteColor(who.color)}"` : "";
+    out = out.replace(
+      new RegExp(`(^|[^\\wа-яё])(${safe})(?=[^\\wа-яё]|$)`, "gi"),
+      `$1<a class="bot-name" href="user.html?uid=${who.uid}"${color}>$2</a>`
+    );
+  }
+  return out;
 }
 
 function playMeow() {

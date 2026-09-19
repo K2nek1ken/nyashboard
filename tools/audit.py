@@ -267,6 +267,82 @@ def check_orphans():
                 add("Имя из другого файла без импорта", f"{f}: {name} (объявлено в {', '.join(sorted(owners))})")
 
 
+# ---------- 9. вызов несуществующей функции ----------
+def check_missing_calls():
+    """
+    Самое коварное: функция вызывается, но её нет — ни своей, ни импортированной.
+    Проверка синтаксиса это пропускает, импорты сходятся, а при запуске код
+    падает. Если это происходит внутри подписки на данные, ошибку никто
+    не видит: страница просто остаётся пустой.
+    """
+    builtins = {
+        "if", "for", "while", "switch", "catch", "return", "typeof", "await", "new",
+        "delete", "void", "in", "of", "else", "try", "do", "case", "function", "class",
+        "const", "let", "var", "this", "null", "true", "false", "async", "import",
+        "export", "yield", "super", "instanceof",
+        "Set", "Map", "Math", "Date", "String", "Number", "Object", "Array", "JSON",
+        "RegExp", "Promise", "Error", "Boolean", "Image", "Audio", "Blob", "File",
+        "FileReader", "FormData", "URL", "Event", "CustomEvent", "DOMParser",
+        "TextEncoder", "TextDecoder", "Response", "Request", "Headers", "AbortController",
+        "IntersectionObserver", "ResizeObserver", "MutationObserver", "DecompressionStream",
+        "HTMLCanvasElement", "Notification", "WeakMap", "WeakSet", "Proxy", "Reflect",
+        "BigInt", "Symbol", "Intl", "structuredClone", "queueMicrotask",
+        # функции окружения, доступные без объявления
+        "setTimeout", "setInterval", "clearTimeout", "clearInterval",
+        "requestAnimationFrame", "cancelAnimationFrame", "getComputedStyle",
+        "matchMedia", "fetch", "parseInt", "parseFloat", "isNaN", "isFinite",
+        "encodeURIComponent", "decodeURIComponent", "encodeURI", "decodeURI",
+        "alert", "confirm", "prompt", "atob", "btoa",
+        "Uint8Array", "Uint16Array", "Uint32Array", "Int8Array", "Int16Array",
+        "Int32Array", "Float32Array", "Float64Array", "ArrayBuffer", "DataView",
+        "URLSearchParams", "AudioContext", "MediaMetadata", "Worker",
+        "IDBKeyRange", "indexedDB", "crypto", "performance",
+    }
+
+    for f in js_files():
+        t = read(f)
+        code = re.sub(r'//[^\n]*', '', t)
+        code = re.sub(r'/\*[\s\S]*?\*/', '', code)
+        code = re.sub(r'`[^`]*`', '""', code)
+        code = re.sub(r'["\'][^"\'\n]*["\']', '""', code)
+
+        known = set()
+        for m in re.finditer(r'import\s*\{([^}]+)\}', code):
+            for part in m.group(1).split(","):
+                known.add(part.strip().split(" as ")[-1].strip())
+        for m in re.finditer(r'\{([^{}]+)\}\s*=\s*await\s+import', code):
+            for part in m.group(1).split(","):
+                known.add(part.strip())
+        for m in re.finditer(r'import\([^)]+\)\s*\.then\(\s*\(?\{([^}]+)\}', code):
+            for part in m.group(1).split(","):
+                known.add(part.strip())
+        for m in re.finditer(r'\[([^\[\]]*\{[^\[\]]*\}[^\[\]]*)\]\s*=', code):
+            for inner in re.findall(r'\{([^{}]+)\}', m.group(1)):
+                for part in inner.split(","):
+                    known.add(part.strip().split(":")[-1].strip())
+
+        for m in re.finditer(r'(?:function|class)\s+([A-Za-z_]\w*)', code):
+            known.add(m.group(1))
+        for m in re.finditer(r'(?:const|let|var)\s+([A-Za-z_]\w*)', code):
+            known.add(m.group(1))
+        # параметры и деструктуризация
+        for m in re.finditer(r'\(([^()]{0,200})\)\s*(?:=>|\{)', code):
+            for part in m.group(1).split(","):
+                known.add(part.strip().split("=")[0].strip().strip("{}[]. "))
+        for m in re.finditer(r'\b([a-z]\w*)\s*=>', code):
+            known.add(m.group(1))
+        for m in re.finditer(r'\{([^{}]{0,200})\}\s*=(?!=)', code):
+            for part in m.group(1).split(","):
+                known.add(part.strip().split(":")[-1].strip())
+
+        for m in re.finditer(r'(?<![.\w$])([a-zA-Z_]\w{2,})\s*\(', code):
+            name = m.group(1)
+            if name in known or name in builtins:
+                continue
+            line = code[:m.start()].count("\n") + 1
+            add("Вызов несуществующей функции", f"{f}:{line} — {name}()")
+
+
 # ---------- вывод ----------
 def main():
     check_imports()
@@ -277,6 +353,7 @@ def main():
     check_rules()
     check_promises()
     check_orphans()
+    check_missing_calls()
 
     if not problems:
         print("Замечаний нет.")
