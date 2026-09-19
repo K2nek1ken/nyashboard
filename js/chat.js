@@ -381,16 +381,33 @@ let badges = new Map();
 let meowSeen = new Set();   // чтобы не мяукать повторно на те же сообщения
 let chatStarted = false;
 
+// Насколько свежим должно быть мяуканье, чтобы на него отзываться.
+// Полминуты: сообщение идёт до нас секунду-другую, но всё, что старше,
+// уже точно не «прямо сейчас».
+const MEOW_WINDOW = 30 * 1000;
+
 // Кто-то написал «мяукнуть» — отзываемся звуком и подсказкой. Отключается
-// в настройках. При первом открытии чата молчим: иначе вся история за день
-// разом устроила бы кошачий концерт.
+// в настройках.
+//
+// Отзываемся только на то, что написано только что. Раньше проверялось
+// лишь «видели ли мы это сообщение», и при перезагрузке вся история
+// считалась новой — страница мяукала за вчерашние сообщения.
 function reactToMeow(msgs) {
   if (!chatStarted) { msgs.forEach(m => meowSeen.add(m.id)); chatStarted = true; return; }
   if (getSettings().meowReaction === "off") return;
 
+  const now = Date.now();
   const fresh = msgs.filter(m => !meowSeen.has(m.id));
   fresh.forEach(m => meowSeen.add(m.id));
-  const meowed = fresh.some(m => m.isBot && /мяукнул/i.test(m.text || ""));
+
+  const meowed = fresh.some(m => {
+    if (!m.isBot || !/мяукнул/i.test(m.text || "")) return false;
+
+    // Время ставит сервер; у только что отправленного его ещё нет —
+    // значит оно и есть самое свежее.
+    const at = m.createdAt?.toMillis?.();
+    return at === undefined || now - at < MEOW_WINDOW;
+  });
   if (!meowed) return;
 
   playMeow();

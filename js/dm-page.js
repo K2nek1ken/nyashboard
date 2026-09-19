@@ -32,6 +32,40 @@ let otherUser = null;
 // Время первого показа — см. пояснение в chat.js: при простой отметке
 // повторная отрисовка обрывала анимацию.
 const shownAt = new Map();
+
+// Мяуканье в личке. Устроено так же, как в общем чате: отзываемся только
+// на свежее, иначе при открытии переписки разом мяукнуло бы всё, что
+// накопилось. И только на чужое — на своё же мяуканье странно отвечать
+// самому себе, там звук играет сразу при отправке.
+const meowSeen = new Set();
+let dmStarted = false;
+const MEOW_WINDOW = 30 * 1000;
+
+function reactToMeow(msgs) {
+  if (!dmStarted) { msgs.forEach(m => meowSeen.add(m.id)); dmStarted = true; return; }
+  if (getSettings().meowReaction === "off") return;
+
+  const now = Date.now();
+  const fresh = msgs.filter(m => !meowSeen.has(m.id));
+  fresh.forEach(m => meowSeen.add(m.id));
+
+  const meowed = fresh.some(m => {
+    if (!m.isBot || !/мяукнул/i.test(m.text || "")) return false;
+    const at = m.createdAt?.toMillis?.();
+    return at === undefined || now - at < MEOW_WINDOW;
+  });
+
+  if (meowed) playMeow();
+}
+
+function playMeow() {
+  showToast("мяу!");
+  try {
+    const audio = new Audio("assets/sounds/meow.mp3");
+    audio.volume = 0.6;
+    audio.play().catch(() => {});   // браузер может не дать звук без действия человека
+  } catch {}
+}
 const APPEAR_MS = 400;
 
 // Как называть собеседника: его ником, нейтрально или своим словом.
@@ -82,6 +116,8 @@ function render(msgs) {
     msgs.filter(m => now - (shownAt.get(m.id) ?? now) < APPEAR_MS).map(m => m.id)
   );
   msgs.forEach(m => { if (!shownAt.has(m.id)) shownAt.set(m.id, now); });
+
+  reactToMeow(msgs);
 
   el.innerHTML = msgs.map(m => {
     // Сообщение бота — ничьё: оно встаёт по центру и подписывается им самим,
