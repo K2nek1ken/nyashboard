@@ -222,9 +222,12 @@ export async function runAsyncCommand(kind, { rest, author, target, targetUid, a
         // без выискивания чисел в сплошном тексте.
         // Сумму выигрыша не повторяем: итог всё равно строкой ниже,
         // и дважды одно число читается как ошибка.
-        const bets = r.lines.map(b =>
-          `${b.amount}¢ на ${b.kind} (x${b.payout}) — ${b.hit ? "вин" : "луз"}`
-        );
+        const bets = r.lines.map(b => {
+          const outcome = b.hit ? "вин"
+            : b.halfBack ? "зеро, половина назад"
+            : "луз";
+          return `${b.amount}¢ на ${b.kind} (x${b.payout}) — ${outcome}`;
+        });
 
         const open = balanceIsPublic(anonymous);
 

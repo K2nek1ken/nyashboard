@@ -168,9 +168,21 @@ export async function spinRoulette(text) {
   const lines = [];
   for (const b of resolved) {
     const hit = b.match(number);
-    const gain = hit ? b.amount * b.payout : 0;
+
+    // Французское правило: при зеро ставки на равные шансы — цвет,
+    // чёт-нечет, половина колеса — не сгорают целиком, а возвращаются
+    // наполовину. Половина ставки, а не выигрыша: уйти в плюс на зеро
+    // нельзя, но и потерять всё — тоже.
+    //
+    // Отличаем такие ставки по выплате: она ровно двойная только у них.
+    const halfBack = !hit && number === 0 && b.payout === 2;
+    const gain = hit ? b.amount * b.payout : (halfBack ? Math.floor(b.amount / 2) : 0);
+
     won += gain;
-    lines.push({ amount: b.amount, kind: b.kind, payout: b.payout, hit, gain });
+    lines.push({
+      amount: b.amount, kind: b.kind, payout: b.payout,
+      hit, gain, halfBack
+    });
   }
 
   const delta = won - total;
