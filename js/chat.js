@@ -549,18 +549,18 @@ async function handleCustomCommand(text) {
     if (removing) {
       const key = await cc.removeCustomCommand(removing);
       setCustomRules(cc.asRules(await cc.loadCustomCommands()));
-      return `Команда «${key}» убрана`;
+      return { ok: true, message: `Команда «${key}» убрана` };
     }
 
     const parsed = cc.parseAddCommand(text);
-    if (!parsed) return "Не поняла. Пример: «+бот обнимашки обнял|обняла»";
-    if (parsed.error) return parsed.error;
+    if (!parsed) return { ok: false, message: "Не поняла. Пример: «+бот обнимашки обнял|обняла»" };
+    if (parsed.error) return { ok: false, message: parsed.error };
 
     const key = await cc.addCustomCommand(parsed);
     setCustomRules(cc.asRules(await cc.loadCustomCommands()));
-    return `Команда «${key}» добавлена ♡`;
+    return { ok: true, message: `Команда «${key}» добавлена ♡` };
   } catch (e) {
-    return e.message;
+    return { ok: false, message: e.message };
   }
 }
 
@@ -599,7 +599,9 @@ function decorateBotNames(text, msgs) {
     const color = who.color ? ` style="color:${paletteColor(who.color)}"` : "";
     out = out.replace(
       new RegExp(`(^|[^\\wа-яё])(${safe})(?=[^\\wа-яё]|$)`, "gi"),
-      `$1<a class="bot-name" href="user.html?uid=${who.uid}"${color}>$2</a>`
+      // Открываем карточку, а не уводим со страницы: из чата уходить
+      // ради того, чтобы взглянуть на профиль, неудобно.
+      `$1<span class="bot-name" data-person="${who.uid}"${color}>$2</span>`
     );
   }
   return out;
@@ -680,10 +682,16 @@ async function refreshBadges(msgs) {
   });
 }
 
-// Какие сообщения уже показывались. Нужно, чтобы отличить действительно
-// новое от перерисованного: список пересобирается целиком при любом
-// изменении, и без этого «появлялось» бы всё разом при каждом обновлении.
-const shownIds = new Set();
+// Когда сообщение впервые попало на экран. Нужно, чтобы отличить
+// действительно новое от перерисованного: список пересобирается целиком
+// при любом изменении, и без этого «появлялось» бы всё разом.
+//
+// Храним время, а не просто отметку: чат успевает перерисоваться два-три
+// раза подряд (сразу, потом после загрузки меток), и при простой отметке
+// вторая отрисовка обрывала анимацию через миллисекунды после начала —
+// выглядело так, будто её нет вовсе.
+const shownAt = new Map();
+const APPEAR_MS = 400;   // столько сообщение считается появляющимся
 
 function renderChat(msgs, { keepScroll = false } = {}) {
   const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
@@ -691,9 +699,13 @@ function renderChat(msgs, { keepScroll = false } = {}) {
 
   // Первая отрисовка — без появления: иначе при открытии чата вся история
   // въезжала бы на экран разом.
-  const first = shownIds.size === 0;
-  const fresh = first ? new Set() : new Set(msgs.filter(m => !shownIds.has(m.id)).map(m => m.id));
-  msgs.forEach(m => shownIds.add(m.id));
+  const first = shownAt.size === 0;
+  const now = Date.now();
+
+  const fresh = first ? new Set() : new Set(
+    msgs.filter(m => now - (shownAt.get(m.id) ?? now) < APPEAR_MS).map(m => m.id)
+  );
+  msgs.forEach(m => { if (!shownAt.has(m.id)) shownAt.set(m.id, now); });
   messagesEl.innerHTML = msgs.map(m => {
     // Сообщения бота править нельзя даже автору команды: иначе можно
     // подделать чужую фразу, выданную ботом.
@@ -778,6 +790,16 @@ function renderChat(msgs, { keepScroll = false } = {}) {
   if (wasAtBottom) window.scrollTo({ top: document.body.scrollHeight });
 
   wireMentions(messagesEl);
+
+  // Имена в сообщениях бота открывают карточку человека.
+  messagesEl.querySelectorAll("[data-person]").forEach(el => {
+    if (el.dataset.wired) return;
+    el.dataset.wired = "1";
+    el.addEventListener("click", async () => {
+      const { openUserProfile } = await import("./people.js");
+      openUserProfile(el.dataset.person);
+    });
+  });
 
   // Раскручиваем колёса, которые только что попали на экран, и заводим
   // перерисовку на момент остановки — чтобы на их месте появился текст.
@@ -1097,8 +1119,10 @@ export function initChatForm() {
       // обычных команд: это не сообщение в чат, а настройка.
       const custom = await handleCustomCommand(text);
       if (custom) {
-        input.value = "";
-        showToast(custom);
+        // Поле очищаем только если получилось: при ошибке текст должен
+        // остаться — иначе длинную команду приходится набирать заново.
+        if (custom.ok) input.value = "";
+        showToast(custom.message);
         return;
       }
 

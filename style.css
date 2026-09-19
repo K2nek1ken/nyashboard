@@ -3011,3 +3011,8 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 @media (prefers-reduced-motion: reduce) {
   .chat-msg.just-came { animation: none; }
 }
+
+
+/* Сообщения бота бывают в несколько строк — про казино, список команд.
+   Без переноса вторая строка пропадала: текст шёл одной длинной полосой. */
+.chat-msg.is-bot .txt { white-space: pre-wrap; word-break: break-word; }

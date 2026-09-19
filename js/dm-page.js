@@ -29,7 +29,10 @@ let pendingImage = null;
 let replyingTo = null;
 let otherUid = null;
 let otherUser = null;
-const shownIds = new Set();
+// Время первого показа — см. пояснение в chat.js: при простой отметке
+// повторная отрисовка обрывала анимацию.
+const shownAt = new Map();
+const APPEAR_MS = 400;
 
 // Как называть собеседника: его ником, нейтрально или своим словом.
 // Если ты переименовал его для себя — это имя главнее всего.
@@ -73,9 +76,12 @@ function render(msgs) {
   const theirName = displayName();
 
   // Отличаем новые сообщения от перерисованных — см. тот же приём в chat.js.
-  const firstPaint = shownIds.size === 0;
-  const fresh = firstPaint ? new Set() : new Set(msgs.filter(m => !shownIds.has(m.id)).map(m => m.id));
-  msgs.forEach(m => shownIds.add(m.id));
+  const firstPaint = shownAt.size === 0;
+  const now = Date.now();
+  const fresh = firstPaint ? new Set() : new Set(
+    msgs.filter(m => now - (shownAt.get(m.id) ?? now) < APPEAR_MS).map(m => m.id)
+  );
+  msgs.forEach(m => { if (!shownAt.has(m.id)) shownAt.set(m.id, now); });
 
   el.innerHTML = msgs.map(m => {
     // Сообщение бота — ничьё: оно встаёт по центру и подписывается им самим,

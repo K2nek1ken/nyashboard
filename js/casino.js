@@ -95,7 +95,8 @@ export function parseBets(text) {
   for (const part of parts) {
     const words = part.split(/\s+/);
     // «олл 10» — всё на что-то; «10 к» — десять на красное
-    const allIn = /^(олл|all|ва-?банк)$/i.test(words[0]);
+    // «олл», «оллин», «олл-ин», «ва-банк», «all in» — всё это одно и то же
+    const allIn = /^(олл|олл-?ин|all|all-?in|ва-?банк)$/i.test(words[0]);
     const amountWord = allIn ? null : words[0];
     const target = (allIn ? words[1] : words[1])?.toLowerCase();
 
