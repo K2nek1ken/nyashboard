@@ -94,6 +94,11 @@ export function mountWheel(slot, number, key = null) {
   });
 
   setTimeout(() => slot.classList.add("done"), (SPIN_MS + HOLD_MS) - elapsed);
+
+  // Когда колесо растворилось, сообщение плавно принимает свой обычный
+  // размер, и только потом проступает текст. Без этого высота менялась
+  // рывком, а буквы возникали из ниоткуда.
+  setTimeout(() => morphToText(slot), (SPIN_MS + HOLD_MS + SHRINK_MS) - elapsed);
 }
 
 // Крутит колесо на месте сообщения: текст пока скрыт, вместо него колесо.
@@ -216,4 +221,40 @@ function wheelSvg() {
       </g>
 
     </svg>`;
+}
+
+
+// Плавно заменяет колесо текстом сообщения.
+//
+// Высота у элемента с текстом не анимируется сама: браузер не умеет
+// переходить от одной «автоматической» высоты к другой. Поэтому сначала
+// закрепляем нынешнюю, потом ставим конечную — и только тогда переход
+// виден как переход, а не как скачок.
+function morphToText(slot) {
+  const box = slot.parentElement;      // .txt
+  if (!box) return;
+
+  const from = box.offsetHeight;
+  slot.remove();
+
+  // Текст всё это время был в сообщении, просто спрятан — показываем.
+  box.querySelector(".wheel-text")?.classList.add("shown");
+
+  const to = box.offsetHeight;         // сколько займёт текст
+  if (Math.abs(to - from) < 2) { box.classList.add("text-in"); return; }
+
+  box.style.height = from + "px";
+  box.classList.add("morphing");
+
+  requestAnimationFrame(() => {
+    box.style.height = to + "px";
+    box.classList.add("text-in");
+  });
+
+  // Высоту снимаем после перехода: оставленная жёсткой, она сломала бы
+  // сообщение, если текст потом изменится.
+  setTimeout(() => {
+    box.style.height = "";
+    box.classList.remove("morphing", "text-in");
+  }, 380);
 }

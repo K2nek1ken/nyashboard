@@ -2953,7 +2953,10 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
    Появляется мягко и так же уходит: резкое возникновение и мгновенное
    исчезновение сбивали ощущение, что колесо и правда крутилось. */
 .wheel-inline {
-  width: 150px; aspect-ratio: 1; margin: 2px 0;
+  width: 150px; aspect-ratio: 1;
+  /* По центру сообщения: колесо круглое, и прижатое к краю смотрится
+     случайно — будто картинка, а не происходящее прямо сейчас. */
+  margin: 2px auto;
   /* Место занимает сразу, ещё до того как в него встало колесо:
      иначе сообщение прыгало бы при появлении. */
   display: block;
@@ -2979,34 +2982,16 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 /* ============================================================
    Появление новых сообщений
 
-   На телефоне выезжают сбоку — своё справа, чужое слева: так видно,
-   кто написал, ещё до того как прочитал.
-
-   На компьютере снизу: там сообщения занимают меньше ширины экрана,
-   и боковое движение читалось бы как рывок в сторону.
+   Снизу вверх — одинаково на телефоне и на компьютере. Боковое движение
+   пробовали: своё справа, чужое слева, — но при быстрой переписке лента
+   начинает дёргаться из стороны в сторону, и читать труднее.
    ============================================================ */
-@keyframes msgFromLeft {
-  from { opacity: 0; transform: translateX(-24px); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes msgFromRight {
-  from { opacity: 0; transform: translateX(24px); }
-  to   { opacity: 1; transform: none; }
-}
 @keyframes msgFromBelow {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: none; }
 }
 
-.chat-msg.just-came { animation: msgFromLeft .26s cubic-bezier(.2,.8,.3,1); }
-.chat-msg.just-came.is-mine { animation-name: msgFromRight; }
-.chat-msg.just-came.is-bot { animation-name: msgFromBelow; }
-
-@media (min-width: 900px) {
-  .chat-msg.just-came,
-  .chat-msg.just-came.is-mine,
-  .chat-msg.just-came.is-bot { animation-name: msgFromBelow; }
-}
+.chat-msg.just-came { animation: msgFromBelow .26s cubic-bezier(.2,.8,.3,1); }
 
 @media (prefers-reduced-motion: reduce) {
   .chat-msg.just-came { animation: none; }
@@ -3016,3 +3001,30 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 /* Сообщения бота бывают в несколько строк — про казино, список команд.
    Без переноса вторая строка пропадала: текст шёл одной длинной полосой. */
 .chat-msg.is-bot .txt { white-space: pre-wrap; word-break: break-word; }
+
+
+/* ---------- смена колеса на текст ----------
+   Колесо растворяется, сообщение плавно принимает свой размер, и только
+   потом проступает текст. Если всё сразу — получается скачок: высота
+   меняется рывком, а буквы возникают из ниоткуда. */
+.chat-msg .txt.morphing {
+  overflow: hidden;
+  transition: height .34s cubic-bezier(.2,.8,.3,1);
+}
+.chat-msg .txt.text-in > * ,
+.chat-msg .txt.text-in {
+  animation: textIn .26s ease .04s backwards;
+}
+@keyframes textIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-msg .txt.morphing { transition: none; }
+  .chat-msg .txt.text-in { animation: none; }
+}
+
+/* Текст под колесом: ждёт своей очереди, пока колесо крутится. */
+.wheel-text { display: none; }
+.wheel-text.shown { display: inline; }

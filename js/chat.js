@@ -785,7 +785,12 @@ function renderChat(msgs, { keepScroll = false } = {}) {
       ${m.text ? `<div class="txt ${/мяукнул/i.test(m.text) ? "meow-again" : ""}"
                        ${/мяукнул/i.test(m.text) ? 'title="нажми, чтобы услышать"' : ""}
                   >${spinningNow(m)
+                      // Колесо и текст рисуем вместе: текст пока спрятан,
+                      // а когда колесо уйдёт — просто проступит на его месте.
+                      // Если рисовать только колесо, после его удаления
+                      // в сообщении осталась бы пустота.
                       ? `<div class="wheel-inline" data-spin="${m.spinNumber}"></div>`
+                        + `<span class="wheel-text">${decorateBotNames(m.text, msgs)}</span>`
                       : m.isBot
                         ? decorateBotNames(m.text, msgs)
                         : linkifyMentions(escapeHtml(m.text))}</div>` : ""}
