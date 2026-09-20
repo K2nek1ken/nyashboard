@@ -16,7 +16,7 @@ import { renderPostTracks, renderPostArtworks } from "./post-attachments.js";
 import { columnCount, layoutPosts, balanceColumns, revealSequentially } from "./feed-layout.js";
 import { showToast, escapeHtml, timeAgo, gendered } from "./ui.js";
 import { ICON, SVG_ICON } from "./icons.js";
-import { fetchReplies, sendReply, replyRowHtml } from "./replies.js";
+import { fetchReplies, sendReply } from "./replies.js";
 import { imagesToHtml, wireCarousels, getPostImages } from "./carousel.js";
 import { markOwned, isOwned } from "./ownership.js";
 import { linkifyMentions, wireMentions } from "./mentions.js";
