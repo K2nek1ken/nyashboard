@@ -141,6 +141,9 @@ export function initSettingsPage() {
           toggle("meowReaction", s.meowReaction === "on"))}
         ${row("Имена в сообщениях бота", "показывать цветом и ссылкой на профиль",
           toggle("botNameLinks", s.botNameLinks !== "off"))}
+        ${row("Обновить приложение",
+          "если правки не доехали — сбросит сохранённую копию сайта",
+          `<button class="subBtn" id="clearAppCache">Сбросить</button>`)}
         ${row("Свой знак перед командами",
           "например «!» — тогда команды пишутся как «!обнять». Пусто — как обычно",
           `<input class="inlineEdit" id="commandPrefixInput" maxlength="3" style="max-width:70px;"
@@ -321,6 +324,26 @@ export function initSettingsPage() {
       showToast("Картинка убрана");
       render();
       import("./chat.js").then(({ prepareQuoteImage }) => prepareQuoteImage()).catch(() => {});
+    });
+
+    // Сброс сохранённой копии сайта. Обычно не нужен — работник обновляется
+    // сам, — но если что-то пошло не так, это быстрее, чем объяснять,
+    // как чистить данные браузера.
+    host.querySelector("#clearAppCache")?.addEventListener("click", async () => {
+      try {
+        if ("caches" in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map(n => caches.delete(n)));
+        }
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        showToast("Готово, перезагружаю…");
+        setTimeout(() => location.reload(), 600);
+      } catch (e) {
+        showToast("Не вышло: " + e.message);
+      }
     });
 
     const prefixInput = host.querySelector("#commandPrefixInput");
