@@ -450,8 +450,17 @@ function reportPlayerHeight() {
     // Берём нижнюю границу плеера, а не его высоту: он стоит не у самого
     // верха, а под шапкой. По одной высоте отступ выходил меньше нужного
     // ровно на это смещение, и плеер накрывал верх страницы.
-    const rect = bar.getBoundingClientRect();
-    const bottom = Math.round(rect.bottom);
+    // Меряем без учёта того, что плеер сейчас въезжает.
+    //
+    // Он появляется движением сверху, и в первые доли секунды находится
+    // за краем экрана — обычный замер давал отрицательное число, распорка
+    // не создавалась, и плеер оставался лежать поверх содержимого до
+    // следующего перехода.
+    //
+    // Поэтому берём его настоящее место: где он стоит по стилям, плюс
+    // собственная высота. Движение на это не влияет.
+    const barTop = parseFloat(getComputedStyle(bar).top) || 0;
+    const bottom = Math.round(barTop + bar.offsetHeight);
     if (bottom <= 0) return;
 
     const prev = parseFloat(
@@ -541,7 +550,13 @@ function paintBar(track) {
   // кадре, иначе браузер не заметит смены состояния и анимации не будет.
   bar.classList.add("entering");
   document.body.classList.add("player-open");   // содержимое отъезжает вниз
-  requestAnimationFrame(() => bar?.classList.remove("entering"));
+
+  requestAnimationFrame(() => {
+    bar?.classList.remove("entering");
+    // Место под плеер занимаем тем же движением: содержимое расступается,
+    // пока он въезжает, а не после.
+    reportPlayerHeight();
+  });
   // Пустые значения не должны превращаться в «undefined» на экране:
   // у восстановленного из памяти трека часть полей может отсутствовать.
   const title = track.title || "Без названия";
