@@ -382,6 +382,48 @@ function shiftScrollBy(delta) {
   window.scrollBy({ top: delta, behavior: "instant" });
 }
 
+// Пустой блок под плеером: он и отодвигает содержимое вниз.
+//
+// Живёт сразу после шапки, то есть там же, где плеер: значит его высота
+// и есть недостающее место. Убирается вместе с плеером.
+function keepSpacer(playerBottom) {
+  // На компьютере плеер живёт в колонке сбоку — двигать нечего.
+  if (window.matchMedia("(min-width: 900px)").matches) {
+    document.getElementById("playerSpacer")?.remove();
+    return;
+  }
+
+  let spacer = document.getElementById("playerSpacer");
+  if (!spacer) {
+    spacer = document.createElement("div");
+    spacer.id = "playerSpacer";
+    spacer.setAttribute("aria-hidden", "true");
+
+    // Перед содержимым, но после шапки: шапка прокручивается вместе
+    // со страницей, и вставать перед ней распорке незачем.
+    const app = document.getElementById("app");
+    app?.parentNode?.insertBefore(spacer, app);
+  }
+
+  // Высота — от верха страницы до нижнего края плеера, минус то, что
+  // уже занимает шапка: она стоит выше распорки и своё место держит сама.
+  const head = document.getElementById("navHost");
+  const headBottom = head ? head.getBoundingClientRect().bottom : 0;
+  const need = Math.max(0, Math.round(playerBottom - headBottom + 10));
+
+  spacer.style.height = need + "px";
+}
+
+function removeSpacer() {
+  const spacer = document.getElementById("playerSpacer");
+  if (!spacer) return;
+
+  // Сначала схлопываем до нуля, потом убираем: содержимое поднимается
+  // плавно, вместе с уезжающим плеером.
+  spacer.style.height = "0px";
+  setTimeout(() => spacer.remove(), 280);
+}
+
 function reportPlayerHeight() {
   if (!bar) return;
 
@@ -410,29 +452,14 @@ function reportPlayerHeight() {
     // Отступ страницы задаём напрямую. Через переменную он уже задан
     // в стилях, но там его легко перебивает какое-нибудь более позднее
     // правило — а так видно точно, и спорить не с чем.
-    // Отступ считаем от того, где содержимое лежит сейчас, а не по
-    // заранее известным числам.
+    // Плеер висит поверх страницы и сам по себе ничего не двигает.
+    // Поэтому ставим под ним распорку — обычный пустой блок в потоке,
+    // ровно такой же высоты.
     //
-    // Раньше я вычитала высоту шапки как постоянную — и ошибалась:
-    // шапка прокручивается вместе со страницей, занимая место в потоке,
-    // и её вклад уже учтён в положении контейнера. Отсюда и брались
-    // недостающие пятьдесят пикселей, из-за которых плеер накрывал
-    // первую запись.
-    const app = document.getElementById("app");
-    if (!app) return;
-
-    if (window.matchMedia("(min-width: 900px)").matches) {
-      app.style.paddingTop = "";     // на компьютере плеер сбоку
-      return;
-    }
-
-    // Где начинается содержимое, если убрать наш отступ
-    const already = parseFloat(app.style.paddingTop) || 0;
-    const contentTop = app.getBoundingClientRect().top + already;
-
-    // Сколько не хватает, чтобы оно начиналось под плеером
-    const need = Math.max(0, Math.round(bottom + 10 - contentTop));
-    app.style.paddingTop = need + "px";
+    // Так надёжнее, чем навязывать отступ со стороны: распорка занимает
+    // место как любой другой элемент, её не перебьёт ни одно правило,
+    // и считать высоту шапки не нужно — она сама встанет куда надо.
+    keepSpacer(bottom);
 
     // Компенсируем прокрутку, только если плеер уже был и просто изменил
     // высоту — например, стал в два ряда. При появлении компенсировать
@@ -665,8 +692,7 @@ export function stop() {
       document.body.classList.remove("player-open");
       document.documentElement.style.removeProperty("--player-height");
       document.body.style.paddingTop = "";
-      const appEl = document.getElementById("app");
-      if (appEl) appEl.style.paddingTop = "";
+      removeSpacer();
     }, 260);
   }
 
