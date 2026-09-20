@@ -3307,3 +3307,6 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 }
 
 
+
+/* Пункт меню под пальцем: пока не отпустил, видно, что выберется. */
+.tab-menu-item.under-finger { background: var(--card); }

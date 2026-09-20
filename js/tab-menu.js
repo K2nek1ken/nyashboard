@@ -133,6 +133,27 @@ function openMenu(tab) {
   // через секунду забываешь, что именно держал.
   tab.classList.add("tab-menu-source");
 
+  // Пока палец не отпущен, подсвечиваем пункт под ним: можно выбрать
+  // одним движением — довести палец и отпустить, не нажимая заново.
+  const hover = (e) => {
+    const item = document.elementFromPoint(e.clientX, e.clientY)?.closest?.("[data-act]");
+    menu.querySelectorAll("[data-act]").forEach(b => b.classList.toggle("under-finger", b === item));
+  };
+
+  const pickOnRelease = (e) => {
+    window.removeEventListener("pointermove", hover);
+    window.removeEventListener("pointerup", pickOnRelease);
+
+    const item = document.elementFromPoint(e.clientX, e.clientY)?.closest?.("[data-act]");
+    menu.querySelectorAll("[data-act]").forEach(b => b.classList.remove("under-finger"));
+
+    // Отпустил на пункте — считаем выбором.
+    if (item && menu.contains(item)) item.click();
+  };
+
+  window.addEventListener("pointermove", hover);
+  window.addEventListener("pointerup", pickOnRelease);
+
   menu.addEventListener("click", (e) => {
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (!act) return;
@@ -145,15 +166,25 @@ function openMenu(tab) {
 
   // Нажатие мимо меню закрывает его — но не то самое, которым его открыли.
   //
-  // Меню появляется, пока палец ещё на экране. Когда его отпускают,
-  // событие приходит на подложку — и меню закрывалось само через
-  // мгновение после появления.
+  // Меню появляется, пока палец ещё на экране. Ждём, когда его уберут,
+  // и только после этого начинаем слушать: тогда закроет уже следующее
+  // нажатие, а не отпускание того же пальца.
   //
-  // Поэтому подложка начинает слушать чуть позже, когда палец уже убран.
-  setTimeout(() => {
-    veil.addEventListener("click", closeMenu);
-    veil.addEventListener("pointerdown", (e) => e.stopPropagation());
-  }, 260);
+  // Раньше здесь стояла задержка в четверть секунды, но это гадание:
+  // держат кто сколько, и при долгом удержании меню всё равно закрывалось.
+  const armOnRelease = () => {
+    window.removeEventListener("pointerup", armOnRelease);
+    window.removeEventListener("pointercancel", armOnRelease);
+
+    // Ещё кадр на всякий случай: отпускание может прийти чуть раньше,
+    // чем браузер разошлёт связанное с ним нажатие.
+    requestAnimationFrame(() => {
+      veil.addEventListener("click", closeMenu);
+    });
+  };
+
+  window.addEventListener("pointerup", armOnRelease);
+  window.addEventListener("pointercancel", armOnRelease);
 }
 
 function closeMenu() {
