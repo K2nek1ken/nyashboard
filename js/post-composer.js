@@ -70,6 +70,26 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
   document.body.appendChild(box);
   document.body.classList.add("composer-open");
 
+  // Двигаем плеер на место шапки: пока пишешь, шапки нет, а он иначе
+  // накрывает заголовок и выбор имени.
+  //
+  // Задаём прямо здесь, а не только в стилях: у плеера своё положение
+  // прописано несколькими правилами сразу, и надёжнее поставить явно,
+  // чем гадать, какое из них победит.
+  const bar = document.querySelector(".player-bar");
+  const barTop = bar?.style.top || "";
+  if (bar && !window.matchMedia("(min-width: 900px)").matches) {
+    bar.style.top = "8px";
+  }
+
+  // Содержимое отодвигаем под плеер по его настоящей высоте.
+  const body = box.querySelector(".composer-body");
+  if (body && document.body.classList.contains("player-open")
+      && !window.matchMedia("(min-width: 900px)").matches) {
+    const h = bar ? Math.round(bar.getBoundingClientRect().height) : 90;
+    body.style.paddingTop = (h + 18) + "px";
+  }
+
   const area = box.querySelector("[data-text]");
   const strip = box.querySelector("[data-strip]");
   const fileInput = box.querySelector("[data-images]");
@@ -85,7 +105,11 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
 
   if (!editing) initPostIdentity(box.querySelector("#composerIdentity"));
 
-  const close = () => closeOverlay(box);
+  const close = () => {
+    // Возвращаем плеер туда, где он стоял.
+    if (bar) bar.style.top = barTop;
+    closeOverlay(box);
+  };
   box.querySelector("[data-cancel]").addEventListener("click", close);
 
   const highlight = box.querySelector("[data-highlight]");
