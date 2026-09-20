@@ -420,7 +420,7 @@ function keepSpacer(playerBottom) {
   const headBottom = head ? head.getBoundingClientRect().bottom : 0;
   // Запас под плеером: без него он ложится впритык к кнопкам и поиску,
   // и они кажутся прижатыми.
-  const need = Math.max(0, Math.round(playerBottom - headBottom + 22));
+  const need = Math.max(0, Math.round(playerBottom - headBottom + 15));
 
   spacer.style.height = need + "px";
 }

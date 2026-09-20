@@ -885,11 +885,11 @@ html[data-emoji="noto"] .nf { font-family: "Monaspace Neon NF", monospace !impor
 .kebabMenu { max-width: calc(100vw - 24px); }
 
 @media (max-width: 899px) {
-  /* На узком экране якорь бывает у самого края, и панель с right:0 уезжала
-     за левую границу. Центрируем её по экрану — так она всегда видна целиком. */
+  /* Положение окна эмодзи задаёт код (см. emoji.js): он ставит его под
+     кнопкой и следит, чтобы оно не вышло за края. Прежнее правило
+     центрировало окно по экрану и перебивало этот расчёт — оттого на
+     телефоне оно и уезжало куда-то в середину. */
   .emoji-picker {
-    position: fixed; left: 50%; top: 50%; right: auto; bottom: auto;
-    transform: translate(-50%, -50%);
     width: min(320px, calc(100vw - 24px));
   }
   .modal { padding: 12px; align-items: center; }
@@ -2706,8 +2706,10 @@ input[type="text"]:focus, input[type="search"]:focus, textarea:focus {
 
 .modal { animation: overlayIn .24s ease; }
 .modal > .modal-content { animation: cardIn .28s cubic-bezier(.2,.8,.3,1); }
-.modal.closing { animation: overlayOut .24s ease forwards; }
-.modal.closing > .modal-content { animation: cardOut .24s ease forwards; }
+/* Уход чуть длиннее прихода: за четверть секунды его не успеваешь
+   заметить, и окно будто просто пропадает. */
+.modal.closing { animation: overlayOut .32s ease forwards; }
+.modal.closing > .modal-content { animation: cardOut .32s ease forwards; }
 
 .lightbox { animation: overlayIn .26s ease; }
 .lightbox.closing { animation: overlayOut .26s ease forwards; }
@@ -2830,7 +2832,7 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 }
 .zip-bar { height: 4px; background: var(--card); border-radius: 999px; overflow: hidden; }
 .zip-bar div { height: 100%; background: var(--accent); transition: width .2s ease; }
-.upload-zip-btn { width: auto; margin: 0 8px 0 0; padding: 9px 14px; }
+.upload-zip-btn { width: auto; margin: 0 8px 10px 0; padding: 9px 14px; }
 
 /* кнопки и вкладки в карточке профиля */
 .vp-actions { display: flex; gap: 8px; margin: 12px 0 4px; }

@@ -76,18 +76,25 @@ function ownerKey(el) {
 
 // Ставит окно рядом с кнопкой, не давая ему уехать за край экрана.
 function placeNear(picker, button) {
-  const host = picker.offsetParent || document.body;
+  // Считаем от экрана, а не от родителя.
+  //
+  // Раньше отсчёт шёл от того, внутри чего лежит окно. На компьютере это
+  // работало, а на телефоне поле ввода прижато к низу и само по себе
+  // сдвинуто — окно уезжало неизвестно куда. От экрана считать надёжнее:
+  // он один и тот же везде.
   const b = button.getBoundingClientRect();
-  const h = host.getBoundingClientRect();
 
-  picker.style.position = "absolute";
-  picker.style.bottom = `${h.bottom - b.top + 8}px`;
+  picker.style.position = "fixed";
+  picker.style.bottom = `${window.innerHeight - b.top + 8}px`;
+  picker.style.top = "auto";
 
-  // Прижимаем правым краем к кнопке, но не выпускаем за левый край экрана.
+  // Ширину узнаём после того, как окно оказалось на странице.
   const width = picker.offsetWidth || 280;
-  const right = Math.max(8, h.right - b.right);
-  const wouldOverflowLeft = h.width - right - width < 8;
 
-  picker.style.right = wouldOverflowLeft ? "8px" : `${right}px`;
-  picker.style.left = "auto";
+  // Прижимаем правым краем к кнопке, но не выпускаем за края экрана.
+  let left = b.right - width;
+  left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+
+  picker.style.left = `${Math.round(left)}px`;
+  picker.style.right = "auto";
 }
