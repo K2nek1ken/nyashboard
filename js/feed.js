@@ -123,7 +123,12 @@ export function subscribeFeed() {
     enrichAuthors(posts)
       .catch(e => console.warn("Оформление авторов:", e.message))
       .then(() => {
-        scheduleRender(rankPosts(posts));
+        // Раньше здесь шла полная перерисовка ради обновлённых аватарок —
+        // список успевал показаться со старыми и дёрнуться. Теперь меняем
+        // только сами аватарки и имена, на месте.
+        if (feedPainted) repaintAuthors(posts);
+        else scheduleRender(rankPosts(posts));
+
         backfillNuid(posts);       // заодно достаём номер одной старой записи
       });
   }, (err) => {
@@ -233,7 +238,8 @@ async function enrichAuthors(posts) {
     authorFetchedAt.set(uid, now);
   }));
 
-  // Переносим свежее оформление в сами записи — дальше его берёт отрисовка.
+  // Переносим свежее оформление в сами записи — дальше его берёт отрисовка
+  // либо точечное обновление, если лента уже на экране.
   posts.forEach(p => {
     const u = p.authorUid && authorCache.get(p.authorUid);
     if (!u || p.isAnonymous) return;
@@ -356,11 +362,16 @@ function scheduleRender(posts) {
   repaintTimer = setTimeout(() => renderFeed(posts), 40);
 }
 
+// Отрисовывалась ли лента хоть раз. До первой отрисовки обновлять нечего,
+// а после — можно менять точечно.
+let feedPainted = false;
+
 function renderFeed(posts) {
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
     return;
   }
+  feedPainted = true;
   layoutPosts(feedListEl, posts, p => postToHtml(p));
   posts.forEach(p => wirePostCard(p, feedListEl));
   revealSequentially(feedListEl);
@@ -556,19 +567,7 @@ export function wirePostCard(p, container = document) {
       import("./post-composer.js").then(({ openPostComposer }) => {
         openPostComposer({
           post: p,
-          onDone: () => {
-            // Карточку пересобираем целиком, а не правим текст на месте:
-            // после изменения меняется и длина, и обрезка, и кнопка
-            // «показать полностью» — точечное обновление этого не учитывало,
-            // и запись оставалась в прежнем виде до обновления списка.
-            const fresh = document.createElement("div");
-            fresh.innerHTML = postToHtml(p);
-            const next = fresh.firstElementChild;
-            if (next) {
-              card.replaceWith(next);
-              wirePostCard(p, next.parentElement || document);
-            }
-          }
+          onDone: () => patchPostCard(card, p)
         });
       }).catch(e => showToast("Редактор не открылся: " + e.message));
     },
@@ -1041,4 +1040,92 @@ function fadeInPosts(host) {
       el.style.animationDelay = "";
     }, TIMING.post.appear + TIMING.post.max + 80);
   });
+}
+
+
+// Обновляет аватарки и имена авторов, не трогая остальное.
+//
+// Оформление приходит позже самих записей: в записи лежит копия на момент
+// публикации, а настоящее — в профиле. Раньше ради него пересобиралась вся
+// лента, и она заметно дёргалась через мгновение после появления.
+function repaintAuthors(posts) {
+  if (!feedListEl) return;
+
+  // Шапка отвечает за всё, что относится к автору: аватарку с формой
+  // и украшением, имя, цвет ника, номер записи. Обновляем её целиком —
+  // и получаем разом всё перечисленное.
+  for (const p of posts) {
+    const card = feedListEl.querySelector(`.post-card[data-id="${p.id}"]`);
+    if (card) patchPostCard(card, p);
+  }
+}
+
+
+// ============================================================
+//  Точечное обновление карточки записи
+//
+//  Раньше при любом изменении карточка пересобиралась целиком, и вместе
+//  с ней терялось всё, что внутри уже живёт: открытая карусель,
+//  подгруженный проигрыватель, разложенное видео. А лента при этом
+//  заметно дёргалась.
+//
+//  Теперь сравниваем по частям и меняем только то, что правда изменилось.
+//  Части выбраны так, чтобы каждая отвечала за своё: шапка — за автора
+//  и время, текст — за текст, действия — за оценки.
+// ============================================================
+
+// Что сравниваем и в каком порядке. Порядок важен только для читаемости.
+const CARD_PARTS = [
+  ".post-head",       // аватарка, имя, цвет ника, номер, время, меню
+  ".post-text",       // сам текст
+  ".carousel",        // картинки
+  ".post-actions"     // оценки, ответы, репост
+];
+
+export function patchPostCard(card, post) {
+  if (!card) return;
+
+  const next = document.createElement("div");
+  next.innerHTML = postToHtml(post);
+  const fresh = next.firstElementChild;
+  if (!fresh) return;
+
+  for (const part of CARD_PARTS) {
+    const a = card.querySelector(part);
+    const b = fresh.querySelector(part);
+
+    if (!a && b) { card.appendChild(b.cloneNode(true)); continue; }
+    if (a && !b) { a.remove(); continue; }
+    if (!a || !b) continue;
+
+    if (a.innerHTML !== b.innerHTML) {
+      a.innerHTML = b.innerHTML;
+
+      // В шапке и в действиях живут кнопки — после замены они новые,
+      // а обработчики остались на старых. Просим навесить заново.
+      if (part === ".post-head" || part === ".post-actions") {
+        delete card.dataset.wired;
+      }
+    }
+    if (a.className !== b.className) a.className = b.className;
+  }
+
+  // Прикреплённое пересобираем только если изменился текст: номера
+  // треков и работ берутся из него.
+  const textChanged = card.querySelector(".post-text")?.dataset.raw !== post.text;
+  if (textChanged) {
+    card.querySelector(".post-text")?.setAttribute("data-raw", post.text || "");
+    renderPostTracks(post, card);
+    renderPostArtworks(post, card);
+  }
+
+  if (card.className !== fresh.className) card.className = fresh.className;
+
+  // Обработчики после подмены частей.
+  // Привязка ищет карточку внутри контейнера — передаём родителя,
+  // а не саму карточку.
+  if (!card.dataset.wired) {
+    card.dataset.wired = "1";
+    wirePostCard(post, card.parentElement || document);
+  }
 }

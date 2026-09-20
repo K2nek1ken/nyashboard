@@ -24,7 +24,10 @@ import { isMutualFriend } from "./friends.js";
 import { currentUserDoc } from "./auth.js";
 import { defaultAvatar } from "./default-avatar.js";
 
-const chatId = new URLSearchParams(location.search).get("chat");
+// Адрес переписки читаем при каждом запуске страницы, а не один раз при
+// загрузке модуля: иначе при переходе из одной лички в другую остаётся
+// прежний — и вся страница показывает старого собеседника.
+let chatId = null;
 let pendingImage = null;
 let replyingTo = null;
 let otherUid = null;
@@ -381,6 +384,9 @@ initShell();   // шапка, оформление и плеер — общие 
 // Запуск и сворачивание вкладки — см. router.js: страница подгружается
 // без перезагрузки, поэтому её содержимое нужно уметь включать заново.
 export async function initPage() {
+  // Каждый заход — с чистого листа. Модуль живёт между переходами,
+  // и оставшееся от прошлой переписки показывалось бы как своё.
+  resetState();
   clearPending("dm");
   keepScrollPosition();
   init();
@@ -392,6 +398,26 @@ export function destroyPage() {
 }
 
 let stopPage = null;
+
+// Сбрасывает всё, что относится к конкретной переписке.
+function resetState() {
+  chatId = new URLSearchParams(location.search).get("chat");
+
+  pendingImage = null;
+  replyingTo = null;
+  otherUid = null;
+  otherUser = null;
+  lastMessages = [];
+
+  shownAt.clear();
+  meowSeen.clear();
+  dmStarted = false;
+
+  // Подписку на прошлую переписку закрываем: иначе её сообщения
+  // продолжали бы приходить в новую.
+  stopPage?.();
+  stopPage = null;
+}
 
 window.addEventListener("DOMContentLoaded", async () => {
   const { initRouter } = await import("./router.js");

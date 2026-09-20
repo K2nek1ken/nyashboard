@@ -32,7 +32,14 @@ export async function initChannelPage() {
   // При переходе между вкладками страница запускается заново на новой
   // разметке: прежние значения из замыкания указывали бы на исчезнувшие
   // элементы.
+  //
+  // Права сбрасываем тоже: при переходе из одного канала в другой они
+  // оставались от прошлого — и можно было увидеть кнопки управления там,
+  // где их быть не должно.
   channel = null;
+  isCreator = false;
+  isAdmin = false;
+  composerImages = [];
 
   const channelId = getChannelId();
   const wallEl = document.getElementById("chWall");
