@@ -288,7 +288,9 @@ async function init() {
     dmInput.addEventListener("input", grow);
     // Enter отправляет, Shift+Enter переносит строку — как принято в мессенджерах
     dmInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      // Enter — перенос, отправка по Shift+Enter или Ctrl+Enter.
+      // Так же, как в общем чате и в ответах.
+      if (e.key === "Enter" && (e.shiftKey || e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         document.getElementById("dmForm")?.requestSubmit();
       }

@@ -154,7 +154,11 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
 
   area.addEventListener("keydown", (e) => {
     if (e.key === "Escape") close();
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) box.querySelector("[data-save]").click();
+    // Отправка по Shift+Enter или Ctrl+Enter — как и везде на сайте.
+    if (e.key === "Enter" && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      box.querySelector("[data-save]").click();
+    }
   });
 
   // Видео: одно на запись. Больше — и лента превратится в видеохостинг,

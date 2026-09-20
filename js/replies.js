@@ -129,6 +129,10 @@ export function replyRowHtml(r) {
     </div>`;
 }
 
+// На чей ответ сейчас отвечают, по записям. Живёт в памяти, потому что
+// разметка карточки пересоздаётся при каждом обновлении ленты.
+const replyTargets = new Map();
+
 // Нажатие по цитате подсвечивает тот ответ, на который отвечали.
 // Переходить никуда не нужно: он обычно рядом, просто затерялся.
 export function wireReplyQuotes(container) {
@@ -166,7 +170,10 @@ export function wireReplyLikes(container, replies, onDeleted) {
       // Показываем, кому отвечаешь, и запоминаем — при отправке это
       // превратится в цитату внутри самого ответа.
       showReplyTarget(scope, r);
-      scope.dataset.replyTo = JSON.stringify({
+      // Держим в памяти, а не в разметке: карточка записи перерисовывается
+      // при любом обновлении ленты, и записанное в неё пропадало — ответ
+      // уходил без цитаты, хотя над полем она висела.
+      replyTargets.set(scope.dataset.id || "page", {
         id: r.id,
         nickname: r.isAnonymous ? "аноним" : (r.authorNickname || "кто-то"),
         text: r.text || ""
@@ -244,14 +251,10 @@ function showReplyTarget(scope, reply) {
 // Убрать цитату — после отправки ответа.
 export function clearReplyTarget(scope = document) {
   scope.querySelector(".reply-target")?.remove();
-  delete scope.dataset?.replyTo;
+  replyTargets.delete(scope.dataset?.id || "page");
 }
 
 // На какой ответ сейчас отвечают в этой карточке.
 export function currentReplyTarget(scope) {
-  try {
-    return scope?.dataset?.replyTo ? JSON.parse(scope.dataset.replyTo) : null;
-  } catch {
-    return null;
-  }
+  return replyTargets.get(scope?.dataset?.id || "page") || null;
 }

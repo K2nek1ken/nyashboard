@@ -1369,6 +1369,30 @@ export function initChatForm() {
 
   let sending = false;
 
+  // Enter в чате: на телефоне переносит строку (отправка — кнопкой),
+  // на компьютере отправляет, а Shift+Enter переносит.
+  //
+  // Поле стало многострочным, и без этого Enter отправлял сообщение
+  // даже там, где человек просто хотел перейти на новую строку.
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+
+    // Enter переносит строку, отправляют сочетания: Shift+Enter
+    // или Ctrl+Enter. Одинаково на телефоне и на компьютере — так
+    // не приходится помнить, где ты сейчас.
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event("submit"));
+    }
+  });
+
+  // Поле растёт под текст, но не выше трети экрана.
+  const growInput = () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, window.innerHeight * 0.3) + "px";
+  };
+  input.addEventListener("input", growInput);
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
@@ -1519,6 +1543,7 @@ export function initChatForm() {
         .then(nuid => updateDoc(doc(db, "chatMessages", ref.id), { publicUid: nuid }))
         .catch(e => console.warn("Идентификатор сообщения не записался:", e.message));
       input.value = "";
+      input.style.height = "";
       pendingChatImages = [];
       renderChatPreview();
       replyingTo = null;

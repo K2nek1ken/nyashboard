@@ -497,7 +497,7 @@ export function postToHtml(p, maskAuthor = false) {
       <div class="reply-input-row" style="position:relative;">
         <label class="attachBtn nf" data-reply-attach title="фото">${ICON.attach}</label>
         <input type="file" accept="image/*" data-reply-file hidden>
-        <input type="text" placeholder="Твой ответ..." data-reply-input>
+        <textarea placeholder="Твой ответ..." data-reply-input rows="1"></textarea>
         <button class="nf" data-action="replyEmoji" title="эмодзи">${ICON.smile}</button>
         <button data-action="sendReply"><span class="nf">${ICON.send}</span></button>
       </div>
@@ -639,7 +639,29 @@ export function wirePostCard(p, container = document) {
     }
   };
   sendBtn.addEventListener("click", send);
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  // Enter переносит строку, отправка — кнопкой. На компьютере ещё и
+  // сочетанием: там Enter под рукой, а тянуться к кнопке ради каждого
+  // ответа утомительно.
+  //
+  // На телефоне Enter не отправляет вовсе: там для этого есть кнопка,
+  // а клавиша нужна как раз для переноса.
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+
+    // Enter — перенос, отправка по Shift+Enter или Ctrl+Enter.
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  // Поле растёт под текст: ответ на несколько строк не должен прятаться
+  // в одну щель.
+  const growReply = () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 120) + "px";
+  };
+  input.addEventListener("input", growReply);
 
   // Ответы грузим ТОЛЬКО когда карточка появилась на экране. Раньше лента из
   // 50 постов делала 50 запросов к Firestore сразу при открытии страницы —

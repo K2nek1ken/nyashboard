@@ -3195,3 +3195,13 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 @media (prefers-reduced-motion: reduce) {
   #playerSpacer { transition: none; }
 }
+
+/* Многострочные поля ввода в чате и ответах: растут под текст,
+   не растягивая ленту. */
+#chatInput, [data-reply-input] {
+  resize: none; overflow-y: auto;
+  min-height: 38px; max-height: 30vh;
+  line-height: 1.4; padding: 9px 12px;
+  font: inherit; font-size: 15px;
+}
+[data-reply-input] { max-height: 120px; }
