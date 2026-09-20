@@ -19,6 +19,12 @@ const HOLD_MS = 450;        // столько держать, чтобы мен�
 const MOVE_TOLERANCE = 10;  // палец дрогнул — это всё ещё удержание
 
 let openFor = null;         // для какой вкладки меню открыто сейчас
+let settling = false;       // меню только что открылось и ещё «устаканивается»
+
+// Пока меню устаканивается, закрывать его нельзя ничем: браузер в эти
+// доли секунды досылает события от того же касания, и любое из них
+// закрывало меню — причём по-разному, смотря куда пришёлся палец.
+function menuIsSettling() { return settling; }
 
 export function wireTabMenu(host) {
   if (!host || host.dataset.menuWired) return;
@@ -33,7 +39,12 @@ export function wireTabMenu(host) {
 
     tab.addEventListener("pointerdown", (e) => {
       // Меню уже открыто для этой вкладки — нажатие закрывает его.
+      //
+      // Но только если это новое касание, а не продолжение того,
+      // которым меню открыли: иначе оно закрывалось само собой,
+      // и по-разному в зависимости от того, где держали палец.
       if (openFor === tab.dataset.tab) {
+        if (menuIsSettling()) return;
         closeMenu();
         fired = true;
         return;
@@ -184,29 +195,49 @@ function openMenu(tab) {
   //
   // Раньше здесь стояла задержка в четверть секунды, но это гадание:
   // держат кто сколько, и при долгом удержании меню всё равно закрывалось.
-  const armOnRelease = () => {
-    window.removeEventListener("pointerup", armOnRelease);
-    window.removeEventListener("pointercancel", armOnRelease);
+  // Меню нельзя закрыть, пока не выполнены оба условия: палец убран
+  // и прошло немного времени.
+  //
+  // По отдельности ни одного не хватало. Ждать только отпускания —
+  // браузер шлёт вдогонку ещё события, и какое-нибудь из них закрывало.
+  // Ждать только время — при долгом удержании оно истекало раньше,
+  // чем человек отпустил.
+  //
+  // Поэтому считаем меню «живым», пока оба условия не сошлись, и всё
+  // это время просто не слушаем ничего лишнего.
+  let released = false;
+  let settled = false;
+  settling = true;
 
-    // Слушаем НОВОЕ касание, а не нажатие.
-    //
-    // Браузер шлёт «нажатие» уже после того, как палец убран, — и оно
-    // догоняло меню, сколько кадров ни жди. А касание бывает только
-    // одно на палец: следующее — это уже точно новое действие человека.
+  const maybeArm = () => {
+    if (!released || !settled) return;
     veil.addEventListener("pointerdown", closeMenu);
   };
 
-  window.addEventListener("pointerup", armOnRelease);
-  window.addEventListener("pointercancel", armOnRelease);
+  const onRelease = () => {
+    window.removeEventListener("pointerup", onRelease);
+    window.removeEventListener("pointercancel", onRelease);
+    released = true;
+    // Ещё немного после отпускания: браузер досылает связанные события.
+    setTimeout(() => { settled = true; settling = false; maybeArm(); }, 180);
+    maybeArm();
+  };
 
-  // Нажатие, догоняющее отпускание, глушим: оно относится к тому же
-  // касанию, которым меню открыли.
-  veil.addEventListener("click", (e) => e.stopPropagation(), { once: true });
+  window.addEventListener("pointerup", onRelease);
+  window.addEventListener("pointercancel", onRelease);
+
+  // Пока меню «живое», глушим всё, что может его случайно закрыть:
+  // догоняющие нажатия, системное меню, повторные касания вкладки.
+  const swallow = (e) => { if (!settled) { e.stopPropagation(); e.preventDefault(); } };
+  veil.addEventListener("click", swallow, true);
+  veil.addEventListener("contextmenu", swallow, true);
+  menu.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
 function closeMenu() {
   document.querySelector(".tab-menu-source")?.classList.remove("tab-menu-source");
   openFor = null;
+  settling = false;
 
   const veil = document.querySelector(".tab-menu-screen");
   const menu = document.querySelector(".tab-menu");
