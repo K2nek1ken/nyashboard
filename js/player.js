@@ -394,6 +394,11 @@ function keepSpacer(playerBottom) {
   }
 
   let spacer = document.getElementById("playerSpacer");
+
+  // Распорка могла потеряться: некоторые вкладки перебирают всё, что
+  // лежит рядом с содержимым. Тогда просто создаём заново.
+  if (spacer && !spacer.isConnected) spacer = null;
+
   if (!spacer) {
     spacer = document.createElement("div");
     spacer.id = "playerSpacer";
@@ -409,7 +414,9 @@ function keepSpacer(playerBottom) {
   // уже занимает шапка: она стоит выше распорки и своё место держит сама.
   const head = document.getElementById("navHost");
   const headBottom = head ? head.getBoundingClientRect().bottom : 0;
-  const need = Math.max(0, Math.round(playerBottom - headBottom + 10));
+  // Запас под плеером: без него он ложится впритык к кнопкам и поиску,
+  // и они кажутся прижатыми.
+  const need = Math.max(0, Math.round(playerBottom - headBottom + 22));
 
   spacer.style.height = need + "px";
 }
@@ -480,7 +487,14 @@ function reportPlayerHeight() {
 
   // При переходе между вкладками содержимое заменяется, и отступ нужно
   // посчитать заново: у новой страницы он может быть другим.
-  window.addEventListener("nyash:page", () => requestAnimationFrame(apply));
+  // После перехода считаем дважды: сразу и чуть погодя. Некоторые вкладки
+  // дорисовываются не мгновенно — шапка или содержимое могут сдвинуться
+  // уже после первого замера, и распорка осталась бы неверной.
+  window.addEventListener("nyash:page", () => {
+    requestAnimationFrame(apply);
+    setTimeout(apply, 120);
+    setTimeout(apply, 400);
+  });
 }
 
 function paintBar(track) {

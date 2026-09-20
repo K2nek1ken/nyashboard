@@ -179,7 +179,11 @@ async function swap(page, { push = true } = {}) {
 
 // Что принадлежит оболочке и живёт на всех страницах сразу.
 const SHELL_IDS = new Set([
-  "navHost", "toast", "profileDropdown", "settingsModal", "starfield", "nowPlaying"
+  "navHost", "toast", "profileDropdown", "settingsModal", "starfield", "nowPlaying",
+  // Распорка под плеером: она не принадлежит странице, а держит место
+  // под тем, что висит поверх всех вкладок сразу. Убрать её при переходе —
+  // значит на новой вкладке плеер снова накроет содержимое.
+  "playerSpacer"
 ]);
 
 function isShellNode(el) {
