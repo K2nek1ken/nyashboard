@@ -410,12 +410,21 @@ function reportPlayerHeight() {
     // Отступ страницы задаём напрямую. Через переменную он уже задан
     // в стилях, но там его легко перебивает какое-нибудь более позднее
     // правило — а так видно точно, и спорить не с чем.
+    // Отступ вешаем на сам контейнер страницы, а не на всю страницу.
+    //
+    // У страницы задана высота во весь экран, и отступ сверху там ведёт
+    // себя не так, как ожидаешь: содержимое не сдвигается, а плеер
+    // продолжает накрывать первую запись. У контейнера таких причуд нет.
+    const app = document.getElementById("app");
+    if (!app) return;
+
     if (window.matchMedia("(min-width: 900px)").matches) {
-      // На компьютере плеер в колонке слева — отступ сверху не нужен,
-      // и оставленный от телефона он дал бы пустую полосу.
+      // На компьютере плеер в колонке слева — сдвигать нечего.
+      app.style.paddingTop = "";
       document.body.style.paddingTop = "";
     } else {
-      document.body.style.paddingTop = (bottom + 10) + "px";
+      app.style.paddingTop = (bottom + 10 - 56) + "px";   // 56 — место шапки
+      document.body.style.paddingTop = "";
     }
 
     // Компенсируем прокрутку, только если плеер уже был и просто изменил
@@ -644,6 +653,8 @@ export function stop() {
       document.body.classList.remove("player-open");
       document.documentElement.style.removeProperty("--player-height");
       document.body.style.paddingTop = "";
+      const appEl = document.getElementById("app");
+      if (appEl) appEl.style.paddingTop = "";
     }, 260);
   }
 

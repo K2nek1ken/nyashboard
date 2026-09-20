@@ -36,9 +36,17 @@ export async function initPostIdentity(host, onChange) {
   await authReady;
 
   if (!currentUser) {
-    // Гость публикует только анонимно — выбирать не из чего.
+    // Гость публикует только анонимно. Показываем это одной кнопкой,
+    // а не прячем строку: иначе непонятно, почему у других выбор есть,
+    // а у тебя нет.
     choice = { kind: "anon", channelId: null };
-    host.innerHTML = "";
+    host.innerHTML = `<div class="identity-row">
+      <button class="identity-option active" disabled>
+        <span class="nf">${ICON.hidden || ICON.user}</span>
+        <span>Анонимно</span>
+      </button>
+      <span class="identity-note">войди, чтобы писать от себя</span>
+    </div>`;
     return;
   }
 

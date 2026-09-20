@@ -82,12 +82,17 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
     bar.style.top = "8px";
   }
 
-  // Содержимое отодвигаем под плеер по его настоящей высоте.
+  // Содержимое отодвигаем под плеер — по его настоящему нижнему краю,
+  // а не по высоте: он стоит не вплотную к верху.
   const body = box.querySelector(".composer-body");
-  if (body && document.body.classList.contains("player-open")
+  if (body && bar && document.body.classList.contains("player-open")
       && !window.matchMedia("(min-width: 900px)").matches) {
-    const h = bar ? Math.round(bar.getBoundingClientRect().height) : 90;
-    body.style.paddingTop = (h + 18) + "px";
+    // Считаем на следующем кадре: плеер только что сдвинули, и до
+    // перерисовки он всё ещё числится на старом месте.
+    requestAnimationFrame(() => {
+      const bottom = Math.round(bar.getBoundingClientRect().bottom);
+      if (bottom > 0) body.style.paddingTop = (bottom + 12) + "px";
+    });
   }
 
   const area = box.querySelector("[data-text]");
