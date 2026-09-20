@@ -161,7 +161,9 @@ function ensureBar() {
   bar.innerHTML = `
     <div class="player-cover-wrap" data-cover-wrap>
       <img class="player-cover" data-cover alt="">
-      <button class="player-cover-btn" data-toggle><span class="nf">${ICON.play}</span></button>
+      <button class="player-cover-btn" data-toggle>
+        <span class="nf">${audio && !audio.paused ? ICON.pause : ICON.play}</span>
+      </button>
     </div>
     <div class="player-time" data-time>0:00</div>
     <button class="player-btn" data-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
@@ -802,7 +804,9 @@ function openNowPlaying() {
       <div class="np-controls">
         <button class="np-btn" data-np-shuffle title="перемешать"><span class="nf">${ICON.shuffle}</span></button>
         <button class="np-btn" data-np-prev title="назад"><span class="nf">${ICON.left}</span></button>
-        <button class="np-btn np-play" data-np-toggle><span class="nf">${ICON.pause}</span></button>
+        <button class="np-btn np-play" data-np-toggle>
+          <span class="nf">${audio && !audio.paused ? ICON.pause : ICON.play}</span>
+        </button>
         <button class="np-btn" data-np-next title="дальше"><span class="nf">${ICON.right}</span></button>
         <button class="np-btn" data-np-repeat title="повтор"><span class="nf">${ICON.refresh}</span></button>
       </div>
@@ -821,6 +825,11 @@ function openNowPlaying() {
   box.addEventListener("click", (e) => { if (e.target === box) close(); });
 
   box.querySelector("[data-np-toggle]").addEventListener("click", togglePlay);
+
+  // Разворачиваем плеер — приводим кнопки в соответствие с тем, что сейчас.
+  // Раньше кнопка была нарисована паузой всегда, и на остановленном треке
+  // показывала, будто он играет.
+  paintPlayState(!!audio && !audio.paused);
   box.querySelector("[data-np-next]").addEventListener("click", () => {
     if (!playNextInQueue()) showToast("Это последний трек");
   });
