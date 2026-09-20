@@ -1,0 +1,21 @@
+{
+  "name": "NyashBoard",
+  "short_name": "NyashBoard",
+  "description": "Анонимная борда: записи, чат, музыка, творчество",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0910",
+  "theme_color": "#0b0910",
+  "lang": "ru",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-mask.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Чат", "url": "./chat.html" },
+    { "name": "Музыка", "url": "./my-music.html" }
+  ]
+}

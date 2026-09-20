@@ -137,6 +137,13 @@ for f in *.html; do
   [ -f "$f" ] || continue
   sed -i -E "s/(style\.css\?v=)[0-9]+/\1$STAMP/g; s/(js\/[a-z-]+\.js\?v=)[0-9]+/\1$STAMP/g; s/(favicon\.svg\?v=)[0-9]+/\1$STAMP/g" "$f"
 done
+# Служебный работник узнаёт об обновлении по своей версии: без этого
+# приложение продолжало бы показывать старую оболочку из памяти.
+if [ -f "$REPO_DIR/sw.js" ]; then
+  sed -i "s/^const VERSION = \".*\";/const VERSION = \"nyash-$STAMP\";/" "$REPO_DIR/sw.js"
+  echo "→ Приложение обновится у всех: версия nyash-$STAMP"
+fi
+
 echo "→ Версия ресурсов обновлена: $STAMP"
 
 # ---------- коммит и пуш ----------

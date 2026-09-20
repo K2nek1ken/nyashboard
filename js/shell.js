@@ -40,6 +40,17 @@ export function initShell() {
     .then(({ applyTiming }) => applyTiming())
     .catch(e => console.warn("Настройки движения:", e.message));
 
+  // Делает сайт устанавливаемым приложением: держит оболочку у себя
+  // и открывается даже без связи. Данные при этом всегда свежие —
+  // он их не трогает.
+  //
+  // Молча пропускаем, если браузер этого не умеет или страница открыта
+  // не по защищённому адресу: это не ошибка, просто не сложилось.
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js")
+      .catch(e => console.warn("Приложение не зарегистрировалось:", e.message));
+  }
+
   applySettings();
   initLayout();          // шапка рисуется сразу, до отрисовки содержимого
   applyFavicon();
