@@ -314,6 +314,14 @@ function updatePostCard(post) {
 
   // текст мог измениться при правке
   // Видео в записи — отдельным проигрывателем под текстом.
+  //
+  // Если видео убрали при правке, проигрыватель тоже должен исчезнуть:
+  // иначе он остался бы висеть до перезагрузки.
+  if (!p.videoUrl) {
+    card.querySelector("[data-video-card]")?.remove();
+    delete card.dataset.videoDone;
+  }
+
   if (p.videoUrl && !card.dataset.videoDone) {
     card.dataset.videoDone = "1";
     import("./video-player.js").then(({ videoHtml, wireVideo }) => {

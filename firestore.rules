@@ -440,7 +440,7 @@ service cloud.firestore {
           && !('publicUid' in resource.data)
           && request.resource.data.publicUid is string
           && request.resource.data.publicUid.matches('^U0[0-9]{6}$')) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'editedAt', 'publicUid']) &&
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'hashtags', 'imageUrls', 'videoUrl', 'videoPoster', 'editedAt', 'publicUid']) &&
           (request.auth.uid == get(/databases/$(database)/documents/postSecrets/$(postId)).data.ownerUid ||
            canManageChannelPost(resource.data)))
       );

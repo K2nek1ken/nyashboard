@@ -73,7 +73,15 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
   const area = box.querySelector("[data-text]");
   const strip = box.querySelector("[data-strip]");
   const fileInput = box.querySelector("[data-images]");
+
+  // Новые файлы, выбранные сейчас.
   let images = [];
+
+  // Уже приложенное к записи — при правке его видно и можно убрать.
+  // Храним ссылками: файлов у нас нет, они давно в хранилище.
+  let keptImages = editing ? [...(post.imageUrls || [])] : [];
+  let keptVideo = editing ? (post.videoUrl || null) : null;
+  let keptPoster = editing ? (post.videoPoster || null) : null;
 
   if (!editing) initPostIdentity(box.querySelector("#composerIdentity"));
 
@@ -150,22 +158,39 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
   });
 
   function renderStrip() {
-    const videoRow = videoFile
+    // Видео: либо только что выбранное, либо то, что уже было в записи.
+    const videoRow = (videoFile || keptVideo)
       ? `<div class="thumb thumb-video">
            <span class="nf">${ICON.play}</span>
-           <span class="thumb-name">${escapeHtml(videoFile.name)}</span>
+           <span class="thumb-name">${escapeHtml(videoFile ? videoFile.name : "видео в записи")}</span>
            <button class="removeThumb" data-drop-video><span class="nf">${ICON.close}</span></button>
          </div>`
       : "";
 
-    strip.innerHTML = videoRow + images.map((f, i) => `
+    // Картинки, которые уже в записи. Убрать можно любую.
+    const keptRows = keptImages.map((url, i) => `
+      <div class="thumb">
+        <img src="${escapeHtml(url)}" alt="">
+        <button class="removeThumb" data-drop-image="${i}"><span class="nf">${ICON.close}</span></button>
+      </div>`).join("");
+
+    strip.innerHTML = videoRow + keptRows + images.map((f, i) => `
       <div class="thumb">
         <img src="${URL.createObjectURL(f)}" alt="">
         <button class="removeThumb" data-remove="${i}"><span class="nf">${ICON.close}</span></button>
       </div>`).join("");
     strip.querySelector("[data-drop-video]")?.addEventListener("click", () => {
       videoFile = null;
+      keptVideo = null;
+      keptPoster = null;
       renderStrip();
+    });
+
+    strip.querySelectorAll("[data-drop-image]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        keptImages.splice(Number(btn.dataset.dropImage), 1);
+        renderStrip();
+      });
     });
 
     strip.querySelectorAll("[data-remove]").forEach(btn => {
@@ -186,12 +211,35 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
 
     try {
       if (editing) {
+        // Новые файлы, добавленные при правке, тоже нужно загрузить.
+        const added = images.length ? await uploadImages(images) : [];
+
+        let video = keptVideo ? { url: keptVideo, poster: keptPoster } : null;
+        if (videoFile) {
+          btn.textContent = "Загружаю видео…";
+          const { uploadVideo } = await import("./storage.js");
+          video = await uploadVideo(videoFile, (r) => {
+            btn.textContent = `Видео… ${Math.round(r * 100)}%`;
+          });
+        }
+
+        const imageUrls = [...keptImages, ...added];
+
         await updateDoc(doc(db, "posts", post.id), {
           text,
           hashtags: extractHashtags(text),
+          imageUrls,
+          videoUrl: video?.url || null,
+          videoPoster: video?.poster || null,
           editedAt: serverTimestamp()
         });
+
+        // Обновляем запись на месте, чтобы карточка перерисовалась с тем,
+        // что получилось, а не с прежним набором вложений.
         post.text = text;
+        post.imageUrls = imageUrls;
+        post.videoUrl = video?.url || null;
+        post.videoPoster = video?.poster || null;
         post.editedAt = { toMillis: () => Date.now() };
         showToast("Изменено ♡");
       } else {
