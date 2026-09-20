@@ -1,4 +1,4 @@
-import { fetchReplies, wireReplyLikes, replyRowHtml } from "./replies.js";
+import { fetchReplies, wireReplyLikes, wireReplyQuotes, replyRowHtml } from "./replies.js";
 import { escapeHtml } from "./ui.js";
 
 // ============================================================
@@ -40,6 +40,7 @@ export async function loadReplyPreview(postId, card) {
         ? `<a class="showMoreReplies" href="post.html?id=${postId}">показать все ${all.length} ответов &#8594;</a>`
         : "");
     wireReplyLikes(box, top3);
+  wireReplyQuotes(box);
   } catch (e) {
     console.error(e);
     box.innerHTML = `<div class="muted">Не смогла загрузить ответы: ${escapeHtml(e.message)}</div>`;

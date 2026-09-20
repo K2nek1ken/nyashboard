@@ -3131,3 +3131,30 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
   text-overflow: ellipsis; white-space: nowrap;
 }
 .thumb-video .removeThumb { position: static; flex-shrink: 0; }
+
+/* ---------- цитата в ответе ----------
+   Как в чате: видно, на что отвечают, без перехода и догадок. */
+.reply-quote {
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--card-hover);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 0 8px 8px 0;
+  padding: 5px 9px; margin: 0 0 5px;
+  font-size: 11.5px; cursor: pointer;
+  max-width: 100%;
+}
+.reply-quote:hover { background: color-mix(in oklab, var(--accent) 10%, var(--card-hover)); }
+.reply-quote-name { color: var(--accent-2); font-weight: 600; }
+.reply-quote-text {
+  color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* подсветка ответа, на который указывает цитата */
+.reply-row.reply-flash {
+  animation: replyFlash 1.2s ease;
+}
+@keyframes replyFlash {
+  0%, 100% { background: transparent; }
+  20%      { background: color-mix(in oklab, var(--accent) 22%, transparent); }
+}

@@ -16,7 +16,7 @@ import { renderPostTracks, renderPostArtworks } from "./post-attachments.js";
 import { columnCount, layoutPosts, balanceColumns, revealSequentially } from "./feed-layout.js";
 import { showToast, escapeHtml, timeAgo, gendered } from "./ui.js";
 import { ICON, SVG_ICON } from "./icons.js";
-import { fetchReplies, sendReply, replyRowHtml, wireReplyLikes } from "./replies.js";
+import { fetchReplies, sendReply, replyRowHtml } from "./replies.js";
 import { imagesToHtml, wireCarousels, getPostImages } from "./carousel.js";
 import { markOwned, isOwned } from "./ownership.js";
 import { linkifyMentions, wireMentions } from "./mentions.js";
@@ -621,7 +621,10 @@ export function wirePostCard(p, container = document) {
     if (!text && !pendingReplyImage) return;
     sendBtn.disabled = true;
     try {
-      await sendReply(p.id, text, pendingReplyImage);
+      // Если отвечаем на чей-то ответ — цитата уедет вместе с сообщением.
+      const { currentReplyTarget, clearReplyTarget } = await import("./replies.js");
+      await sendReply(p.id, text, pendingReplyImage, currentReplyTarget(card));
+      clearReplyTarget(card);
       input.value = "";
       pendingReplyImage = null;
       previewBox.classList.add("hidden");

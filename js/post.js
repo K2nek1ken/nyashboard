@@ -1,6 +1,6 @@
 import { db, doc, getDoc } from "./firebase.js";
 import { postToHtml, wirePostCard } from "./feed.js";
-import { fetchReplies, sendReply, replyRowHtml, wireReplyLikes } from "./replies.js";
+import { fetchReplies, sendReply, replyRowHtml, wireReplyLikes, wireReplyQuotes } from "./replies.js";
 import { authReady } from "./auth.js";
 import { showToast, escapeHtml } from "./ui.js";
 
@@ -53,6 +53,7 @@ async function reloadReplies(postId, repliesEl) {
     if (!all.length) { repliesEl.innerHTML = `<div class="muted">Пока нет ответов — будь первой ♡</div>`; return; }
     repliesEl.innerHTML = all.map(replyRowHtml).join("");
     wireReplyLikes(repliesEl, all, () => reloadReplies(postId, repliesEl));
+    wireReplyQuotes(repliesEl);
   } catch (e) {
     console.error(e);
     repliesEl.innerHTML = `<div class="stub-note">Не смогла загрузить ответы: ${escapeHtml(e.message)}</div>`;
@@ -67,7 +68,10 @@ function wireDetailReplyInput(postId, repliesEl) {
     if (!text) return;
     btn.disabled = true;
     try {
-      await sendReply(postId, text);
+      const { currentReplyTarget, clearReplyTarget } = await import("./replies.js");
+      const scope = document.querySelector(".post-card") || document.body;
+      await sendReply(postId, text, null, currentReplyTarget(scope));
+      clearReplyTarget(scope);
       input.value = "";
       showToast("Ответ отправлен");
       await reloadReplies(postId, repliesEl);

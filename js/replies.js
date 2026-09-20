@@ -29,11 +29,18 @@ export async function fetchReplies(postId) {
   return list;
 }
 
-export async function sendReply(postId, text, imageFile = null) {
+export async function sendReply(postId, text, imageFile = null, replyTo = null) {
   const isAnon = !currentUser;
   const imageUrl = imageFile ? await uploadImage(imageFile) : null;
   const ref = await addDoc(collection(db, "replies"), {
     postId,
+
+    // На какой ответ это ответ. Храним снимок — имя и кусок текста, —
+    // а не только ссылку: иначе цитата исчезала бы, стоило исходному
+    // ответу пропасть, и разговор становился непонятным.
+    replyToId: replyTo?.id || null,
+    replyToNickname: replyTo?.nickname || null,
+    replyToText: replyTo?.text ? replyTo.text.slice(0, 120) : null,
     authorUid: currentUser ? currentUser.uid : null,
     authorNickname: currentUser ? (currentUserDoc?.nickname || "???") : null,
     // Юзернейм нужен, чтобы на ответ можно было ответить упоминанием.
@@ -109,12 +116,35 @@ export function replyRowHtml(r) {
         </button>
         ${canManage ? kebabHtml(kebabItems, r.id) : ""}
       </div>
+      ${r.replyToNickname ? `
+        <div class="reply-quote" ${r.replyToId ? `data-goto-reply="${r.replyToId}"` : ""}>
+          <span class="reply-quote-name">${escapeHtml(r.replyToNickname)}</span>
+          <span class="reply-quote-text">${escapeHtml(r.replyToText || "фото")}</span>
+        </div>` : ""}
       <div class="reply-text">${linkifyMentions(escapeHtml(r.text || ""))}</div>
       ${r.imageUrl ? `<img class="reply-img" src="${r.imageUrl}">` : ""}
       <button class="replyLikeBtn ${liked ? "liked" : ""}" data-action="likeReply">
         <span class="nf">${liked ? ICON.heartFilled : ICON.heart}</span> ${r.likesCount || 0}
       </button>
     </div>`;
+}
+
+// Нажатие по цитате подсвечивает тот ответ, на который отвечали.
+// Переходить никуда не нужно: он обычно рядом, просто затерялся.
+export function wireReplyQuotes(container) {
+  container.querySelectorAll("[data-goto-reply]").forEach(el => {
+    if (el.dataset.wired) return;
+    el.dataset.wired = "1";
+
+    el.addEventListener("click", () => {
+      const target = container.querySelector(`.reply-row[data-reply-id="${el.dataset.gotoReply}"]`);
+      if (!target) return;
+
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add("reply-flash");
+      setTimeout(() => target.classList.remove("reply-flash"), 1200);
+    });
+  });
 }
 
 export function wireReplyLikes(container, replies, onDeleted) {
@@ -133,9 +163,14 @@ export function wireReplyLikes(container, replies, onDeleted) {
                  || document.getElementById("detailReplyInput");
       if (!input) { showToast("Поле ответа не найдено"); return; }
 
-      // Показываем, кому отвечаешь: без этого было непонятно, привязался
-      // ответ к комментарию или ушёл в общий список.
+      // Показываем, кому отвечаешь, и запоминаем — при отправке это
+      // превратится в цитату внутри самого ответа.
       showReplyTarget(scope, r);
+      scope.dataset.replyTo = JSON.stringify({
+        id: r.id,
+        nickname: r.isAnonymous ? "аноним" : (r.authorNickname || "кто-то"),
+        text: r.text || ""
+      });
 
       const handle = (!r.isAnonymous && r.authorUsername) ? `@${r.authorUsername} ` : "";
       if (handle && !input.value.startsWith(handle)) input.value = handle + input.value;
@@ -209,4 +244,14 @@ function showReplyTarget(scope, reply) {
 // Убрать цитату — после отправки ответа.
 export function clearReplyTarget(scope = document) {
   scope.querySelector(".reply-target")?.remove();
+  delete scope.dataset?.replyTo;
+}
+
+// На какой ответ сейчас отвечают в этой карточке.
+export function currentReplyTarget(scope) {
+  try {
+    return scope?.dataset?.replyTo ? JSON.parse(scope.dataset.replyTo) : null;
+  } catch {
+    return null;
+  }
 }
