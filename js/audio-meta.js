@@ -16,6 +16,10 @@ export async function readAudioMeta(file) {
     if (tag4 === "OggS") return readOgg(head);
     // M4A: сведения в разделе moov/udta/meta/ilst
     if (String.fromCharCode(head[4], head[5], head[6], head[7]) === "ftyp") return readMp4(head);
+
+    // WAV: внутри бывает тот же список тегов, что у MP3, — его кладут
+    // отдельным куском «id3 ». Без этого у WAV не читалось вообще ничего.
+    if (tag4 === "RIFF") return readWav(head);
   } catch (e) {
     console.warn("Теги не прочитались:", e.message);
   }
@@ -181,8 +185,29 @@ function readVorbis(block, out) {
     pos += len;
     const [key, ...rest] = text.split("=");
     const value = rest.join("=");
+
     if (/^title$/i.test(key)) out.title = value;
     if (/^artist$/i.test(key)) out.artist = value;
+
+    // Обложка. В Ogg и Opus её кладут сюда же, отдельным тегом: сам
+    // рисунок закодирован строкой, а внутри — то же устройство, что
+    // у обложки в FLAC. Раньше этот тег просто пропускался, и обложка
+    // не доставалась, хотя в файле была.
+    if (!out.cover && /^metadata_block_picture$/i.test(key)) {
+      out.cover = decodeBase64Picture(value);
+    }
+  }
+}
+
+// Разбирает обложку, записанную строкой (Ogg, Opus).
+function decodeBase64Picture(text) {
+  try {
+    const raw = atob(text.trim());
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    return readFlacPicture(bytes);
+  } catch {
+    return null;    // строка повреждена — обойдёмся без обложки
   }
 }
 
@@ -196,4 +221,79 @@ function readFlacPicture(block) {
   const dataLen = view.getUint32(pos); pos += 4;
   if (pos + dataLen > block.length) return null;
   return new Blob([block.subarray(pos, pos + dataLen)], { type: mime || "image/jpeg" });
+}
+
+
+// ---------- WAV ----------
+// Файл из кусков: четыре байта имени, четыре длины, дальше содержимое.
+// Теги лежат либо куском «id3 » (тот же список, что в MP3), либо «LIST»
+// с подписью «INFO» — там свои короткие имена полей.
+function readWav(bytes) {
+  const out = { title: "", artist: "", cover: null };
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  let pos = 12;    // пропускаем «RIFF», размер и «WAVE»
+  while (pos + 8 <= bytes.length) {
+    const name = String.fromCharCode(bytes[pos], bytes[pos+1], bytes[pos+2], bytes[pos+3]);
+    const size = view.getUint32(pos + 4, true);
+    const body = bytes.subarray(pos + 8, pos + 8 + size);
+
+    if (name === "id3 " || name === "ID3 ") {
+      // Внутри обычный список из MP3 — разбираем готовым кодом.
+      const inner = readId3(body);
+      if (inner.title) out.title = inner.title;
+      if (inner.artist) out.artist = inner.artist;
+      if (inner.cover) out.cover = inner.cover;
+    }
+
+    if (name === "LIST" && String.fromCharCode(body[0], body[1], body[2], body[3]) === "INFO") {
+      readWavInfo(body.subarray(4), out);
+    }
+
+    // Куски выравниваются по чётной границе.
+    pos += 8 + size + (size % 2);
+  }
+  return out;
+}
+
+// Короткий список «INFO»: INAM — название, IART — исполнитель.
+// Обложки там не бывает, только текст.
+function readWavInfo(block, out) {
+  const view = new DataView(block.buffer, block.byteOffset, block.byteLength);
+  let pos = 0;
+
+  while (pos + 8 <= block.length) {
+    const name = String.fromCharCode(block[pos], block[pos+1], block[pos+2], block[pos+3]);
+    const size = view.getUint32(pos + 4, true);
+    const text = decodeMaybeCyrillic(block.subarray(pos + 8, pos + 8 + size));
+
+    if (name === "INAM" && !out.title) out.title = text;
+    if (name === "IART" && !out.artist) out.artist = text;
+
+    pos += 8 + size + (size % 2);
+  }
+}
+
+
+// Расшифровывает текст, который может быть записан по-разному.
+//
+// В WAV теги старые и часто лежат в однобайтовой кодировке — той самой,
+// в которой русский текст раньше писали везде. Если читать их как UTF-8,
+// выходит каша из вопросительных знаков.
+//
+// Поэтому пробуем UTF-8, а если получилось нечитаемо — читаем как
+// windows-1251. Латиница в обоих случаях одинаковая, так что портить
+// нечего.
+function decodeMaybeCyrillic(bytes) {
+  const clean = (t) => t.replace(/\0+$/, "").trim();
+
+  const utf = clean(new TextDecoder("utf-8").decode(bytes));
+  // Знак замены означает, что в UTF-8 это не читается.
+  if (!utf.includes("\uFFFD")) return utf;
+
+  try {
+    return clean(new TextDecoder("windows-1251").decode(bytes));
+  } catch {
+    return utf;
+  }
 }
