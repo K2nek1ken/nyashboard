@@ -200,8 +200,12 @@ function easeOut(t) {
 
 function wheelSvg() {
   const step = 360 / WHEEL.length;
+
+  // Сектора остаются красно-чёрными: рулетка узнаётся именно по ним,
+  // и перекрасить их под тему — значит сделать её неузнаваемой.
+  // Под тему идёт только оправа, сердцевина и шарик.
   const sectors = WHEEL.map((n, i) => {
-    const color = n === 0 ? "#2e8b57" : (RED.has(n) ? "#c0392b" : "#1a1a1a");
+    const color = n === 0 ? "#2e8b57" : (RED.has(n) ? "#c0392b" : "#1c1a20");
     const a1 = (i * step - 90) * Math.PI / 180;
     const a2 = ((i + 1) * step - 90) * Math.PI / 180;
     const x1 = 50 + 48 * Math.cos(a1), y1 = 50 + 48 * Math.sin(a1);
@@ -209,18 +213,27 @@ function wheelSvg() {
     return `<path d="M50 50 L${x1.toFixed(2)} ${y1.toFixed(2)} A48 48 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${color}"/>`;
   }).join("");
 
-  const accent = paletteColor("pink");
+  // Цвет берём из темы, а не вписываем: при «Абсолютном ничего» или
+  // другом выбранном оттенке розовая сердцевина смотрелась чужеродно.
+  const style = getComputedStyle(document.documentElement);
+  const accent = style.getPropertyValue("--accent").trim() || paletteColor("pink");
+  const deep = style.getPropertyValue("--bg").trim() || "#0d0b11";
 
   return `
     <svg viewBox="0 0 100 100" class="roulette-svg">
-      <circle cx="50" cy="50" r="49" fill="#0d0b11"/>
+      <circle cx="50" cy="50" r="49" fill="${deep}"/>
       ${sectors}
-      <circle cx="50" cy="50" r="30" fill="#0d0b11" stroke="${accent}" stroke-width="1"/>
+      <circle cx="50" cy="50" r="30" fill="${deep}" stroke="${accent}" stroke-width="1"/>
       <circle cx="50" cy="50" r="8" fill="${accent}"/>
+      <!-- тонкая оправа по краю: связывает колесо с остальным оформлением -->
+      <circle cx="50" cy="50" r="48.4" fill="none" stroke="${accent}"
+              stroke-width="1.2" opacity=".65"/>
 
       <!-- шарик: крутится вокруг центра, поэтому вынесен в свою группу -->
       <g data-ball style="transform-origin:50px 50px;">
-        <circle cx="50" cy="12" r="3.4" fill="#fff"/>
+        <!-- Шарик светлый по цвету текста: на светлой теме белый на белом
+             был бы не виден. -->
+        <circle cx="50" cy="12" r="3.4" fill="${style.getPropertyValue("--text").trim() || "#fff"}"/>
       </g>
 
     </svg>`;
