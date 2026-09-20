@@ -79,7 +79,9 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
   const bar = document.querySelector(".player-bar");
   const barTop = bar?.style.top || "";
   if (bar && !window.matchMedia("(min-width: 900px)").matches) {
-    bar.style.top = "8px";
+    // Не под самый край: вплотную к верху он смотрится приклеенным,
+    // и между ним и полем набора остаётся неловкая пустота.
+    bar.style.top = "26px";
   }
 
   // Содержимое отодвигаем под плеер — по его настоящему нижнему краю,

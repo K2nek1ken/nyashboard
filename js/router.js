@@ -138,6 +138,10 @@ async function swap(page, { push = true } = {}) {
     // и остаёмся на месте — так поломка видна и чинится, а не маскируется.
     try {
       await module.initPage?.();
+
+      // Сообщаем остальным, что страница сменилась: плееру, например,
+      // нужно заново посчитать, на сколько отодвинуть содержимое.
+      window.dispatchEvent(new CustomEvent("nyash:page", { detail: { page } }));
     } catch (e) {
       console.error(`Вкладка ${page} не запустилась:`, e);
       showToast("Что-то пошло не так на этой вкладке");

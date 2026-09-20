@@ -410,22 +410,29 @@ function reportPlayerHeight() {
     // Отступ страницы задаём напрямую. Через переменную он уже задан
     // в стилях, но там его легко перебивает какое-нибудь более позднее
     // правило — а так видно точно, и спорить не с чем.
-    // Отступ вешаем на сам контейнер страницы, а не на всю страницу.
+    // Отступ считаем от того, где содержимое лежит сейчас, а не по
+    // заранее известным числам.
     //
-    // У страницы задана высота во весь экран, и отступ сверху там ведёт
-    // себя не так, как ожидаешь: содержимое не сдвигается, а плеер
-    // продолжает накрывать первую запись. У контейнера таких причуд нет.
+    // Раньше я вычитала высоту шапки как постоянную — и ошибалась:
+    // шапка прокручивается вместе со страницей, занимая место в потоке,
+    // и её вклад уже учтён в положении контейнера. Отсюда и брались
+    // недостающие пятьдесят пикселей, из-за которых плеер накрывал
+    // первую запись.
     const app = document.getElementById("app");
     if (!app) return;
 
     if (window.matchMedia("(min-width: 900px)").matches) {
-      // На компьютере плеер в колонке слева — сдвигать нечего.
-      app.style.paddingTop = "";
-      document.body.style.paddingTop = "";
-    } else {
-      app.style.paddingTop = (bottom + 10 - 56) + "px";   // 56 — место шапки
-      document.body.style.paddingTop = "";
+      app.style.paddingTop = "";     // на компьютере плеер сбоку
+      return;
     }
+
+    // Где начинается содержимое, если убрать наш отступ
+    const already = parseFloat(app.style.paddingTop) || 0;
+    const contentTop = app.getBoundingClientRect().top + already;
+
+    // Сколько не хватает, чтобы оно начиналось под плеером
+    const need = Math.max(0, Math.round(bottom + 10 - contentTop));
+    app.style.paddingTop = need + "px";
 
     // Компенсируем прокрутку, только если плеер уже был и просто изменил
     // высоту — например, стал в два ряда. При появлении компенсировать
@@ -440,8 +447,13 @@ function reportPlayerHeight() {
 
   if (bar.dataset.measured) return;
   bar.dataset.measured = "1";
+
   if ("ResizeObserver" in window) new ResizeObserver(apply).observe(bar);
   else window.addEventListener("resize", apply);
+
+  // При переходе между вкладками содержимое заменяется, и отступ нужно
+  // посчитать заново: у новой страницы он может быть другим.
+  window.addEventListener("nyash:page", () => requestAnimationFrame(apply));
 }
 
 function paintBar(track) {
