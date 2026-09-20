@@ -69,11 +69,42 @@ export function subscribeFeed() {
   // возврате в ленту рисуем накопленное сразу: сама подписка пришлёт что-то
   // только когда появится новая запись, а до тех пор экран оставался пустым.
   if (feedUnsub) {
-    if (lastRenderedPosts?.length) renderFeed(rankPosts(lastRenderedPosts));
-    return;
+    // Есть что показать — показываем сразу, не дожидаясь новых записей.
+    if (lastRenderedPosts?.length) {
+      renderFeed(rankPosts(lastRenderedPosts));
+      return;
+    }
+
+    // Подписка есть, а показывать нечего. Значит она осталась от прошлого
+    // захода и новых данных не пришлёт: первую порцию она отдаёт один раз,
+    // при создании. Начинаем заново — иначе лента так и висит пустой,
+    // и помогает только перезагрузка страницы.
+    feedUnsub();
+    feedUnsub = null;
   }
   const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
+
+  // Если за несколько секунд ничего не пришло, предлагаем обновить:
+  // пустая лента без объяснений выглядит одинаково и при поломке,
+  // и при плохой связи.
+  const slowWatch = setTimeout(() => {
+    if (lastRenderedPosts?.length || !feedListEl) return;
+    if (feedListEl.querySelector(".post-card")) return;
+
+    feedListEl.innerHTML = `
+      <div class="stub-note">
+        Лента не загрузилась.
+        <button class="subBtn" data-retry-feed>Попробовать снова</button>
+      </div>`;
+
+    feedListEl.querySelector("[data-retry-feed]")?.addEventListener("click", () => {
+      unsubscribeFeed();
+      subscribeFeed();
+    });
+  }, 7000);
+
   feedUnsub = onSnapshot(q, (snap) => {
+    clearTimeout(slowWatch);
     // Записи «для своих» отсеиваем на месте: база отдаёт список целиком,
     // а разрешение зависит от того, кто смотрит. Правило при этом всё равно
     // не даст открыть такую запись напрямую — здесь мы лишь не показываем

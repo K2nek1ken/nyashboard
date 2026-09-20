@@ -1,5 +1,6 @@
 import {
-  auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously
+  auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut, onAuthStateChanged, signInAnonymously
 } from "./firebase.js";
 import { ensureUserDoc } from "./data.js";
 import { paletteColor } from "./palette.js";
@@ -81,7 +82,17 @@ export function patchCurrentUserDoc(patch) {
 // Это НЕ аккаунт и никак не палит личность — нужно только чтобы Firestore Rules
 // могли отличать "хоть кто-то из приложения" от голых запросов к API снаружи.
 onAuthStateChanged(auth, async (fbUser) => {
-  if (!fbUser) { await signInAnonymously(auth); return; } // повторно вызовет этот же колбэк
+  if (!fbUser) {
+    // Если только что вернулись со страницы входа, гостя не заводим:
+    // настоящий вход придёт следующим, а гостевой перебил бы его —
+    // человек подтверждал вход и всё равно оставался анонимом.
+    let waiting = false;
+    try { waiting = sessionStorage.getItem("nyash_signing_in") === "1"; } catch {}
+    if (waiting) return;
+
+    await signInAnonymously(auth);
+    return;   // повторно вызовет этот же колбэк
+  }
   if (fbUser.isAnonymous) {
     currentUser = null;
     currentUserDoc = null;
@@ -119,13 +130,69 @@ onAuthStateChanged(auth, async (fbUser) => {
   if (resolveAuthReady) { resolveAuthReady(); resolveAuthReady = null; }
 });
 
+// Вход отдельным окном или переходом на страницу Google — зависит от того,
+// откуда зашли.
+//
+// В установленном приложении и на телефоне всплывающее окно ненадёжно:
+// система может открыть его отдельной вкладкой, и результат до нас
+// не возвращается — человек подтверждает вход, а остаётся гостем.
+// Поэтому там уходим на страницу Google и возвращаемся уже вошедшими.
+function needsRedirect() {
+  const installed = window.matchMedia("(display-mode: standalone)").matches
+                 || window.navigator.standalone === true;
+  const touch = window.matchMedia("(pointer: coarse)").matches;
+  return installed || touch;
+}
+
 export async function loginWithGoogle() {
   try {
+    if (needsRedirect()) {
+      showToast("Открываю вход…");
+      // Метка, что мы ушли входить: по возвращении она не даст
+      // создать гостевой вход раньше, чем придёт настоящий.
+      try { sessionStorage.setItem("nyash_signing_in", "1"); } catch {}
+      await signInWithRedirect(auth, googleProvider);
+      return;    // дальше страница перезагрузится сама
+    }
+
     await signInWithPopup(auth, googleProvider);
     showToast(`Вош${gendered("ёл", "ла", "ёл(ла)")} ♡`);
   } catch (e) {
     console.error(e);
+
+    // Окно заблокировали или закрыли — пробуем переходом.
+    if (/popup/i.test(e.code || "")) {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      } catch {}
+    }
     showToast("Не получилось войти: " + e.message);
+  }
+}
+
+// Разбираем возвращение со страницы Google.
+//
+// Без этого вход вроде бы проходит, но приложение об этом не узнаёт:
+// человек подтверждает, возвращается — и снова гость.
+getRedirectResult(auth)
+  .then(result => {
+    try { sessionStorage.removeItem("nyash_signing_in"); } catch {}
+    if (result?.user) showToast(`Вош${gendered("ёл", "ла", "ёл(ла)")} ♡`);
+    else ensureGuest();     // не вход — значит обычный заход, нужен гость
+  })
+  .catch(e => {
+    try { sessionStorage.removeItem("nyash_signing_in"); } catch {}
+    if (e.code !== "auth/no-auth-event") console.warn("Возврат со входа:", e.message);
+    ensureGuest();
+  });
+
+// Заводит гостевой вход, если человек не вошёл. Вызывается после того,
+// как стало ясно: возврата со страницы входа не будет.
+async function ensureGuest() {
+  if (auth.currentUser) return;
+  try { await signInAnonymously(auth); } catch (e) {
+    console.warn("Гостевой вход:", e.message);
   }
 }
 

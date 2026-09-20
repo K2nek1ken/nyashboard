@@ -140,10 +140,18 @@ export function subscribeChat() {
   // пришлёт что-то только когда придёт новое сообщение, а до тех пор
   // экран оставался пустым.
   if (chatUnsub) {
-    if (lastMessages.length) renderChat(lastMessages);
-    initChatNav(messagesEl);
-    applyMute();
-    return;
+    if (lastMessages.length) {
+      renderChat(lastMessages);
+      initChatNav(messagesEl);
+      applyMute();
+      return;
+    }
+
+    // Подписка есть, а сообщений нет: она осталась от прошлого захода
+    // и первую порцию уже отдала. Начинаем заново, иначе чат висит
+    // пустым до перезагрузки.
+    chatUnsub();
+    chatUnsub = null;
   }
   // Живая подписка только на последние сообщения: грузить всю переписку разом
   // и долго, и дорого по обращениям к базе. Остальное подтягивается порциями

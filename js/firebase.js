@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously,
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut, onAuthStateChanged, signInAnonymously,
   setPersistence, indexedDBLocalPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
@@ -29,7 +30,8 @@ export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export {
-  signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, setPersistence,
+  signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut, onAuthStateChanged, signInAnonymously, setPersistence,
   collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
   query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion,
   arrayRemove, increment, where, getDocs, writeBatch, deleteField,

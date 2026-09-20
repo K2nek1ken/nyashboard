@@ -176,15 +176,20 @@ function openMenu(tab) {
     window.removeEventListener("pointerup", armOnRelease);
     window.removeEventListener("pointercancel", armOnRelease);
 
-    // Ещё кадр на всякий случай: отпускание может прийти чуть раньше,
-    // чем браузер разошлёт связанное с ним нажатие.
-    requestAnimationFrame(() => {
-      veil.addEventListener("click", closeMenu);
-    });
+    // Слушаем НОВОЕ касание, а не нажатие.
+    //
+    // Браузер шлёт «нажатие» уже после того, как палец убран, — и оно
+    // догоняло меню, сколько кадров ни жди. А касание бывает только
+    // одно на палец: следующее — это уже точно новое действие человека.
+    veil.addEventListener("pointerdown", closeMenu);
   };
 
   window.addEventListener("pointerup", armOnRelease);
   window.addEventListener("pointercancel", armOnRelease);
+
+  // Нажатие, догоняющее отпускание, глушим: оно относится к тому же
+  // касанию, которым меню открыли.
+  veil.addEventListener("click", (e) => e.stopPropagation(), { once: true });
 }
 
 function closeMenu() {
