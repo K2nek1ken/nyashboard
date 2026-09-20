@@ -141,6 +141,10 @@ export function initSettingsPage() {
           toggle("meowReaction", s.meowReaction === "on"))}
         ${row("Имена в сообщениях бота", "показывать цветом и ссылкой на профиль",
           toggle("botNameLinks", s.botNameLinks !== "off"))}
+        ${row("Свой знак перед командами",
+          "например «!» — тогда команды пишутся как «!обнять». Пусто — как обычно",
+          `<input class="inlineEdit" id="commandPrefixInput" maxlength="3" style="max-width:70px;"
+                  placeholder="нет" value="${escapeHtml(s.commandPrefix || "")}">`)}
         ${row("Отключённые команды бота",
           "через запятую — какие команды не работают в чате",
           `<input class="inlineEdit" id="blockedCommandsInput" style="max-width:180px;"
@@ -317,6 +321,12 @@ export function initSettingsPage() {
       showToast("Картинка убрана");
       render();
       import("./chat.js").then(({ prepareQuoteImage }) => prepareQuoteImage()).catch(() => {});
+    });
+
+    const prefixInput = host.querySelector("#commandPrefixInput");
+    prefixInput?.addEventListener("change", () => {
+      setSetting("commandPrefix", prefixInput.value.trim().slice(0, 3));
+      showToast("Сохранено ♡");
     });
 
     const blockedInput = host.querySelector("#blockedCommandsInput");

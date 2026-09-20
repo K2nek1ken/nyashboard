@@ -63,18 +63,40 @@ let customRules = [];
 
 export function setCustomRules(rules) { customRules = rules || []; }
 
+// Свой знак перед командами — из настроек. Пусто, если не задан.
+function commandPrefix() {
+  try {
+    const raw = JSON.parse(localStorage.getItem("nyash_settings") || "{}").commandPrefix || "";
+    return raw.trim().slice(0, 3);   // длиннее трёх знаков — уже не знак
+  } catch { return ""; }
+}
+
+// Имена команды в том виде, в каком их нужно писать сейчас.
+// Со своим знаком точка из имени убирается: «!команды», а не «!.команды».
+function namesOf(rule) {
+  const prefix = commandPrefix();
+  return prefix ? rule.cmd.map(n => n.replace(/^\./, "")) : rule.cmd;
+}
+
 export function parseCommand(text, author, target) {
   const raw = (text || "").trim();
   if (!raw) return null;
 
-  // Точка, слэш или восклицательный знак в начале — привычный способ
-  // отмечать команду: «.команды», «/обнять». Убираем их, чтобы такие
-  // сообщения тоже срабатывали.
+  // Знаки в конце допускаются: «обнять!» — всё ещё команда.
+  let clean = raw.replace(/[!,?…\s]+$/u, "").replace(/\.+$/u, "");
+
+  // Свой знак перед командами, если человек его задал.
   //
-  // Знаки в конце тоже допускаются: «обнять!» — всё ещё команда.
-  const clean = raw
-    .replace(/^[./!]+/u, "")
-    .replace(/[!.,?…\s]+$/u, "");
+  // Смысл в том, чтобы бот вообще не заглядывал в обычные сообщения:
+  // с заданным знаком «!» команда — это «!обнять», а просто «обнять» —
+  // уже разговор. Точка из имён при этом не нужна: «!команды», а не
+  // «!.команды» — два знака подряд выглядели бы нелепо.
+  const prefix = commandPrefix();
+  if (prefix) {
+    if (!clean.startsWith(prefix)) return null;
+    clean = clean.slice(prefix.length).trim();
+    if (!clean) return null;
+  }
   const lower = clean.toLowerCase();
 
   // Свои команды идут первыми: человек добавил их сам, значит и ждёт
@@ -82,7 +104,7 @@ export function parseCommand(text, author, target) {
   const all = [...customRules, ...COMMANDS];
 
   // Сначала точное совпадение: сообщение состоит из одной команды.
-  let rule = all.find(c => c.cmd.includes(lower));
+  let rule = all.find(c => namesOf(c).includes(lower));
   let rest = "";
 
   // Потом команды с продолжением: «дать леща», «казик 10 к».
@@ -90,7 +112,7 @@ export function parseCommand(text, author, target) {
     const space = lower.indexOf(" ");
     if (space > 0) {
       const head = lower.slice(0, space);
-      const candidate = all.find(c => c.rest && c.cmd.includes(head));
+      const candidate = all.find(c => c.rest && namesOf(c).includes(head));
       if (candidate) {
         rule = candidate;
         rest = clean.slice(space + 1).trim();
@@ -128,7 +150,9 @@ function helpText() {
 
   for (const rule of [...customRules, ...COMMANDS]) {
     if (rule.help || isBlocked(rule, blocked)) continue;
-    const name = rule.cmd[0] + (rule.rest ? " …" : "") + (rule.custom ? "*" : "");
+    const prefix = commandPrefix();
+    const shown = prefix ? prefix + namesOf(rule)[0] : rule.cmd[0];
+    const name = shown + (rule.rest ? " …" : "") + (rule.custom ? "*" : "");
     ((rule.needsTarget ?? !!rule.to) ? withTarget : alone).push(name);
   }
 
@@ -142,6 +166,7 @@ function helpText() {
     alone.join(" · "),
     "",
     "У многих есть короткая форма: «обними», «погладь», «кусни».",
+    "Команды с точкой — «.го», «.баланс» — пишутся с ней: так бот не сработает на обычную речь.",
     customRules.length ? "\nСо звёздочкой — твои: добавить «+бот имя форма|форма», убрать «-бот имя»."
                        : "\nСвою команду: «+бот обнимашки обнял|обняла»"
   ].join("\n");
