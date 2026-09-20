@@ -3247,9 +3247,11 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
   position: fixed; inset: 0; z-index: 15;
   background: rgba(8, 6, 12, 0.62);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  animation: overlayIn .2s ease;
+  /* Чуть дольше: за пятую долю секунды размытие не успевает проявиться,
+     и переход выглядит как мигание. */
+  animation: overlayIn .28s ease;
 }
-.tab-menu-screen.closing { animation: overlayOut .2s ease forwards; }
+.tab-menu-screen.closing { animation: overlayOut .22s ease forwards; }
 
 /* Меню висит у своей вкладки — положение задаёт код. Выше шапки,
    иначе она бы его перекрыла. */

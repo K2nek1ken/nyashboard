@@ -60,7 +60,12 @@ export function wireTabMenu(host) {
       if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_TOLERANCE) cancel();
     });
 
-    tab.addEventListener("pointerup", cancel);
+    tab.addEventListener("pointerup", (e) => {
+      cancel();
+      // Если меню только что открылось этим удержанием, глушим событие:
+      // иначе оно всплывёт до подложки и закроет меню сразу же.
+      if (fired) { e.preventDefault(); e.stopPropagation(); }
+    });
     tab.addEventListener("pointercancel", cancel);
     tab.addEventListener("pointerleave", cancel);
 
@@ -138,8 +143,17 @@ function openMenu(tab) {
     closeMenu();
   });
 
-  // Нажатие мимо меню закрывает его.
-  veil.addEventListener("click", closeMenu);
+  // Нажатие мимо меню закрывает его — но не то самое, которым его открыли.
+  //
+  // Меню появляется, пока палец ещё на экране. Когда его отпускают,
+  // событие приходит на подложку — и меню закрывалось само через
+  // мгновение после появления.
+  //
+  // Поэтому подложка начинает слушать чуть позже, когда палец уже убран.
+  setTimeout(() => {
+    veil.addEventListener("click", closeMenu);
+    veil.addEventListener("pointerdown", (e) => e.stopPropagation());
+  }, 260);
 }
 
 function closeMenu() {
