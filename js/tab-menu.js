@@ -75,8 +75,20 @@ export function wireTabMenu(host) {
     }, true);
 
     // На компьютере то же самое по правой кнопке — там удерживать неудобно.
+    //
+    // Но на телефоне долгое нажатие браузер тоже считает вызовом
+    // контекстного меню и шлёт это событие сам, следом за нашим таймером.
+    // Меню к тому моменту уже открыто — и обработчик его закрывал.
+    // Отсюда и странность: быстро отпустил — осталось, подержал — исчезло.
+    //
+    // Поэтому здесь реагируем только на настоящую правую кнопку мыши.
     tab.addEventListener("contextmenu", (e) => {
       e.preventDefault();
+
+      const fromMouse = e.pointerType === "mouse"
+                     || (e.pointerType === undefined && !("ontouchstart" in window));
+      if (!fromMouse) return;
+
       openFor === tab.dataset.tab ? closeMenu() : openMenu(tab);
     });
 

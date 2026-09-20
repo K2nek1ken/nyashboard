@@ -3310,3 +3310,11 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 
 /* Пункт меню под пальцем: пока не отпустил, видно, что выберется. */
 .tab-menu-item.under-finger { background: var(--card); }
+
+
+/* Долгое нажатие на вкладке — наше меню, а не системное выделение текста
+   и не стандартное контекстное меню браузера. */
+.navBtn {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+}
