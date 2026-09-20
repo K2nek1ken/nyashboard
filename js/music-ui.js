@@ -306,9 +306,12 @@ async function openUploadForm(file, onDone) {
         await toggleFavorite({ id: uploaded.id, ...uploaded }).catch(() => {});
       }
 
-      close();
       showToast(`Готово ♡ Идентификатор: ${uploaded.publicUid}`);
-      onDone?.();
+
+      // Список обновляем после того, как окно ушло: перерисовка сбивает
+      // анимацию закрытия, и окно просто пропадает вместо того, чтобы
+      // мягко растаять.
+      closeOverlay(modal, () => onDone?.());
     } catch (e) {
       console.error(e);
       showToast("Не вышло: " + e.message);
@@ -382,12 +385,13 @@ function openZipUpload(zipFile, onDone) {
         }
       });
 
-      close();
       showToast(failed.length
         ? `Загружено: ${done.length}, пропущено: ${failed.length}`
         : `Загружено треков: ${done.length} ♡`);
       if (failed.length) console.warn("Не загрузились:", failed);
-      onDone?.();
+
+      // Тем же порядком: сначала окно уходит, потом обновляется список.
+      closeOverlay(box, () => onDone?.());
     } catch (e) {
       console.error(e);
       // Показываем причину прямо в окне и возвращаем кнопки: раньше при

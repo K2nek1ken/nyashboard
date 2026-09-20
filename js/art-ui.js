@@ -173,8 +173,9 @@ export function openArtForm({ file = null, art = null, onDone } = {}) {
         const { publicUid } = await uploadArt({ file, title, description });
         showToast(`Готово ♡ Номер: ${publicUid}`);
       }
-      close();
-      onDone?.();
+      // Сначала окно уходит, потом обновляется список: иначе
+      // перерисовка сбивает анимацию закрытия.
+      closeOverlay(box, () => onDone?.());
     } catch (e) {
       console.error(e);
       showToast("Не вышло: " + e.message);

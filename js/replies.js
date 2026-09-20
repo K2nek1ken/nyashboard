@@ -162,7 +162,11 @@ export function wireReplyLikes(container, replies, onDeleted) {
       // Поле ответа ищем в своей карточке, а не по всей странице: в ленте
       // карточек много, и раньше находилось первое попавшееся — ответ уходил
       // не в ту запись.
-      const scope = row.closest(".post-card") || document;
+      // Область — карточка записи, а на отдельной странице её роль
+      // играет сама страница: там запись одна, и путать не с чем.
+      const scope = row.closest(".post-card")
+                 || document.querySelector(".post-detail")
+                 || document.body;
       const input = scope.querySelector("[data-reply-input]")
                  || document.getElementById("detailReplyInput");
       if (!input) { showToast("Поле ответа не найдено"); return; }
@@ -229,7 +233,10 @@ export function wireReplyLikes(container, replies, onDeleted) {
 // Показывает над полем ответа, на чей комментарий отвечаешь. Убирается
 // крестиком или после отправки.
 function showReplyTarget(scope, reply) {
-  const row = scope.querySelector(".reply-input-row");
+  // Строка ответа может лежать и вне карточки — на отдельной странице
+  // записи она внизу страницы. Ищем сначала внутри, потом по всей странице.
+  const row = scope.querySelector(".reply-input-row")
+           || document.querySelector(".reply-input-row");
   if (!row) return;
 
   scope.querySelector(".reply-target")?.remove();

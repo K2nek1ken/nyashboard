@@ -83,5 +83,18 @@ function wireDetailReplyInput(postId, repliesEl) {
     }
   };
   btn.addEventListener("click", send);
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  // Enter — перенос, отправка по Shift+Enter или Ctrl+Enter. Как и везде.
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  // Поле растёт под текст.
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 120) + "px";
+  });
 }

@@ -325,8 +325,9 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
         showToast(place === "wall" ? "Опубликовано на стене ♡" : "Опубликовано ♡");
       }
 
-      close();
-      onDone?.();
+      // Сначала окно уходит, потом обновление: перерисовка сбивает
+      // анимацию закрытия, и окно пропадает рывком.
+      closeOverlay(box, () => onDone?.());
     } catch (e) {
       console.error(e);
       showToast(/permission|insufficient/i.test(e.message)

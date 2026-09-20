@@ -1,4 +1,5 @@
 import { ICON } from "./icons.js";
+import { closeOverlay } from "./ui.js";
 import { defaultAvatar } from "./default-avatar.js";
 import { accessoryHtml } from "./accessories.js";
 import { paletteColor } from "./palette.js";
@@ -180,8 +181,9 @@ export function openCropper(file, onDone) {
     octx.drawImage(img, offsetX * k, offsetY * k, img.width * scale * k, img.height * scale * k);
     // PNG, чтобы не терять прозрачность у прозрачных исходников
     out.toBlob((blob) => {
-      close();
-      onDone(new File([blob], "avatar.png", { type: "image/png" }));
+      // Картинку отдаём после закрытия: дальше идёт загрузка и перерисовка,
+      // и они сбивали анимацию ухода.
+      closeOverlay(box, () => onDone(new File([blob], "avatar.png", { type: "image/png" })));
     }, "image/png");
   });
 }

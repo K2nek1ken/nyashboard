@@ -240,7 +240,8 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 .reply-input-row { display: flex; gap: 6px; margin-top: 10px; }
 .reply-input-row input,
-.reply-input-row textarea {
+.reply-input-row textarea,
+#detailReplyInput {
   flex: 1; min-width: 0;
   background: var(--bg-soft); border: 1px solid #3a2f47;
   border-radius: 999px; padding: 8px 14px;
@@ -3214,6 +3215,20 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 /* Высота многострочных полей: одна строка в покое, растут под текст.
    Остальное — цвета, рамка, отступы — берётся из правил выше,
    у строки ввода и у строки ответа они разные. */
-#chatInput, [data-reply-input] {
+#chatInput, [data-reply-input], #detailReplyInput {
   min-height: 22px; line-height: 1.4;
+}
+
+/* Полосу прокрутки в полях ввода прячем: поле и так растёт под текст,
+   а серая черта вдоль края выглядит как что-то отломившееся. */
+#chatInput, [data-reply-input], #detailReplyInput,
+.composer-area {
+  scrollbar-width: none;            /* Firefox */
+  -ms-overflow-style: none;
+}
+#chatInput::-webkit-scrollbar,
+[data-reply-input]::-webkit-scrollbar,
+#detailReplyInput::-webkit-scrollbar,
+.composer-area::-webkit-scrollbar {
+  width: 0; height: 0;
 }
