@@ -212,6 +212,19 @@ export function russianRoulette() {
 const HISTORY_SIZE = 10;
 const HISTORY_DOC = () => doc(db, "casino", "history");
 
+// Записывает выпадение в общую историю — нужно и одиночной игре,
+// и общему кругу.
+export async function pushSpin(number) {
+  return pushToHistory(number);
+}
+
+// Начисляет итог круга. Отдельно от обычной ставки: там человек играет
+// за себя, а здесь колесо крутит кто-то один, а считается всем.
+export async function settleRound(uid, delta) {
+  if (!delta) return;
+  await updateDoc(doc(db, "wallets", uid), { balance: increment(delta) });
+}
+
 async function pushToHistory(number) {
   const snap = await getDoc(HISTORY_DOC());
   const spins = snap.exists() ? (snap.data().spins || []) : [];

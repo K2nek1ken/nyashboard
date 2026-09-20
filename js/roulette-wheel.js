@@ -1,4 +1,5 @@
 import { paletteColor } from "./palette.js";
+import { TIMING } from "./modules/animation.js";
 
 // ============================================================
 //  Колесо рулетки
@@ -22,10 +23,12 @@ const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 // Сколько что длится. Вращение намеренно небыстрое: рулетка должна
 // ощущаться как рулетка, а не как мигнувшая картинка. Замедление
 // к концу делает «остановку» заметной — на ней и держится ожидание.
-const APPEAR_MS = 420;     // колесо проявляется и раскручивается
-const SPIN_MS = 3200;      // крутится
-const HOLD_MS = 700;       // стоит на выпавшем числе — чтобы успеть увидеть
-const SHRINK_MS = 560;     // уходит
+// Длительности живут в modules/animation.js — там их можно поменять,
+// не заглядывая сюда.
+const APPEAR_MS = 420;
+const SPIN_MS = TIMING.wheel.spin;
+const HOLD_MS = TIMING.wheel.hold;
+const SHRINK_MS = TIMING.wheel.shrink;
 
 // Сколько длится показ целиком. Отсюда его берут все, кому нужно знать,
 // когда колесо закончит: раньше чат держал своё число, оно расходилось
@@ -86,7 +89,7 @@ export function mountWheel(slot, number, key = null) {
   requestAnimationFrame(() => {
     slot.classList.remove("appearing");
 
-    wheel.style.transition = `transform ${left}ms cubic-bezier(.12,.72,.15,1)`;
+    wheel.style.transition = `transform ${left}ms ${TIMING.wheel.spinEasing}`;
     wheel.style.transform = `rotate(${target}deg)`;
 
     ball.style.transition = `transform ${Math.max(100, left - 300)}ms cubic-bezier(.1,.7,.2,1)`;
@@ -132,7 +135,7 @@ export function spinInPlace(container, msgId, number) {
     requestAnimationFrame(() => {
       box.classList.remove("appearing");
 
-      wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.12,.72,.15,1)`;
+      wheel.style.transition = `transform ${SPIN_MS}ms ${TIMING.wheel.spinEasing}`;
       wheel.style.transform = `rotate(${360 * 8 + (360 - index * step)}deg)`;
 
       // Шарик крутится в другую сторону и останавливается чуть раньше
@@ -173,7 +176,7 @@ export function spinWheel(number) {
     const target = 360 * 8 + (360 - index * step);
 
     requestAnimationFrame(() => {
-      wheel.style.transition = `transform ${SPIN_MS}ms cubic-bezier(.12,.72,.15,1)`;
+      wheel.style.transition = `transform ${SPIN_MS}ms ${TIMING.wheel.spinEasing}`;
       wheel.style.transform = `rotate(${target}deg)`;
 
       // Шарик крутится в другую сторону: так видно, что он катится по колесу,
@@ -266,5 +269,5 @@ function morphToText(slot) {
     box.style.height = "";
     box.classList.remove("morphing", "text-in");
     bubble?.classList.remove("morph-box");
-  }, 380);
+  }, TIMING.wheel.morph + 40);
 }

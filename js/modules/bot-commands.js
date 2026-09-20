@@ -117,6 +117,10 @@ export const COMMANDS = [
   { cmd: ["казик", "казино"],                  runs: "casino", rest: true },
   { cmd: ["баланс", "кошелёк", "кошелек"],     runs: "balance" },
   { cmd: ["к.история", "история", "выпадения"], runs: "history" },
+
+  // Общий круг: ставки собираются, «.го» крутит колесо один раз на всех.
+  { cmd: ["ставка"], runs: "roundBet", rest: true },
+  { cmd: ["го", "гоу"], runs: "roundGo" },
   { cmd: ["бонус"],                            runs: "bonus" },
   { cmd: ["подарить", "подари"],               runs: "gift", rest: true, needsTarget: true },
 

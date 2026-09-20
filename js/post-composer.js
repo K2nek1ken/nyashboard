@@ -59,6 +59,10 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
           <span class="nf">${ICON.image}</span>
           <input type="file" accept="image/*" multiple data-images style="display:none;">
         </label>
+        <label class="composer-attach" title="видео (до 5 МБ)">
+          <span class="nf">${ICON.play}</span>
+          <input type="file" accept="video/*" data-video style="display:none;">
+        </label>
         <span class="composer-hint">**жирный** · __курсив__ · \`код\` · ### заголовок</span>
         <button class="primaryBtn" data-save>${editing ? "Сохранить" : "Опубликовать"}</button>
       </div>
@@ -114,6 +118,28 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) box.querySelector("[data-save]").click();
   });
 
+  // Видео: одно на запись. Больше — и лента превратится в видеохостинг,
+  // а хранилище кончится за неделю.
+  let videoFile = null;
+  const videoInput = box.querySelector("[data-video]");
+
+  videoInput?.addEventListener("change", async () => {
+    const picked = videoInput.files[0];
+    videoInput.value = "";
+    if (!picked) return;
+
+    const { isVideoFile } = await import("./storage.js");
+    if (!isVideoFile(picked)) { showToast("Это не видео"); return; }
+    if (picked.size > 5 * 1024 * 1024) {
+      showToast(`Видео на ${(picked.size / 1024 / 1024).toFixed(1)} МБ — предел 5 МБ`);
+      return;
+    }
+
+    videoFile = picked;
+    showToast("Видео прикреплено ♡");
+    renderStrip();
+  });
+
   fileInput.addEventListener("change", () => {
     const picked = Array.from(fileInput.files || []);
     fileInput.value = "";
@@ -124,11 +150,24 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
   });
 
   function renderStrip() {
-    strip.innerHTML = images.map((f, i) => `
+    const videoRow = videoFile
+      ? `<div class="thumb thumb-video">
+           <span class="nf">${ICON.play}</span>
+           <span class="thumb-name">${escapeHtml(videoFile.name)}</span>
+           <button class="removeThumb" data-drop-video><span class="nf">${ICON.close}</span></button>
+         </div>`
+      : "";
+
+    strip.innerHTML = videoRow + images.map((f, i) => `
       <div class="thumb">
         <img src="${URL.createObjectURL(f)}" alt="">
         <button class="removeThumb" data-remove="${i}"><span class="nf">${ICON.close}</span></button>
       </div>`).join("");
+    strip.querySelector("[data-drop-video]")?.addEventListener("click", () => {
+      videoFile = null;
+      renderStrip();
+    });
+
     strip.querySelectorAll("[data-remove]").forEach(btn => {
       btn.addEventListener("click", () => {
         images.splice(Number(btn.dataset.remove), 1);
@@ -157,6 +196,15 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
         showToast("Изменено ♡");
       } else {
         const imageUrls = images.length ? await uploadImages(images) : [];
+
+        let video = null;
+        if (videoFile) {
+          btn.textContent = "Загружаю видео…";
+          const { uploadVideo } = await import("./storage.js");
+          video = await uploadVideo(videoFile, (r) => {
+            btn.textContent = `Видео… ${Math.round(r * 100)}%`;
+          });
+        }
         const ref = await addDoc(collection(db, "posts"), {
           ...identityFields(),
           place,
@@ -164,6 +212,8 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
           text,
           hashtags: extractHashtags(text),
           imageUrls,
+          videoUrl: video?.url || null,
+          videoPoster: video?.poster || null,
           likesCount: 0, likedBy: [],
           dislikesCount: 0, dislikedBy: [],
           createdAt: serverTimestamp()

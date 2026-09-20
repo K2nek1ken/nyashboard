@@ -1534,7 +1534,7 @@ body.player-open .chat-floating-bar { /* поле ввода остаётся н
   height: 4px; background: var(--card); border-radius: 999px;
   margin-top: 6px; cursor: pointer; overflow: hidden;
 }
-.player-progress-fill { height: 100%; width: 0; background: var(--accent); }
+.player-progress-fill { height: 100%; width: 0; background: var(--accent);  border-radius: 999px; }
 .player-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
 
 /* ---------- карточка трека ---------- */
@@ -2934,7 +2934,8 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 /* исчезает, сжимаясь в точку — а не пропадает рывком */
 .roulette-overlay.done { animation: overlayOut .56s ease forwards; }
 .roulette-overlay.done .roulette-wheel {
-  transition: transform .56s cubic-bezier(.45,0,.7,.2), opacity .56s ease;
+  transition: transform var(--wheel-shrink, 560ms) var(--wheel-away, cubic-bezier(.45,0,.7,.2)),
+              opacity var(--wheel-shrink, 560ms) ease;
   transform: scale(0) rotate(28deg); opacity: 0;
 }
 
@@ -2974,7 +2975,8 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 
 /* уход длиннее появления: так он читается как завершение, а не как обрыв */
 .wheel-inline.done {
-  transition: transform .56s cubic-bezier(.45,0,.7,.2), opacity .56s ease;
+  transition: transform var(--wheel-shrink, 560ms) var(--wheel-away, cubic-bezier(.45,0,.7,.2)),
+              opacity var(--wheel-shrink, 560ms) ease;
   transform: scale(0) rotate(28deg);
   opacity: 0;
 }
@@ -2987,14 +2989,14 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
    начинает дёргаться из стороны в сторону, и читать труднее.
    ============================================================ */
 @keyframes msgFromBelow {
-  from { opacity: 0; transform: translateY(22px) scale(.985); }
+  from { opacity: 0; transform: translateY(var(--msg-rise, 22px)) scale(.985); }
   to   { opacity: 1; transform: none; }
 }
 
 /* Движение чуть длиннее и заметнее: на 0.26с и четырнадцати пикселях
    его попросту не успеваешь увидеть. */
 .chat-msg.just-came {
-  animation: msgFromBelow .34s cubic-bezier(.2,.8,.3,1);
+  animation: msgFromBelow var(--msg-appear, 340ms) var(--msg-easing, cubic-bezier(.2,.8,.3,1));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3014,11 +3016,11 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 /* Меняется и высота, и ширина: сообщение с колесом узкое и квадратное,
    а с текстом — широкое. Без перехода по ширине пузырь дёргался вбок. */
 .chat-msg.morph-box {
-  transition: max-width .34s cubic-bezier(.2,.8,.3,1);
+  transition: max-width var(--wheel-morph, 340ms) var(--msg-easing, cubic-bezier(.2,.8,.3,1));
 }
 .chat-msg .txt.morphing {
   overflow: hidden;
-  transition: height .34s cubic-bezier(.2,.8,.3,1);
+  transition: height var(--wheel-morph, 340ms) var(--msg-easing, cubic-bezier(.2,.8,.3,1));
 }
 .chat-msg .txt.text-in > * ,
 .chat-msg .txt.text-in {
@@ -3044,7 +3046,7 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.chat-msg.history-in { animation: historyIn .3s ease backwards; }
+.chat-msg.history-in { animation: historyIn var(--msg-history, 300ms) ease backwards; }
 
 @media (prefers-reduced-motion: reduce) {
   .chat-msg.history-in { animation: none; }
@@ -3088,3 +3090,44 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
   font-family: "Monaspace Neon NF", "Noto Color Emoji", "Apple Color Emoji",
                "Segoe UI Emoji", sans-serif;
 }
+
+/* Проявление записей в ленте. Длительности — в modules/animation.js. */
+@keyframes postIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.post-card.post-in {
+  animation: postIn var(--post-appear, 420ms) var(--post-easing, cubic-bezier(.2,.8,.3,1)) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .post-card.post-in { animation: none; }
+}
+
+
+/* Шапка собеседника в личке на широком экране.
+   Отступ сверху был рассчитан на телефонную шапку, которой здесь нет:
+   на компьютере навигация сбоку, и сверху оставалась пустая полоса. */
+@media (min-width: 900px) {
+  #dmHeader {
+    top: 0;
+    padding-top: 14px;
+  }
+  body.player-open #dmHeader { top: 0; }
+  .dm-page-body #app { padding-top: 86px; }
+}
+
+/* Окно эмодзи встаёт у своей кнопки — положение задаётся в emoji.js. */
+.emoji-picker { z-index: 70; }
+
+/* прикреплённое видео в редакторе */
+.thumb-video {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 10px;
+  padding: 8px 10px; width: 100%; height: auto;
+  font-size: 12px; color: var(--muted);
+}
+.thumb-video .thumb-name {
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.thumb-video .removeThumb { position: static; flex-shrink: 0; }

@@ -34,6 +34,12 @@ export function initShell() {
     if (isBeta()) document.body.classList.add("is-beta");
   }).catch(() => {});
 
+  // Длительности движения — из modules/animation.js, чтобы их можно было
+  // править в одном месте и без знания остального кода.
+  import("./modules/animation.js")
+    .then(({ applyTiming }) => applyTiming())
+    .catch(e => console.warn("Настройки движения:", e.message));
+
   applySettings();
   initLayout();          // шапка рисуется сразу, до отрисовки содержимого
   applyFavicon();

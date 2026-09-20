@@ -369,6 +369,60 @@ def check_script_dupes():
                     f"{name}: «{cmd}» на строках {', '.join(map(str, hits))}")
 
 
+# ---------- 11. описание возможностей отстало от проекта ----------
+def check_about():
+    """
+    Вкладка «Возможности» — единственное место, где человек узнаёт, что
+    умеет сайт. Она легко отстаёт: возможность добавили, а написать о ней
+    забыли, и заметить это может только тот, кто помнит весь проект.
+
+    Проверяем две вещи, которые ловятся надёжно:
+      — появился целый модуль, а в описании о нём ни слова;
+      — добавилась команда бота, обращающаяся к базе (то есть заметная),
+        и о ней тоже молчок.
+
+    Остальное — тексты, и проверить их машиной не выйдет.
+    """
+    about_path = os.path.join(ROOT, "js", "about-page.js")
+    if not os.path.exists(about_path):
+        return
+    with open(about_path, encoding="utf-8") as fh:
+        about = fh.read().lower()
+
+    # Слева файл, справа — что должно встретиться в описании, если он есть.
+    NOTABLE = {
+        "casino.js":          ["казик", "казино", "монет"],
+        "casino-round.js":    ["ставка", "круг"],
+        "roulette-wheel.js":  ["колесо", "рулетк"],
+        "custom-commands.js": ["+бот", "свою команду", "свои команды"],
+        "video-player.js":    ["видео"],
+        "backup.js":          ["архив", "перенос"],
+        "reports.js":         ["жалоб"],
+        "terms.js":           ["правил"],
+        "post-composer.js":   ["редактор", "разметк"],
+        "confetti.js":        ["конфетти"],
+    }
+    for fname, words in NOTABLE.items():
+        if not os.path.exists(os.path.join(ROOT, "js", fname)):
+            continue
+        if not any(w in about for w in words):
+            add("Описание: не упомянуто",
+                f"{fname} есть в проекте, но в «Возможностях» о нём ни слова")
+
+    # Команды с обращением к базе — это заметные возможности, а не мелочь:
+    # кошелёк, игра, история. О таких стоит рассказать.
+    cmd_path = os.path.join(ROOT, "js", "modules", "bot-commands.js")
+    if os.path.exists(cmd_path):
+        with open(cmd_path, encoding="utf-8") as fh:
+            cmds_src = fh.read()
+
+        for m in re.finditer(r'cmd:\s*\[([^\]]+)\][^}]*runs:', cmds_src):
+            names = [p.strip().strip('"\'') for p in m.group(1).split(",")]
+            if not any(n.lower() in about for n in names):
+                add("Описание: команда не упомянута",
+                    f"«{names[0]}» работает, но в «Возможностях» её нет")
+
+
 # ---------- вывод ----------
 def main():
     check_imports()
@@ -381,6 +435,7 @@ def main():
     check_orphans()
     check_missing_calls()
     check_script_dupes()
+    check_about()
 
     if not problems:
         print("Замечаний нет.")

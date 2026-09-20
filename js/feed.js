@@ -4,6 +4,7 @@ import {
   arrayUnion, arrayRemove, increment, where
 } from "./firebase.js";
 import { currentUser, currentUserDoc, authReady } from "./auth.js";
+import { TIMING } from "./modules/animation.js";
 import { initPostIdentity, identityFields, getPostIdentity } from "./post-identity.js";
 import { registerPostNuid } from "./nuid.js";
 import { goTo } from "./router.js";
@@ -122,7 +123,7 @@ export function subscribeFeed() {
     enrichAuthors(posts)
       .catch(e => console.warn("Оформление авторов:", e.message))
       .then(() => {
-        renderFeed(rankPosts(posts));
+        scheduleRender(rankPosts(posts));
         backfillNuid(posts);       // заодно достаём номер одной старой записи
       });
   }, (err) => {
@@ -138,7 +139,7 @@ export function subscribeFeed() {
   // подписки и друзья нужны ранжированию, а грузятся из аккаунта асинхронно:
   // первый рендер идёт на локальном кэше, затем один раз перерисовываем
   Promise.all([loadSubscriptions(), loadFriends(), loadSeen(), loadInterests()]).then(() => {
-    if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
+    if (lastRenderedPosts) scheduleRender(rankPosts(lastRenderedPosts));
   });
 
   // Поворот экрана или изменение окна меняет число колонок — перекладываем.
@@ -205,19 +206,45 @@ async function backfillNuid(posts) {
   if (lastRenderedPosts) renderFeed(rankPosts(lastRenderedPosts));
 }
 
+// Как долго держим оформление автора в памяти. Пять минут: человек
+// меняет аватарку не каждую минуту, но и ждать перезагрузки страницы,
+// чтобы увидеть новую, не должен.
+const AUTHOR_TTL = 5 * 60 * 1000;
+const authorFetchedAt = new Map();
+
 async function enrichAuthors(posts) {
+  // Берём оформление из профиля для всех записей, а не только для тех,
+  // где его нет. В записи лежит копия на момент публикации — она
+  // устаревает, как только человек сменил аватарку или украшение.
   const uids = [...new Set(
-    posts.filter(p => p.authorUid && !p.isAnonymous && p.authorAccessory === undefined)
-         .map(p => p.authorUid)
+    posts.filter(p => p.authorUid && !p.isAnonymous).map(p => p.authorUid)
   )];
   const needChannels = posts.some(p => p.channelId);
   if (!uids.length && !needChannels) return;
 
   const { getUserDoc } = await import("./data.js");
+  const now = Date.now();
   await Promise.all(uids.map(async uid => {
-    if (authorCache.has(uid)) return;
+    // Свежее — не перезапрашиваем: иначе каждая прокрутка ленты стоила бы
+    // по запросу на каждого автора.
+    if (authorCache.has(uid) && now - (authorFetchedAt.get(uid) || 0) < AUTHOR_TTL) return;
+
     authorCache.set(uid, await getUserDoc(uid).catch(() => null));
+    authorFetchedAt.set(uid, now);
   }));
+
+  // Переносим свежее оформление в сами записи — дальше его берёт отрисовка.
+  posts.forEach(p => {
+    const u = p.authorUid && authorCache.get(p.authorUid);
+    if (!u || p.isAnonymous) return;
+    p.authorNickname = u.nickname || p.authorNickname;
+    p.authorAvatar = u.avatarUrl ?? p.authorAvatar;
+    p.authorShape = u.avatarShape || p.authorShape;
+    p.authorAccessory = u.accessory || "none";
+    p.authorBorder = u.avatarBorder || "pink";
+    p.authorNickColor = u.nickColor || "";
+    p.authorStatus = u.statusEmoji || "";
+  });
 
   // Оформление канала берём из самого канала всегда, а не только когда его
   // нет в записи. В записи лежит копия на момент публикации — она устаревает
@@ -308,6 +335,19 @@ function updatePostCard(post) {
 }
 
 
+// Несколько запросов на перерисовку подряд схлопываются в один.
+//
+// Лента обновляется сразу из нескольких мест: пришли записи, подгрузилось
+// оформление авторов, загрузились подписки. Каждое просит перерисовать,
+// и раньше список перестраивался по два-три раза за полсекунды — заметно
+// дёргался и сбрасывал появление записей.
+let repaintTimer = null;
+
+function scheduleRender(posts) {
+  clearTimeout(repaintTimer);
+  repaintTimer = setTimeout(() => renderFeed(posts), 40);
+}
+
 function renderFeed(posts) {
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
@@ -316,6 +356,7 @@ function renderFeed(posts) {
   layoutPosts(feedListEl, posts, p => postToHtml(p));
   posts.forEach(p => wirePostCard(p, feedListEl));
   revealSequentially(feedListEl);
+  fadeInPosts(feedListEl);
   balanceColumns(feedListEl);
 
   // Если при раскладке ширина ещё не была известна, число колонок могло
@@ -564,7 +605,7 @@ export function wirePostCard(p, container = document) {
     openEmojiPicker(card.querySelector(".reply-input-row"), (emoji) => {
       input.value += emoji;
       input.focus();
-    });
+    }, e.currentTarget);
   });
 
   const sendBtn = card.querySelector('[data-action="sendReply"]');
@@ -967,4 +1008,29 @@ function friendlyError(e) {
 export function forgetChannelDecor(channelId = null) {
   if (channelId) authorCache.delete("ch:" + channelId);
   else [...authorCache.keys()].filter(k => k.startsWith("ch:")).forEach(k => authorCache.delete(k));
+}
+
+
+// Записи проявляются, а не возникают разом. Сверху вниз, с небольшим
+// запозданием у каждой следующей — так видно, что лента загрузилась,
+// а не застыла.
+//
+// Длительности — в modules/animation.js.
+function fadeInPosts(host) {
+  if (!host) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const cards = [...host.querySelectorAll(".post-card")];
+  cards.forEach((el, i) => {
+    if (el.dataset.shown) return;    // эта запись уже проявлялась
+    el.dataset.shown = "1";
+
+    el.style.animationDelay = `${Math.min(i * TIMING.post.step, TIMING.post.max)}ms`;
+    el.classList.add("post-in");
+
+    setTimeout(() => {
+      el.classList.remove("post-in");
+      el.style.animationDelay = "";
+    }, TIMING.post.appear + TIMING.post.max + 80);
+  });
 }

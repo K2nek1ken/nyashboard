@@ -61,7 +61,7 @@ export function initInlineComposer(onPublished) {
 
   document.getElementById("icEmoji")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    openEmojiPicker(box, (emoji) => { textarea.value += emoji; textarea.focus(); autoGrow(); });
+    openEmojiPicker(box, (emoji) => { textarea.value += emoji; textarea.focus(); autoGrow(); }, e.currentTarget);
   });
 
   publishBtn.addEventListener("click", async () => {

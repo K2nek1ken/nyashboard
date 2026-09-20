@@ -18,14 +18,27 @@ export const EMOJI = [
 
 // Показывает пикер рядом с кнопкой. onPick получает выбранный символ.
 // anchor должен быть position:relative-контейнером (или иметь его в предках).
-export function openEmojiPicker(anchor, onPick) {
+export function openEmojiPicker(anchor, onPick, button = null) {
+  // Нажатие по той же кнопке закрывает окно — как и ожидаешь от кнопки,
+  // которая его открыла. Раньше приходилось тыкать куда-то мимо.
+  const open = document.getElementById("emojiPicker");
+  if (open && open.dataset.owner === ownerKey(button || anchor)) {
+    closeEmojiPicker();
+    return;
+  }
+
   closeEmojiPicker();
 
   const picker = document.createElement("div");
   picker.className = "emoji-picker";
   picker.id = "emojiPicker";
+  picker.dataset.owner = ownerKey(button || anchor);
   picker.innerHTML = EMOJI.map(e => `<button type="button" data-emoji="${e}">${e}</button>`).join("");
   anchor.appendChild(picker);
+
+  // Ставим окно под кнопкой, а не посреди экрана: так видно, откуда оно
+  // взялось, и не нужно искать глазами.
+  if (button) placeNear(picker, button);
 
   picker.querySelectorAll("[data-emoji]").forEach(btn => {
     btn.addEventListener("click", (e) => {
@@ -49,4 +62,32 @@ function onDocClick(e) {
 
 export function closeEmojiPicker() {
   document.getElementById("emojiPicker")?.remove();
+}
+
+
+// Чем отличаем «то же самое окно» от «другого»: у каждой кнопки свой признак.
+function ownerKey(el) {
+  if (!el) return "anon";
+  if (!el.dataset.pickerKey) {
+    el.dataset.pickerKey = "p" + Math.random().toString(36).slice(2, 8);
+  }
+  return el.dataset.pickerKey;
+}
+
+// Ставит окно рядом с кнопкой, не давая ему уехать за край экрана.
+function placeNear(picker, button) {
+  const host = picker.offsetParent || document.body;
+  const b = button.getBoundingClientRect();
+  const h = host.getBoundingClientRect();
+
+  picker.style.position = "absolute";
+  picker.style.bottom = `${h.bottom - b.top + 8}px`;
+
+  // Прижимаем правым краем к кнопке, но не выпускаем за левый край экрана.
+  const width = picker.offsetWidth || 280;
+  const right = Math.max(8, h.right - b.right);
+  const wouldOverflowLeft = h.width - right - width < 8;
+
+  picker.style.right = wouldOverflowLeft ? "8px" : `${right}px`;
+  picker.style.left = "auto";
 }

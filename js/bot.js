@@ -186,6 +186,60 @@ export async function runAsyncCommand(kind, { rest, author, target, targetUid, a
           : { quiet: `На счету ${w.balance}¢` };   // только тебе
       }
 
+      case "roundBet": {
+        const round = await import("./casino-round.js");
+        const { total, count } = await round.placeBet(rest, author);
+        return {
+          quiet: `Ставка принята: ${total}¢. В круге ${count} — пиши «.го», когда все готовы`
+        };
+      }
+
+      case "roundGo": {
+        const round = await import("./casino-round.js");
+        const casinoMod = await import("./casino.js");
+
+        const data = await round.readRound();
+        const players = Object.entries(data.bets || {});
+        if (!players.length) return { quiet: "Ставок пока нет. Начни с «ставка 100 чёт»" };
+
+        const left = await round.waitLeft();
+        if (left > 0) {
+          return { quiet: `Ещё рано — подожди ${Math.ceil(left / 1000)} с, пусть все поставят` };
+        }
+
+        const number = Math.floor(Math.random() * 37);
+        const color = round.colorOf(number);
+        const marks = { red: "\u{1F534}", black: "\u26AB\uFE0F", zero: "\u{1F7E2}" };
+
+        // Считаем каждому: по строке на ставку, как и договаривались.
+        const rows = [];
+        for (const [uid, entry] of players) {
+          for (const bet of entry.list || []) {
+            const hit = round.checkBet(bet.kind, number);
+            const payout = round.payoutOf(bet.kind);
+
+            // Французское правило действует и здесь.
+            const halfBack = !hit && number === 0 && payout === 2;
+            const gain = hit ? bet.amount * payout : (halfBack ? Math.floor(bet.amount / 2) : 0);
+
+            await casinoMod.settleRound(uid, gain - bet.amount).catch(() => {});
+
+            rows.push(
+              `${entry.nickname} (${bet.amount}¢, ${bet.kind}) — ` +
+              (hit ? "вин" : halfBack ? "зеро, половина назад" : "луз")
+            );
+          }
+        }
+
+        await round.clearRound();
+        await casinoMod.pushSpin(number).catch(() => {});
+
+        return {
+          wheel: number,
+          text: [`выпало: ${number}${marks[color]}`, ...rows].join("\n")
+        };
+      }
+
       case "history": {
         const list = await casino.spinHistory();
         if (!list.length) return { quiet: "Рулетку ещё никто не крутил" };

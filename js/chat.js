@@ -3,6 +3,7 @@ import {
   query, orderBy, limit, startAfter, onSnapshot, serverTimestamp
 } from "./firebase.js";
 import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
+import { TIMING } from "./modules/animation.js";
 import { getSettings } from "./settings.js";
 import { QUOTE_DECOR as DECOR_ITEMS } from "./modules/particles.js";
 import { parseCommand } from "./bot.js";
@@ -84,6 +85,12 @@ function wireHistoryLoader() {
     const heightBefore = document.body.scrollHeight;
     try {
       const older = await loadOlderMessages();
+
+      // Убираем заготовки и добавляем сообщения одним движением: если
+      // сначала убрать, страница схлопнется и дёрнется, а потом подскочит
+      // обратно. Поэтому сначала меряем, потом меняем, потом поправляем
+      // прокрутку — всё до того, как браузер успеет показать промежуточное.
+      const skeletonHeight = skeletonSize(messagesEl);
       hideSkeletons(messagesEl);
 
       if (older.length) {
@@ -92,7 +99,11 @@ function wireHistoryLoader() {
         renderChat(lastMessages, { keepScroll: true });
         // сохраняем положение: иначе добавленные сверху сообщения
         // «выталкивают» переписку из виду
-        window.scrollTo({ top: document.body.scrollHeight - heightBefore + window.scrollY });
+        // Держим переписку на месте. Из добавленной высоты вычитаем то,
+        // что занимали заготовки: это место уже было учтено, и без поправки
+        // страница уезжала на их высоту.
+        const added = document.body.scrollHeight - heightBefore + skeletonHeight;
+        window.scrollTo({ top: added + window.scrollY });
       }
     } catch (e) {
       hideSkeletons(messagesEl);
@@ -705,7 +716,7 @@ function applyMessages(host, html, msgs) {
 
       if (shouldAppear) {
         requestAnimationFrame(() => fresh.classList.add("just-came"));
-        setTimeout(() => fresh.classList.remove("just-came"), 400);
+        setTimeout(() => fresh.classList.remove("just-came"), TIMING.message.appear + 60);
       }
 
       prev = fresh;
@@ -732,7 +743,8 @@ function revealHistory(host) {
   rows.forEach((el, i) => {
     // Задержка нарастает, но упирается в потолок: при сотне сообщений
     // ждать последнего пришлось бы несколько секунд.
-    el.style.animationDelay = `${Math.min(i * 22, 320)}ms`;
+    el.style.animationDelay =
+      `${Math.min(i * TIMING.message.historyStep, TIMING.message.historyMax)}ms`;
     el.classList.add("history-in");
   });
 
@@ -741,7 +753,7 @@ function revealHistory(host) {
       el.classList.remove("history-in");
       el.style.animationDelay = "";
     });
-  }, 900);
+  }, TIMING.message.history + TIMING.message.historyMax + 200);
 }
 
 // Пустые заготовки на месте ещё не пришедших сообщений.
@@ -761,6 +773,12 @@ function showSkeletons(host) {
     </div>`).join("");
 
   host.prepend(box);
+}
+
+// Сколько места занимают заготовки — чтобы вычесть его при подсчёте сдвига.
+function skeletonSize(host) {
+  const group = host.querySelector(".skeleton-group");
+  return group ? group.offsetHeight : 0;
 }
 
 function hideSkeletons(host) {
@@ -787,7 +805,14 @@ function patchMessage(oldEl, freshEl) {
     if (a && !b) { a.remove(); continue; }
     if (!a || !b) continue;
 
-    if (a.innerHTML !== b.innerHTML) a.innerHTML = b.innerHTML;
+    if (a.innerHTML !== b.innerHTML) {
+      a.innerHTML = b.innerHTML;
+
+      // Внутри шапки живёт меню сообщения. Заменили её содержимое —
+      // значит кнопка теперь новая, а обработчик остался на старой.
+      // Снимаем пометку, чтобы его навесили заново.
+      if (part === ".chat-msg-head") delete oldEl.dataset.wired;
+    }
     if (a.className !== b.className) a.className = b.className;
   }
 
@@ -817,7 +842,8 @@ function playShift(host, before) {
     el.style.transform = `translateY(${shift}px)`;
 
     requestAnimationFrame(() => {
-      el.style.transition = "transform .24s cubic-bezier(.2,.8,.3,1)";
+      el.style.transition =
+        `transform ${TIMING.message.shift}ms ${TIMING.message.shiftEasing}`;
       el.style.transform = "";
     });
 
@@ -825,7 +851,7 @@ function playShift(host, before) {
     setTimeout(() => {
       el.style.transition = "";
       el.style.transform = "";
-    }, 260);
+    }, TIMING.message.shift + 20);
   }
 }
 
@@ -900,7 +926,7 @@ async function refreshBadges(msgs) {
 // вторая отрисовка обрывала анимацию через миллисекунды после начала —
 // выглядело так, будто её нет вовсе.
 const shownAt = new Map();
-const APPEAR_MS = 400;   // столько сообщение считается появляющимся
+const APPEAR_MS = TIMING.message.appear;   // столько сообщение считается появляющимся
 
 function renderChat(msgs, { keepScroll = false } = {}) {
   const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
@@ -1265,7 +1291,7 @@ export function initChatForm() {
 
   if (emojiBtn) emojiBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    openEmojiPicker(form, (emoji) => { input.value += emoji; input.focus(); });
+    openEmojiPicker(form, (emoji) => { input.value += emoji; input.focus(); }, emojiBtn);
   });
 
   // Чекбокс появляется только у вошедших и только если это разрешено настройкой.

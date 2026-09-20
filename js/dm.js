@@ -100,14 +100,18 @@ async function refreshChatPreview(chatId) {
     if (snap.empty) {
       // Сообщений не осталось — подпись пустая, а не «последнее удалённое».
       await updateDoc(doc(db, "dmChats", chatId), {
-        lastText: "", lastSender: null, lastAt: serverTimestamp()
+        lastMessage: "", lastSender: null, lastAt: serverTimestamp()
       });
       return;
     }
 
     const last = snap.docs[0].data();
+
+    // Поле называется lastMessage — так его читает список переписок.
+    // Раньше здесь писалось другое имя, и подпись просто не менялась:
+    // удалённое сообщение так и висело в списке.
     await updateDoc(doc(db, "dmChats", chatId), {
-      lastText: (last.text || (last.imageUrl ? "фото" : "")).slice(0, 120),
+      lastMessage: (last.text || (last.imageUrl ? "фото" : "")).slice(0, 80),
       lastSender: last.senderUid || null,
       lastAt: last.createdAt || serverTimestamp()
     });

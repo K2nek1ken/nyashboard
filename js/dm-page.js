@@ -338,7 +338,7 @@ async function init() {
 
   document.getElementById("dmEmojiBtn")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    openEmojiPicker(form, (emoji) => { input.value += emoji; input.focus(); });
+    openEmojiPicker(form, (emoji) => { input.value += emoji; input.focus(); }, e.currentTarget);
   });
 
   form.addEventListener("submit", async (e) => {
