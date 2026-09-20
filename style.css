@@ -2573,20 +2573,28 @@ body.is-beta { padding-top: 18px; }
 body.composer-open .player-bar { z-index: 130; }
 body.composer-open .player-menu { z-index: 140; }
 
-/* Когда играет музыка, окно начинается под плеером — целиком, вместе
-   с подложкой. Раньше отодвигалось только содержимое внутри, а само окно
-   лежало под плеером, и он накрывал заголовок с выбором имени.
+/* ---------- плеер в редакторе ----------
+   Пока пишешь, шапки сайта нет — её место свободно. Туда и уезжает плеер:
+   он остаётся под рукой, ничего не закрывает, а окно занимает весь экран,
+   как ему и положено.
 
-   Высоту берём настоящую (её сообщает сам плеер), поэтому неважно,
-   в один он ряд или в два. */
-body.player-open .composer-screen { top: var(--player-height, 116px); }
+   Раньше окно отодвигалось вниз, и это тянуло за собой всё разом:
+   и брешь в размытии на месте шапки, и перекрытые записи. */
+body.composer-open .player-bar {
+  top: 0;
+  transition: top .24s cubic-bezier(.2,.8,.3,1);
+}
+body.player-open .composer-body {
+  padding-top: calc(var(--player-height, 116px) + 10px);
+}
 
 @media (min-width: 900px) {
   .composer-body { left: 320px; padding: 24px 40px 0; }
   .composer-backdrop { left: 320px; }
 
   /* На компьютере плеер живёт в колонке слева и ничего не закрывает. */
-  body.player-open .composer-screen { top: 0; }
+  body.composer-open .player-bar { top: auto; }
+  body.player-open .composer-body { padding-top: 24px; }
 }
 
 .composer-top {
