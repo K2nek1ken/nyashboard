@@ -15,7 +15,33 @@ set -euo pipefail
 # не только в $HOME, но и на общей памяти телефона.
 REPO_DIR="${NYASH_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 ZIP_GLOB="NyashBoard*.zip"
-MSG="${1:-update $(date '+%Y-%m-%d %H:%M')}"
+# ---------- доводы ----------
+#
+#   bash deploy.sh "подпись"        обычная выкладка
+#   bash deploy.sh -y "подпись"     без вопросов
+#
+# Флаг «-y» отвечает «да» на всё, о чём скрипт обычно спрашивает.
+# Полезен, когда выкладываешь ту же сборку повторно и надоело
+# подтверждать это каждый раз.
+ASSUME_YES=0
+ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes) ASSUME_YES=1 ;;
+    -h|--help)
+      echo "Выкладка сайта."
+      echo
+      echo "  bash deploy.sh \"подпись\"        обычная выкладка"
+      echo "  bash deploy.sh -y \"подпись\"     не переспрашивать"
+      echo
+      echo "Подпись попадёт в описание изменения на GitHub."
+      exit 0 ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+
+MSG="${ARGS[0]:-update $(date '+%Y-%m-%d %H:%M')}"
 
 die() { echo "✗ $1" >&2; exit 1; }
 
@@ -93,12 +119,17 @@ else
   if [ -n "$CURRENT" ] && [ "$CURRENT" = "$INCOMING" ]; then
     echo
     echo "⚠ Такая сборка уже выложена."
-    printf "  Всё равно продолжить? [y/N] "
-    read -r same_answer
-    case "$same_answer" in
-      [yY]*) ;;
-      *) echo "Отменено."; exit 0 ;;
-    esac
+
+    if [ "$ASSUME_YES" = "1" ]; then
+      echo "  Продолжаю (запущено с -y)."
+    else
+      printf "  Всё равно продолжить? [y/N] "
+      read -r same_answer
+      case "$same_answer" in
+        [yY]*) ;;
+        *) echo "Отменено."; exit 0 ;;
+      esac
+    fi
   fi
   TMP=$(mktemp -d)
   trap 'rm -rf "$TMP"' EXIT
