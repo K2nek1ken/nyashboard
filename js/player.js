@@ -85,6 +85,10 @@ export function restorePlayback() {
   audio.currentTime = saved.position || 0;
   paintBar(saved.track);
 
+  // Место под плеер занимаем сразу, ещё до того как он отрисуется:
+  // иначе содержимое успевает встать выше и потом прыгает вниз.
+  requestAnimationFrame(() => reportPlayerHeight());
+
   // Развёрнутый вид восстанавливаем следом: он не мешает и не сворачивается
   // сам, значит и после перезагрузки должен остаться открытым.
   // На телефоне развёрнутый вид занимает весь экран: открывать его сразу
@@ -482,8 +486,37 @@ function reportPlayerHeight() {
   if (bar.dataset.measured) return;
   bar.dataset.measured = "1";
 
-  if ("ResizeObserver" in window) new ResizeObserver(apply).observe(bar);
-  else window.addEventListener("resize", apply);
+  if ("ResizeObserver" in window) {
+    const watch = new ResizeObserver(apply);
+    watch.observe(bar);
+
+    // За шапкой следим тоже: при входе в аккаунт в ней появляется
+    // аватарка, шапка становится выше — и распорка, посчитанная до
+    // этого, оказывается мала. Раньше плеер после входа налезал
+    // на содержимое именно поэтому.
+    //
+    // Шапку перерисовывают целиком, поэтому следим не только за ней
+    // самой, но и за тем, что внутри: иначе наблюдатель остался бы
+    // на выброшенном элементе.
+    const watchHead = () => {
+      const head = document.getElementById("navHost");
+      if (head && !head.dataset.watched) {
+        head.dataset.watched = "1";
+        watch.observe(head);
+      }
+    };
+    watchHead();
+    window.addEventListener("nyash:page", watchHead);
+    window.addEventListener("nyash:auth", watchHead);
+  } else {
+    window.addEventListener("resize", apply);
+  }
+
+  // И на сам вход: шапка перерисовывается не сразу, а по приходу профиля.
+  window.addEventListener("nyash:auth", () => {
+    requestAnimationFrame(apply);
+    setTimeout(apply, 200);
+  });
 
   // При переходе между вкладками содержимое заменяется, и отступ нужно
   // посчитать заново: у новой страницы он может быть другим.

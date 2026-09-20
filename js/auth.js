@@ -58,7 +58,15 @@ export const authReady = new Promise((resolve) => { resolveAuthReady = resolve; 
 
 const listeners = [];
 export function onAuthChange(cb) { listeners.push(cb); }
-export function emitAuthChange() { listeners.forEach(cb => cb(currentUser, currentUserDoc)); }
+export function emitAuthChange() {
+  listeners.forEach(cb => cb(currentUser, currentUserDoc));
+
+  // Сообщаем всей странице: после входа меняется шапка (в ней появляется
+  // аватарка), а от её высоты зависит, сколько места держать под плеером.
+  window.dispatchEvent(new CustomEvent("nyash:auth", {
+    detail: { signedIn: !!currentUser }
+  }));
+}
 
 // используется profile.js после сохранения профиля, чтобы обновить локальный кэш
 // без похода в базу второй раз
