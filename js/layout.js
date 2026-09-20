@@ -65,7 +65,8 @@ export function initLayout() {
       ${order.map(key => {
         const item = NAV_ITEMS[key];
         return `
-        <a class="navBtn ${item.href === activeHref ? "active" : ""}" href="${item.href}">
+        <a class="navBtn ${item.href === activeHref ? "active" : ""}" href="${item.href}"
+           data-tab="${key}">
           <span class="nf">${item.icon}</span><span class="navBtn-label">${item.label}</span>
         </a>`;
       }).join("")}
@@ -83,6 +84,12 @@ export function initLayout() {
   // Нажатие по вкладке, на которой уже находишься, прокручивает наверх.
   // Переходы на другие вкладки перехватывает роутер — здесь ничего делать
   // не нужно, ссылки остаются обычными ссылками.
+  // Меню вкладки по долгому нажатию: заглушить уведомления, отметить
+  // прочитанным, переставить вкладки.
+  import("./tab-menu.js")
+    .then(({ wireTabMenu }) => wireTabMenu(host))
+    .catch(e => console.warn("Меню вкладки:", e.message));
+
   host.querySelectorAll(".navBtn.active").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();

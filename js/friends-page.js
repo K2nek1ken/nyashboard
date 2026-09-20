@@ -165,6 +165,11 @@ async function renderRequests() {
 //  всё больше.
 // ============================================================
 export async function initPage() {
+  // Разово подчищаем заявки от тех, кто уже в друзьях: из-за них
+  // на вкладке висела отметка «непрочитано».
+  import("./friends.js")
+    .then(({ tidyIncoming }) => tidyIncoming())
+    .catch(() => {});
   clearPending("requests");   // всё увиденное больше не копится
   markTabSeen("friends");
   keepTabSeen("friends");

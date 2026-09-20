@@ -57,6 +57,11 @@ export async function addFriend(uid) {
   // «тебя добавил вот этот человек».
   await setDoc(doc(db, "users", uid, "incoming", currentUser.uid),
                { addedAt: serverTimestamp() }).catch(() => {});
+
+  // Если человек добавлял тебя раньше, то теперь вы взаимно друзья —
+  // и его заявка больше не заявка. Убираем, иначе она висела бы вечно
+  // и держала отметку «непрочитано» на вкладке.
+  await deleteDoc(doc(db, "users", currentUser.uid, "incoming", uid)).catch(() => {});
 }
 
 export async function removeFriend(uid) {
@@ -67,6 +72,26 @@ export async function removeFriend(uid) {
 }
 
 // Кто добавил тебя, но не добавлен в ответ — это и есть заявки.
+// Убирает заявки от тех, с кем вы уже друзья. Такие остались от прежнего
+// поведения: заявку не удаляли при взаимном добавлении, и отметка
+// «непрочитано» на вкладке не гасла никогда.
+export async function tidyIncoming() {
+  if (!currentUser) return 0;
+
+  try {
+    await loadFriends();
+    const snap = await getDocs(collection(db, "users", currentUser.uid, "incoming"));
+
+    const stale = snap.docs.filter(d => cache.has(d.id));
+    await Promise.all(stale.map(d =>
+      deleteDoc(doc(db, "users", currentUser.uid, "incoming", d.id)).catch(() => {})
+    ));
+    return stale.length;
+  } catch {
+    return 0;
+  }
+}
+
 export async function loadIncomingRequests() {
   if (!currentUser) return [];
   await loadFriends();

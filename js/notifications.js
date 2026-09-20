@@ -132,11 +132,17 @@ export async function checkTabs() {
       return ts > since && data.lastSender !== currentUser.uid;
     });
 
-    // заявки в друзья — их видно только адресату, поэтому проверяем отдельно
+    // Заявки в друзья — их видно только адресату, поэтому проверяем отдельно.
+    //
+    // Заявкой считается только тот, кого нет у тебя в друзьях. Иначе
+    // получалось так: человек тебя добавил, ты добавил в ответ — вы уже
+    // друзья, а запись о его заявке осталась, и точка горела вечно.
     if (!result.friends) {
       const incoming = await getDocs(query(
-        collection(db, "users", currentUser.uid, "incoming"), limit(5)));
-      result.friends = !incoming.empty;
+        collection(db, "users", currentUser.uid, "incoming"), limit(20)));
+
+      const mine = new Set(getFriendsSync().map(f => f.uid || f));
+      result.friends = incoming.docs.some(d => !mine.has(d.id));
     }
 
     // записи подписок и друзей
@@ -185,6 +191,15 @@ export async function checkTabs() {
 // Рисует точку на вкладках. Вызывается из навигации после её построения.
 export async function paintTabDots() {
   const marks = await checkTabs();
+
+  // Заглушённые вкладки отметку не показывают — так человек и просил,
+  // удерживая вкладку и выбирая «отключить уведомления».
+  let muted = new Set();
+  try {
+    muted = new Set(JSON.parse(localStorage.getItem("nyash_muted_tabs") || "[]"));
+  } catch {}
+
+  for (const tab of muted) marks[tab] = false;
   const map = { feed: "index.html", chat: "chat.html", friends: "friends.html", content: "content.html" };
   for (const [tab, href] of Object.entries(map)) {
     const btn = document.querySelector(`.navBtn[href="${href}"]`);

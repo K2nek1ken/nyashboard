@@ -3232,3 +3232,76 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 .composer-area::-webkit-scrollbar {
   width: 0; height: 0;
 }
+
+/* ============================================================
+   Меню вкладки (держать палец на вкладке)
+
+   Остальной экран размывается: меню небольшое, и без этого непонятно,
+   что происходит и чего от тебя ждут.
+   ============================================================ */
+/* Размывается всё, кроме шапки: сама шапка остаётся чёткой, чтобы было
+   видно, с какой вкладкой работаешь и какие есть ещё.
+
+   Поэтому подложка лежит НИЖЕ шапки (у той z-index 20), а меню — выше. */
+.tab-menu-screen {
+  position: fixed; inset: 0; z-index: 15;
+  background: rgba(8, 6, 12, 0.62);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  animation: overlayIn .2s ease;
+}
+.tab-menu-screen.closing { animation: overlayOut .2s ease forwards; }
+
+/* Меню висит у своей вкладки — положение задаёт код. Выше шапки,
+   иначе она бы его перекрыла. */
+.tab-menu {
+  position: fixed; z-index: 165;
+  width: min(260px, calc(100vw - 20px));
+  background: var(--bg-soft); border: 1px solid #3a2f47;
+  border-radius: 14px; overflow: hidden;
+  animation: cardIn .24s cubic-bezier(.2,.8,.3,1);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+}
+.tab-menu.closing { animation: cardOut .2s ease forwards; }
+
+@media (min-width: 900px) {
+  /* На компьютере меню вызывают правой кнопкой, и размывать ничего не нужно:
+     места хватает, меню маленькое, а на большом экране размытие всего
+     выглядит тяжеловесно — будто случилось что-то важное.
+
+     Подложка остаётся, но невидимая: она нужна, чтобы нажатие мимо
+     закрывало меню. */
+  .tab-menu-screen {
+    background: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    animation: none;
+  }
+  .tab-menu-screen.closing { animation: none; }
+}
+
+.tab-menu-title {
+  padding: 13px 16px 11px; font-size: 12px;
+  color: var(--muted); border-bottom: 1px solid #3a2f47;
+}
+
+.tab-menu-item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 14px 16px;
+  background: none; border: none; border-bottom: 1px solid #2a2333;
+  color: var(--text); font: inherit; font-size: 14.5px;
+  text-align: left; cursor: pointer;
+}
+.tab-menu-item:last-child { border-bottom: none; }
+.tab-menu-item:active { background: var(--card); }
+.tab-menu-item .nf { color: var(--accent); font-size: 17px; width: 20px; }
+
+.tab-menu-cancel { justify-content: center; color: var(--muted); }
+
+/* Подсветка той вкладки, о которой меню: через секунду забываешь,
+   какую именно держал. */
+/* Подсветка вкладки, о которой меню. Шапка и так не размыта, но среди
+   шести вкладок нужно видеть, какую именно держал. */
+.tab-menu-source {
+  outline: 2px solid var(--accent); border-radius: 12px;
+}
+
+
