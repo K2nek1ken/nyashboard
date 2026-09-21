@@ -1,6 +1,6 @@
 import {
   db, auth, collection, addDoc, doc, setDoc, updateDoc, deleteDoc, getDocs,
-  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp
+  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, Timestamp
 } from "./firebase.js";
 import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
 import { TIMING } from "./modules/animation.js";
@@ -117,7 +117,7 @@ async function loadOlderMessages() {
                   startAfter(oldestDoc),
                   limit(PAGE_SIZE));
   const snap = await getDocs(q);
-  if (snap.empty) { oldestDoc = null; return []; }   // дошли до начала переписки
+  if (snap.empty) { oldestDoc = null; reachedStart = true; return []; }   // дошли до начала переписки
   oldestDoc = snap.docs[snap.docs.length - 1];
   return sortByTime(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }
@@ -153,6 +153,9 @@ export function subscribeChat() {
   // Живая подписка только на последние сообщения: грузить всю переписку разом
   // и долго, и дорого по обращениям к базе. Остальное подтягивается порциями
   // при прокрутке вверх.
+  // После перезагрузки памяти нет — поднимаем переписку из хранилища вкладки.
+  restoreFromSession();
+
   // Вернулись во вкладку, а переписка ещё в памяти — рисуем её сразу
   // и встаём на прежнее место. База догонит следом и добавит новое.
   if (lastMessages.length) {
@@ -167,6 +170,15 @@ export function subscribeChat() {
     // иначе после возврата во вкладку следующая подгрузка тянула бы
     // заново то, что уже на экране.
     if (!olderMessages.length) oldestDoc = snap.docs[snap.docs.length - 1] || oldestDoc;
+    // История не должна перекрывать живую порцию. Всё, что новее самого
+    // старого из пришедшего, база прислала бы сама, — если его нет в
+    // порции, значит его удалили (например, пока страница перезагружалась).
+    // Сохранённая копия такого сообщения висела бы привидением.
+    const freshOldest = Math.min(...fresh.map(m => m.createdAt?.toMillis?.() ?? Infinity));
+    if (Number.isFinite(freshOldest)) {
+      olderMessages = olderMessages.filter(m => (m.createdAt?.toMillis?.() ?? 0) < freshOldest);
+    }
+
     // склеиваем с ранее подгруженной историей, без повторов
     const seenIds = new Set(fresh.map(m => m.id));
     lastMessages = [...olderMessages.filter(m => !seenIds.has(m.id)), ...fresh];
@@ -1002,7 +1014,7 @@ export function rememberChatSpot() {
   if (!messagesEl?.isConnected) return;
 
   const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
-  if (atBottom) { savedSpot = null; return; }   // был внизу — вниз и вернёмся
+  if (atBottom) { savedSpot = null; persistChat(); return; }   // был внизу — вниз и вернёмся
 
   const headH = document.getElementById("navHost")?.getBoundingClientRect().bottom || 0;
   const anchor = [...messagesEl.querySelectorAll(".chat-msg")]
@@ -1010,6 +1022,7 @@ export function rememberChatSpot() {
   if (!anchor) return;
 
   savedSpot = { id: anchor.dataset.id, top: anchor.getBoundingClientRect().top };
+  persistChat();
 }
 
 function restoreChatSpot() {
@@ -1025,6 +1038,116 @@ function restoreChatSpot() {
   // Картинки и вложения ещё дочитываются и меняют высоту выше — держим
   // найденное место, пока всё не устаканится.
   holdViewport(messagesEl, 2500);
+}
+
+// ---------- переписка переживает перезагрузку ----------
+//
+// Между вкладками сайта переписка живёт в памяти. Но перезагрузка
+// страницы память обнуляет — и подгруженная история, и место пропадали.
+//
+// Поэтому храним их ещё и в хранилище вкладки браузера: оно переживает
+// перезагрузку, но не закрытие вкладки — лишнего не копится.
+//
+// Две сложности. Время сообщений — особые объекты базы, в текст они
+// не превращаются: переводим в число и обратно. А курсор подгрузки —
+// ссылка на документ, её не сохранить вовсе: вместо неё храним время
+// самого старого сообщения, и подгрузка продолжается от него.
+
+const CHAT_STORE = "nyash_chat_state";
+const STORE_MAX = 400;               // сколько сообщений хранить
+const STORE_FRESH = 2 * 60 * 60 * 1000;   // старше двух часов — не восстанавливаем
+let reachedStart = false;           // дошли ли до начала переписки
+let restoredOnce = false;
+
+// Время из базы → число; всё остальное — как есть, вглубь.
+function packValue(v) {
+  if (v && typeof v.toMillis === "function") return { __ts: v.toMillis() };
+  if (Array.isArray(v)) return v.map(packValue);
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const k of Object.keys(v)) out[k] = packValue(v[k]);
+    return out;
+  }
+  return v;
+}
+
+// Число → объект времени, который понимает весь остальной код.
+function unpackValue(v) {
+  if (v && typeof v === "object" && "__ts" in v && Object.keys(v).length === 1) {
+    const ms = v.__ts;
+    return { toMillis: () => ms, toDate: () => new Date(ms) };
+  }
+  if (Array.isArray(v)) return v.map(unpackValue);
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const k of Object.keys(v)) out[k] = unpackValue(v[k]);
+    return out;
+  }
+  return v;
+}
+
+function oldestLoadedAt() {
+  let min = Infinity;
+  for (const m of lastMessages) {
+    const t = m.createdAt?.toMillis?.();
+    if (t && t < min) min = t;
+  }
+  return Number.isFinite(min) ? min : null;
+}
+
+function persistChat() {
+  if (!lastMessages.length) return;
+
+  const state = {
+    savedAt: Date.now(),
+    spot: savedSpot,
+    oldestAt: oldestLoadedAt(),
+    reachedStart: reachedStart || (!oldestDoc && olderMessages.length > 0),
+    msgs: lastMessages.slice(-STORE_MAX).map(packValue)
+  };
+
+  // Не влезло — пробуем вдвое меньше: лучше часть истории, чем ничего.
+  for (let n = state.msgs.length; n > 20; n = Math.floor(n / 2)) {
+    try {
+      sessionStorage.setItem(CHAT_STORE, JSON.stringify({ ...state, msgs: state.msgs.slice(-n) }));
+      return;
+    } catch { /* мало места — урезаем */ }
+  }
+}
+
+function restoreFromSession() {
+  if (restoredOnce || lastMessages.length) return;
+  restoredOnce = true;
+
+  let state;
+  try { state = JSON.parse(sessionStorage.getItem(CHAT_STORE) || "null"); } catch { return; }
+  if (!state?.msgs?.length) return;
+  if (Date.now() - (state.savedAt || 0) > STORE_FRESH) return;
+
+  // Всё восстановленное считаем историей: живая подписка добавит свежее
+  // и уберёт повторы при первой же порции.
+  olderMessages = state.msgs.map(unpackValue);
+  lastMessages = olderMessages.slice();
+  savedSpot = state.spot || null;
+  reachedStart = !!state.reachedStart;
+
+  // Курсор подгрузки — от самого старого сохранённого сообщения.
+  oldestDoc = reachedStart || !state.oldestAt ? null : Timestamp.fromMillis(state.oldestAt);
+}
+
+// Сохраняем, когда страница уходит: перезагрузка, закрытие, сворачивание.
+// На телефоне сворачивание — зачастую последнее, что успевает сработать.
+if (typeof window !== "undefined" && !window.__nyashChatPersistHook) {
+  window.__nyashChatPersistHook = true;
+  const save = () => {
+    if (!messagesEl?.isConnected) return;   // чат не открыт — сохранено при уходе
+    rememberChatSpot();
+    persistChat();
+  };
+  window.addEventListener("pagehide", save);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") save();
+  });
 }
 
 function playMeow() {

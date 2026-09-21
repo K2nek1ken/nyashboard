@@ -6,7 +6,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
-  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion,
+  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion, Timestamp,
   arrayRemove, increment, where, getDocs, writeBatch, deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
@@ -33,7 +33,7 @@ export {
   signInWithPopup, signInWithRedirect, getRedirectResult,
   signOut, onAuthStateChanged, signInAnonymously, setPersistence,
   collection, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
-  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion,
+  query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, arrayUnion, Timestamp,
   arrayRemove, increment, where, getDocs, writeBatch, deleteField,
   ref, uploadBytes, getDownloadURL
 };
