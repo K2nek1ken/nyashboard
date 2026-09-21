@@ -153,6 +153,13 @@ export function subscribeChat() {
   // Живая подписка только на последние сообщения: грузить всю переписку разом
   // и долго, и дорого по обращениям к базе. Остальное подтягивается порциями
   // при прокрутке вверх.
+  // Вернулись во вкладку, а переписка ещё в памяти — рисуем её сразу
+  // и встаём на прежнее место. База догонит следом и добавит новое.
+  if (lastMessages.length) {
+    renderChat(lastMessages, { keepScroll: true });
+    if (savedSpot) restoreChatSpot();
+  }
+
   const q = query(collection(db, "chatMessages"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
   chatUnsub = onSnapshot(q, (snap) => {
     const fresh = sortByTime(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -1783,8 +1790,12 @@ export function initChatForm() {
 // см. unsubscribeFeed: то же самое для общего чата
 export function unsubscribeChat() {
   if (chatUnsub) { chatUnsub(); chatUnsub = null; }
-  lastMessages = [];
-  olderMessages = [];
-  oldestDoc = null;
+
+  // Историю НЕ очищаем — ни загруженные сообщения, ни курсор подгрузки.
+  // Раньше здесь всё обнулялось, и при возврате во вкладку чат начинал
+  // с нуля: подгруженная история пропадала, и вернуть место было некуда.
+  // Закрываем только живую подписку — она держала старую разметку.
+
+  // При возврате не отзываемся мяуканьем на то, что уже видели.
   chatStarted = false;
 }
