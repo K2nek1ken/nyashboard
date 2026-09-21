@@ -199,8 +199,20 @@ export async function paintTabDots() {
     muted = new Set(JSON.parse(localStorage.getItem("nyash_muted_tabs") || "[]"));
   } catch {}
 
+  // «Возможности»: точка, если список пополнился с прошлого захода.
+  // Это не уведомление от людей, а весточка от самого сайта — но
+  // показывать её незачем иначе.
+  try {
+    const { aboutHasNews } = await import("./about-page.js");
+    marks.about = aboutHasNews();
+  } catch { /* вкладка недоступна — и ладно */ }
+
   for (const tab of muted) marks[tab] = false;
-  const map = { feed: "index.html", chat: "chat.html", friends: "friends.html", content: "content.html" };
+  const map = {
+    feed: "index.html", chat: "chat.html",
+    friends: "friends.html", content: "content.html",
+    about: "about.html"
+  };
   for (const [tab, href] of Object.entries(map)) {
     const btn = document.querySelector(`.navBtn[href="${href}"]`);
     if (!btn) continue;

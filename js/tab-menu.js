@@ -294,15 +294,34 @@ function toggleMute(key) {
     showToast(set.has(key) ? "Уведомления отключены" : "Уведомления включены")
   );
 
-  // Гасим отметку сразу, не дожидаясь следующей проверки.
-  import("./notifications.js").then(m => m.paintTabDots?.()).catch(() => {});
+  refreshDots();   // гасим отметку сразу, не дожидаясь следующей проверки
 }
 
 function markRead(key) {
+  // «Возможности» считаются прочитанными иначе: там не сообщения,
+  // а список умений, и отметка привязана к его содержимому.
+  if (key === "about") {
+    import("./about-page.js").then(({ markAboutSeen }) => {
+      markAboutSeen();
+      refreshDots();
+      toast("Отмечено прочитанным");
+    }).catch(() => {});
+    return;
+  }
+
   import("./notifications.js").then(({ markTabSeen }) => {
     markTabSeen(key);
-    import("./ui.js").then(({ showToast }) => showToast("Отмечено прочитанным"));
+    refreshDots();
+    toast("Отмечено прочитанным");
   }).catch(() => {});
+}
+
+function refreshDots() {
+  import("./notifications.js").then(m => m.paintTabDots?.()).catch(() => {});
+}
+
+function toast(text) {
+  import("./ui.js").then(({ showToast }) => showToast(text)).catch(() => {});
 }
 
 function openTabOrder() {
