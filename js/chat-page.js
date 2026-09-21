@@ -1,6 +1,5 @@
 import { initShell } from "./shell.js";
 import { markTabSeen, keepTabSeen, stopKeepingSeen } from "./notifications.js";
-import { keepScrollPosition } from "./session-state.js";
 import { initChatForm, subscribeChat, unsubscribeChat, rememberChatSpot } from "./chat.js";
 
 // ============================================================
@@ -14,7 +13,9 @@ import { initChatForm, subscribeChat, unsubscribeChat, rememberChatSpot } from "
 export async function initPage() {
   markTabSeen("chat");
   keepTabSeen("chat");
-  keepScrollPosition();
+  // Общее запоминание прокрутки здесь не нужно: у чата своё, точнее —
+  // по сообщению, а не по числу пикселей. Два механизма спорили бы,
+  // и общий, срабатывая позже, перебивал бы точное место.
   initChatForm();
   subscribeChat();
   stopPage = () => unsubscribeChat();
