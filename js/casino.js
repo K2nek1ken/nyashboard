@@ -20,9 +20,9 @@ const DAY = 24 * 60 * 60 * 1000;
 // Выплаты как в настоящей рулетке: чем реже случай, тем больше выигрыш.
 const BETS = {
   красное:  { match: (n) => n > 0 && isRed(n),        payout: 2, names: ["к", "красное", "red", "кр"] },
-  чёрное:   { match: (n) => n > 0 && !isRed(n),       payout: 2, names: ["ч", "чёрное", "черное", "black", "чер"] },
-  чётное:   { match: (n) => n > 0 && n % 2 === 0,     payout: 2, names: ["чёт", "чет", "ивен", "even"] },
-  нечётное: { match: (n) => n % 2 === 1,              payout: 2, names: ["нечёт", "нечет", "одд", "odd"] },
+  чёрное:   { match: (n) => n > 0 && !isRed(n),       payout: 2, names: ["ч", "чёрное", "black", "чёр"] },
+  чётное:   { match: (n) => n > 0 && n % 2 === 0,     payout: 2, names: ["чёт", "ивен", "even"] },
+  нечётное: { match: (n) => n % 2 === 1,              payout: 2, names: ["нечёт", "одд", "odd"] },
   малое:    { match: (n) => n >= 1 && n <= 18,        payout: 2, names: ["мало", "малое", "low"] },
   большое:  { match: (n) => n >= 19 && n <= 36,       payout: 2, names: ["много", "большое", "high"] },
   зеро:     { match: (n) => n === 0,                  payout: 36, names: ["зеро", "zero", "0"] }
@@ -132,6 +132,14 @@ export function parseBets(text) {
     }
 
     const found = Object.entries(BETS).find(([, b]) => b.names.includes(target));
+
+    // Ставку написали без «ё» — подсказываем правильное написание.
+    if (!found) {
+      const right = Object.values(BETS).flatMap(b => b.names)
+        .find(n => n.includes("ё") && n.replace(/ё/g, "е") === target);
+      if (right) throw new Error(`Через «ё»: «${right}»`);
+    }
+
     if (found) {
       const [kind, b] = found;
       bets.push({ amount, kind, match: b.match, payout: b.payout });

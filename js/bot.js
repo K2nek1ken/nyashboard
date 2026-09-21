@@ -120,7 +120,21 @@ export function parseCommand(text, author, target) {
     }
   }
 
-  if (!rule) return null;
+  // Команды пишутся только через «ё». Если человек написал без неё —
+  // не молчим, а подсказываем: иначе он решит, что команда сломалась,
+  // и ничему не научится.
+  if (!rule) {
+    const plain = (w) => w.replace(/ё/g, "е");
+    const head = lower.split(" ")[0];
+    const near = all.find(c => namesOf(c).some(n =>
+      n.includes("ё") && (plain(n) === lower || (c.rest && plain(n) === head))
+    ));
+    if (near) {
+      const right = namesOf(near).find(n => n.includes("ё") && (plain(n) === lower || plain(n) === head));
+      return { hint: `Через «ё»: «${right}»` };
+    }
+    return null;
+  }
 
   // Отключённая команда ведёт себя так, будто её нет: сообщение уйдёт
   // обычным текстом, а не превратится в ошибку.

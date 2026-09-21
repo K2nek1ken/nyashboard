@@ -355,6 +355,8 @@ async function init() {
       // в общем чате, хотя логика одна и та же.
       const myName = currentUserDoc?.nickname || "ты";
       const parsed = parseCommand(text, myName, replyingTo ? displayName() : null);
+      // Подсказка («через ё») — сообщение не уходит, текст остаётся в поле.
+      if (parsed?.hint)  { showToast(parsed.hint);  return; }
       if (parsed?.error) { showToast(parsed.error); return; }
 
       const imageUrl = pendingImage ? await uploadImage(pendingImage) : null;

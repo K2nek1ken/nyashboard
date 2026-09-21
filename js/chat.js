@@ -994,6 +994,15 @@ function playShift(host, before) {
   }
 }
 
+// Возвращает набранное в поле — когда отправка не состоялась.
+function restoreInput(text) {
+  const input = document.getElementById("chatInput");
+  if (!input || input.value) return;   // человек уже набирает новое — не мешаем
+  input.value = text;
+  input.dispatchEvent(new Event("input"));   // пусть поле подрастёт под текст
+  input.focus();
+}
+
 function playMeow() {
   showToast("мяу!");
   try {
@@ -1586,7 +1595,9 @@ export function initChatForm() {
       if (custom) {
         // Поле очищаем только если получилось: при ошибке текст должен
         // остаться — иначе длинную команду приходится набирать заново.
-        if (custom.ok) input.value = "";
+        // Поле к этому моменту уже очищено (см. выше). Не вышло — возвращаем
+        // набранное, чтобы длинную команду не набирать заново.
+        if (!custom.ok) restoreInput(text);
         showToast(custom.message);
         return;
       }
@@ -1638,7 +1649,11 @@ export function initChatForm() {
         }
       }
 
-      if (parsed?.error) { showToast(parsed.error); return; }
+      // Подсказка («через ё») или ошибка команды: сообщение не уходит,
+      // а набранное возвращается в поле — поправить одну букву проще,
+      // чем набирать всё заново.
+      if (parsed?.hint)  { restoreInput(text); showToast(parsed.hint);  return; }
+      if (parsed?.error) { restoreInput(text); showToast(parsed.error); return; }
 
       const imageUrls = images.length ? await uploadImages(images) : [];
       if (imageUrls.some(u => !u)) throw new Error("Одна из картинок не загрузилась");
