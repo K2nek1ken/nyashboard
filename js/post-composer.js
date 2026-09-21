@@ -51,6 +51,9 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
         >${editing ? escapeHtml(post.text || "") : ""}</textarea>
       </div>
 
+      <!-- Прикреплённое по номеру: треки, работы, записи. Видно отдельно,
+           где бы номер ни стоял в тексте, — и открепляется одним нажатием. -->
+      <div class="composer-attached" data-attached></div>
       <div class="image-strip" data-strip></div>
 
       <!-- Кнопки под полем: на телефоне они иначе оказываются под клавиатурой -->
@@ -99,6 +102,42 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
 
   const area = box.querySelector("[data-text]");
   const strip = box.querySelector("[data-strip]");
+  const attachedHost = box.querySelector("[data-attached]");
+
+  // ---- прикреплённое по номеру ----
+  //
+  // Трек, работа или запись прикрепляются номером прямо в тексте. Но номер
+  // легко потерять из виду: он может стоять в конце длинного текста, ниже
+  // видимой части поля. Поэтому всё прикреплённое показываем списком —
+  // и открепить можно, не выискивая номер глазами.
+  const KIND = { U0: "запись", U2: "сообщение", U3: "трек", U5: "работа" };
+
+  function renderAttached() {
+    const found = [...new Set((area.value.match(/#U[0235]\d{6}/gi) || []).map(t => t.toUpperCase()))];
+    if (!found.length) { attachedHost.innerHTML = ""; return; }
+
+    attachedHost.innerHTML = found.map(tag => `
+      <span class="attached-chip">
+        <span class="attached-kind">${KIND[tag.slice(1, 3)] || "вложение"}</span>
+        <span class="attached-id">${tag}</span>
+        <button type="button" class="attached-drop" data-drop-tag="${tag}" title="открепить">
+          <span class="nf">${ICON.close}</span>
+        </button>
+      </span>`).join("");
+
+    attachedHost.querySelectorAll("[data-drop-tag]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tag = btn.dataset.dropTag;
+        // Убираем все упоминания номера и лишние пробелы, что остались от него.
+        area.value = area.value
+          .replace(new RegExp("\\s*" + tag.replace("#", "#") + "\\b", "gi"), "")
+          .replace(/[ \t]+\n/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        area.dispatchEvent(new Event("input"));
+      });
+    });
+  }
   const fileInput = box.querySelector("[data-images]");
 
   // Новые файлы, выбранные сейчас.
@@ -147,7 +186,8 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
     highlight.style.height = area.style.height;
   };
 
-  area.addEventListener("input", () => { grow(); paintHighlight(); });
+  area.addEventListener("input", () => { grow(); paintHighlight(); renderAttached(); });
+  renderAttached();   // при правке — сразу показать, что уже прикреплено
   area.addEventListener("scroll", () => { highlight.scrollTop = area.scrollTop; });
 
   requestAnimationFrame(() => { grow(); paintHighlight(); area.focus(); });

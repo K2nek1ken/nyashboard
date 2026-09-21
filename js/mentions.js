@@ -34,6 +34,8 @@ export function linkifyMentions(escapedText) {
 
 export function wireMentions(container) {
   container.querySelectorAll(".mention").forEach(el => {
+    if (el.dataset.mentionWired) return;   // один раз на элемент
+    el.dataset.mentionWired = "1";
     el.addEventListener("click", async (e) => {
       e.stopPropagation();
       // Клик по #U1666777 — показываем карточку, а не уводим со страницы:

@@ -1,4 +1,4 @@
-import { listArtworks, uploadArt, deleteArtwork, toggleArtLike } from "./art.js";
+import { listArtworks, uploadArt, deleteArtwork, toggleArtLike, artMediaHtml, artImages } from "./art.js";
 import { currentUser, authReady } from "./auth.js";
 import { openLightbox } from "./lightbox.js";
 import { askText, askConfirm } from "./dialog.js";
@@ -24,6 +24,29 @@ export async function initArtPanel() {
     const file = fileInput.files[0];
     fileInput.value = "";
     if (file) openArtForm({ file, onDone: refresh });
+  });
+
+  // Видео — отдельной кнопкой над «+»: так же удобно, как в редакторе,
+  // без похода в файловый менеджер за нужным фильтром.
+  const videoInput = document.getElementById("artVideoInput");
+  document.getElementById("uploadArtVideoBtn")?.addEventListener("click", async () => {
+    await authReady;
+    if (!currentUser) { showToast("Войди, чтобы выкладывать работы"); return; }
+    videoInput.click();
+  });
+
+  videoInput?.addEventListener("change", async () => {
+    const file = videoInput.files[0];
+    videoInput.value = "";
+    if (!file) return;
+
+    const { isVideoFile } = await import("./storage.js");
+    if (!isVideoFile(file)) { showToast("Это не видео"); return; }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast(`Видео на ${(file.size / 1024 / 1024).toFixed(1)} МБ — предел 5 МБ`);
+      return;
+    }
+    openArtForm({ file, onDone: refresh });
   });
 
   const search = document.getElementById("artSearch");
@@ -57,7 +80,7 @@ export async function initArtPanel() {
       const mine = currentUser && a.authorUid === currentUser.uid;
       return `
         <div class="art-card" data-art="${a.id}">
-          <img class="art-image" src="${a.imageUrl}" alt="${escapeHtml(a.title)}" loading="lazy">
+          ${artMediaHtml(a, "art-image")}
           <div class="art-body">
             <div class="art-title">${escapeHtml(a.title)}</div>
             ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
@@ -76,9 +99,10 @@ export async function initArtPanel() {
         </div>`;
     }).join("");
 
-    // картинка открывается на весь экран, с приближением
-    const images = found.map(a => a.imageUrl);
-    listEl.querySelectorAll(".art-image").forEach((img, i) => {
+    // Картинка открывается на весь экран, с приближением. Видео играет
+    // на месте — у него свои кнопки, — и в листание картинок не входит.
+    const images = artImages(found);
+    listEl.querySelectorAll("img.art-image").forEach((img, i) => {
       img.addEventListener("click", () => openLightbox(img.src, images, i));
     });
 
@@ -122,17 +146,21 @@ export async function initArtPanel() {
 // заголовок и что происходит при сохранении. Пошаговые вопросы были неудобны.
 export function openArtForm({ file = null, art = null, onDone } = {}) {
   const editing = !!art;
+  // Видео — либо новое (выбран файл-видео), либо правим видеоработу.
+  const isVideo = editing ? art.kind === "video" : !!file?.type?.startsWith("video/");
 
   const box = document.createElement("div");
   box.className = "modal";
   box.innerHTML = `
     <div class="modal-content" style="max-width:460px;">
       <button class="closeBtn modalClose" data-cancel><span class="nf">${ICON.close}</span></button>
-      <h2 style="margin-top:0;font-size:17px;">${editing ? "Изменить работу" : "Новая работа"}</h2>
+      <h2 style="margin-top:0;font-size:17px;">${editing ? "Изменить работу" : (isVideo ? "Новое видео" : "Новая работа")}</h2>
 
       <div class="art-form">
         <div class="art-form-preview">
-          <img data-preview alt="">
+          ${isVideo
+            ? `<video data-preview muted playsinline loop autoplay></video>`
+            : `<img data-preview alt="">`}
         </div>
         <div style="flex:1;min-width:0;">
           <input class="inlineEdit" data-title placeholder="Название" maxlength="60"
@@ -150,7 +178,7 @@ export function openArtForm({ file = null, art = null, onDone } = {}) {
   document.body.appendChild(box);
 
   const preview = box.querySelector("[data-preview]");
-  preview.src = editing ? art.imageUrl : URL.createObjectURL(file);
+  preview.src = editing ? (isVideo ? art.videoUrl : art.imageUrl) : URL.createObjectURL(file);
 
   const close = () => closeOverlay(box);
   box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", close));
@@ -169,6 +197,15 @@ export function openArtForm({ file = null, art = null, onDone } = {}) {
         const { updateArtwork } = await import("./art.js");
         await updateArtwork(art.id, { title, description });
         showToast("Изменено ♡");
+      } else if (isVideo) {
+        // Видео грузится дольше картинки — показываем ход на кнопке,
+        // иначе непонятно, идёт ли что-то вообще.
+        const { uploadArtVideo } = await import("./art.js");
+        const { publicUid } = await uploadArtVideo({
+          file, title, description,
+          onProgress: (r) => { btn.textContent = `Загружаю… ${Math.round(r * 100)}%`; }
+        });
+        showToast(`Готово ♡ Номер: ${publicUid}`);
       } else {
         const { publicUid } = await uploadArt({ file, title, description });
         showToast(`Готово ♡ Номер: ${publicUid}`);
@@ -198,7 +235,7 @@ export async function openArtPreview(artId) {
       <button class="closeBtn modalClose" data-close><span class="nf">${ICON.close}</span></button>
       <div style="overflow-y:auto;min-height:0;">
         ${art
-          ? `<img src="${art.imageUrl}" alt="" style="width:100%;border-radius:12px;display:block;">
+          ? `${artMediaHtml(art, "art-popup-media")}
              <h2 style="font-size:17px;margin:12px 0 4px;">${escapeHtml(art.title)}</h2>
              ${art.description ? `<p class="art-desc">${escapeHtml(art.description)}</p>` : ""}
              <p class="muted" style="font-size:12px;">

@@ -20,6 +20,10 @@ export function imagesToHtml(images) {
 // На телефоне они скрыты через CSS, там работает обычный свайп.
 export function wireCarousels(container) {
   container.querySelectorAll("[data-carousel]").forEach(carousel => {
+    // Привязываем один раз: карточки теперь обновляются точечно, и повторная
+    // привязка навешивала бы второй набор обработчиков — листание на две.
+    if (carousel.dataset.carouselWired) return;
+    carousel.dataset.carouselWired = "1";
     const track = carousel.querySelector("[data-carousel-track]");
     const badge = carousel.querySelector("[data-carousel-badge]");
     const prev = carousel.querySelector("[data-carousel-prev]");

@@ -551,9 +551,51 @@ export function postToHtml(p, maskAuthor = false) {
     </article>`;
 }
 
+// Самая свежая версия каждой записи — по номеру. Обновляется при каждой
+// привязке и точечном обновлении карточки; обработчики читают отсюда.
+const livePosts = new Map();
+
+// Окно на свежую версию записи: чтение и запись полей идут в тот объект,
+// что лежит в livePosts сейчас, а не в тот, что был при привязке.
+function livePost(orig) {
+  const id = orig.id;
+  const cur = () => livePosts.get(id) || orig;
+  return new Proxy(orig, {
+    get: (_, k) => cur()[k],
+    set: (_, k, v) => { cur()[k] = v; return true; },
+    has: (_, k) => k in cur(),
+    ownKeys: () => Reflect.ownKeys(cur()),
+    getOwnPropertyDescriptor: (_, k) => {
+      const d = Reflect.getOwnPropertyDescriptor(cur(), k);
+      return d ? { ...d, configurable: true } : undefined;
+    }
+  });
+}
+
 export function wirePostCard(p, container = document) {
   const card = container.querySelector(`.post-card[data-id="${p.id}"]`);
   if (!card) return;
+
+  // Обработчики должны видеть запись такой, какая она СЕЙЧАС, а не на момент
+  // привязки. Раньше каждое действие запоминало объект записи при первой
+  // привязке: запись менялась — правка, лайк, обновление из базы, — карточка
+  // обновлялась точечно, а «изменить» открывало редактор со старым текстом.
+  // Так пропадал прикреплённый номер: в записи он был, в редакторе — нет.
+  //
+  // Поэтому здесь p — окно на самую свежую версию записи по её номеру.
+  livePosts.set(p.id, p);
+  p = livePost(p);
+
+  // Привязка каждого места — один раз на элемент. Карточка теперь
+  // обновляется частями и привязывается повторно; без этого обработчиков
+  // становилось по два: «показать полностью» раскрывало и тут же сворачивало.
+  const on = (el, type, fn, opts) => {
+    if (!el) return;
+    const key = "w" + type;
+    if (el.dataset[key]) return;
+    el.dataset[key] = "1";
+    el.addEventListener(type, fn, opts);
+  };
 
   wireCarousels(card);
   wireMentions(card);
@@ -563,7 +605,7 @@ export function wirePostCard(p, container = document) {
   wireImageZoom(card);
 
   card.querySelectorAll('[data-action="viewAuthor"]').forEach(el => {
-    el.addEventListener("click", () => {
+    on(el, "click", () => {
       const uid = el.dataset.uid;
       if (!uid) { showToast("Это аноним, профиля нет ¯\\_(ツ)_/¯"); return; }
       // Не зовём people.js напрямую — иначе feed.js и people.js импортировали бы
@@ -573,12 +615,12 @@ export function wirePostCard(p, container = document) {
     });
   });
   card.querySelectorAll('[data-action="viewChannel"]').forEach(el => {
-    el.addEventListener("click", () => { goTo(`channel.html?id=${el.dataset.channelId}`); });
+    on(el, "click", () => { goTo(`channel.html?id=${el.dataset.channelId}`); });
   });
 
-  card.querySelector('[data-action="like"]').addEventListener("click", () => toggleLike(p));
-  card.querySelector('[data-action="dislike"]').addEventListener("click", () => toggleDislike(p));
-  card.querySelector('[data-action="repost"]').addEventListener("click", () => repost(p));
+  on(card.querySelector('[data-action="like"]'), "click", () => toggleLike(p));
+  on(card.querySelector('[data-action="dislike"]'), "click", () => toggleDislike(p));
+  on(card.querySelector('[data-action="repost"]'), "click", () => repost(p));
 
   wireKebab(card, {
     openPost: () => { goTo(`post.html?id=${p.id}`); },
@@ -623,7 +665,7 @@ export function wirePostCard(p, container = document) {
   const expandBtn = card.querySelector('[data-action="toggleExpand"]');
   if (expandBtn) {
     const textEl = card.querySelector(".post-text");
-    expandBtn.addEventListener("click", () => {
+    on(expandBtn, "click", () => {
       const expanded = textEl.classList.toggle("expanded");
       expandBtn.innerHTML = expanded
         ? `<span class="nf">${ICON.up}</span> свернуть`
@@ -632,28 +674,28 @@ export function wirePostCard(p, container = document) {
   }
 
   const input = card.querySelector('[data-reply-input]');
-  card.querySelector('[data-action="focusReply"]').addEventListener("click", () => input.focus());
+  on(card.querySelector('[data-action="focusReply"]'), "click", () => input.focus());
 
   // прикрепление фото к ответу
   const fileInput = card.querySelector("[data-reply-file]");
   const previewBox = card.querySelector("[data-reply-preview]");
   let pendingReplyImage = null;
-  card.querySelector("[data-reply-attach]").addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", () => {
+  on(card.querySelector("[data-reply-attach]"), "click", () => fileInput.click());
+  on(fileInput, "change", () => {
     const file = fileInput.files[0];
     fileInput.value = "";
     if (!file) return;
     pendingReplyImage = file;
     previewBox.classList.remove("hidden");
     previewBox.innerHTML = `<img src="${URL.createObjectURL(file)}"><button class="removeImg" data-remove><span class="nf">${ICON.close}</span></button>`;
-    previewBox.querySelector("[data-remove]").addEventListener("click", () => {
+    on(previewBox.querySelector("[data-remove]"), "click", () => {
       pendingReplyImage = null;
       previewBox.classList.add("hidden");
       previewBox.innerHTML = "";
     });
   });
 
-  card.querySelector('[data-action="replyEmoji"]').addEventListener("click", (e) => {
+  on(card.querySelector('[data-action="replyEmoji"]'), "click", (e) => {
     e.stopPropagation();
     openEmojiPicker(card.querySelector(".reply-input-row"), (emoji) => {
       input.value += emoji;
@@ -684,14 +726,14 @@ export function wirePostCard(p, container = document) {
       sendBtn.disabled = false;
     }
   };
-  sendBtn.addEventListener("click", send);
+  on(sendBtn, "click", send);
   // Enter переносит строку, отправка — кнопкой. На компьютере ещё и
   // сочетанием: там Enter под рукой, а тянуться к кнопке ради каждого
   // ответа утомительно.
   //
   // На телефоне Enter не отправляет вовсе: там для этого есть кнопка,
   // а клавиша нужна как раз для переноса.
-  input.addEventListener("keydown", (e) => {
+  on(input, "keydown", (e) => {
     if (e.key !== "Enter") return;
 
     // Enter — перенос, отправка по Shift+Enter или Ctrl+Enter.
@@ -707,7 +749,7 @@ export function wirePostCard(p, container = document) {
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 120) + "px";
   };
-  input.addEventListener("input", growReply);
+  on(input, "input", growReply);
 
   // Ответы грузим ТОЛЬКО когда карточка появилась на экране. Раньше лента из
   // 50 постов делала 50 запросов к Firestore сразу при открытии страницы —
@@ -1156,6 +1198,9 @@ const CARD_PARTS = [
 export function patchPostCard(card, post) {
   if (!card) return;
 
+  // Свежая версия записи — для обработчиков: они читают отсюда.
+  livePosts.set(post.id, post);
+
   const next = document.createElement("div");
   next.innerHTML = postToHtml(post);
   const fresh = next.firstElementChild;
@@ -1192,11 +1237,8 @@ export function patchPostCard(card, post) {
 
   if (card.className !== fresh.className) card.className = fresh.className;
 
-  // Обработчики после подмены частей.
-  // Привязка ищет карточку внутри контейнера — передаём родителя,
-  // а не саму карточку.
-  if (!card.dataset.wired) {
-    card.dataset.wired = "1";
-    wirePostCard(post, card.parentElement || document);
-  }
+  // Привязываем заново — теперь это безопасно: привязка каждого места
+  // делается один раз на элемент, так что навесится только на то, что
+  // заменилось, а уже привязанное пропустится.
+  wirePostCard(post, card.parentElement || document);
 }

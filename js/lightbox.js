@@ -172,6 +172,8 @@ export function wireImageZoom(container) {
     const srcs = imgs.map(i => i.src);
     imgs.forEach((im, i) => {
       im.style.cursor = "zoom-in";
+      if (im.dataset.zoomWired) return;   // один раз на картинку
+      im.dataset.zoomWired = "1";
       im.addEventListener("click", (e) => {
         e.stopPropagation();
         openLightbox(im.src, srcs, i);

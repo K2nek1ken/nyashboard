@@ -550,7 +550,7 @@ async function renderChatArtworks(container, msgs) {
 
   try {
     const { resolveNuid } = await import("./nuid.js");
-    const { getArtwork } = await import("./art.js");
+    const { getArtwork, artMediaHtml, artImages } = await import("./art.js");
     const { openLightbox } = await import("./lightbox.js");
 
     for (const m of withArt) {
@@ -576,7 +576,7 @@ async function renderChatArtworks(container, msgs) {
       host.className = "post-artworks";
       host.innerHTML = works.map(a => `
         <div class="art-attached">
-          <img src="${a.imageUrl}" alt="${escapeHtml(a.title)}" loading="lazy">
+          ${artMediaHtml(a)}
           <div class="art-attached-body">
             <div class="art-attached-title">${escapeHtml(a.title)}</div>
             ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
@@ -585,7 +585,7 @@ async function renderChatArtworks(container, msgs) {
       row.after(host);
 
       host.querySelectorAll("img").forEach((img, i) => {
-        img.addEventListener("click", () => openLightbox(img.src, works.map(w => w.imageUrl), i));
+        img.addEventListener("click", () => openLightbox(img.src, artImages(works), i));
       });
     }
   } catch (e) {

@@ -20,7 +20,7 @@ src = src.replace(/^import\s*\{([^}]*)\}\s*from\s*"[^"]+";/gm, (m, names) =>
     .map(n => `const ${n} = __stub;`).join("\n"));
 src = src.replace(/^export\s*\{[^}]*\}\s*from\s*"[^"]+";/gm, "");
 src = src.replace(/^export /gm, "");
-src += "\n;globalThis.__postToHtml = postToHtml;";
+src += "\n;globalThis.__postToHtml = postToHtml; globalThis.__livePosts = livePosts; globalThis.__livePost = livePost;";
 
 globalThis.__stub = stub;
 globalThis.window = { matchMedia: () => ({ matches: false }), addEventListener() {}, innerWidth: 400, innerHeight: 800, dispatchEvent() {} };
@@ -49,4 +49,16 @@ for (const p of samples) {
     console.log("  запись", p.id, "— ОШИБКА:", e.message);
     process.exitCode = 1;
   }
+}
+
+// Обработчики должны видеть свежую версию записи, а не ту, что была при
+// привязке: иначе «изменить» открывало редактор со старым текстом.
+{
+  const old = { id: "px", text: "было" };
+  globalThis.__livePosts.set("px", old);
+  const view = globalThis.__livePost(old);
+  globalThis.__livePosts.set("px", { id: "px", text: "стало #U5395660" });
+  const ok = view.text === "стало #U5395660";
+  console.log("  свежая версия записи —", ok ? "видна обработчикам" : "ОШИБКА: обработчик видит старую");
+  if (!ok) process.exitCode = 1;
 }

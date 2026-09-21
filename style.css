@@ -3367,3 +3367,57 @@ body.page-leaving-chat .chat-nav {
 #friendsFeed,
 #artList { padding-bottom: calc(56px + 26px + 18px); }
 
+
+/* ---------- прикреплённое по номеру в редакторе ---------- */
+.composer-attached {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 8px 0 0;
+}
+.composer-attached:empty { display: none; }
+.attached-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--card); border: 1px solid #3a2f47;
+  border-radius: 999px; padding: 3px 4px 3px 10px;
+  font-size: 12px;
+}
+.attached-kind { color: var(--muted); }
+.attached-id { color: var(--accent-2); }
+.attached-drop {
+  background: none; border: none; color: var(--muted);
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+}
+.attached-drop:hover { background: color-mix(in oklab, var(--danger) 20%, transparent); color: var(--danger); }
+
+/* Кнопка видео в «Творчестве» — на телефоне маленькая круглая над «+»,
+   на компьютере обычная рядом. */
+.upload-video-btn {
+  position: fixed; right: 20px; bottom: calc(84px + 52px + 12px); z-index: 20;
+  width: 44px; height: 44px; border-radius: 50%; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+@media (min-width: 900px) {
+  .upload-video-btn {
+    position: static; width: auto; height: auto; border-radius: 999px;
+    padding: 10px 20px; margin: 0 auto 14px; font-size: 14px; gap: 8px;
+    box-shadow: none;
+  }
+}
+.art-form-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+
+/* Видеоработы: там же и такого же размера, что картинки, — но играют
+   на месте, поэтому без лупы вместо курсора. */
+video.art-image { cursor: default; background: #000; }
+/* Во вложении работа — строка «картинка слева, подпись справа». Видео
+   в клетку 96×96 не помещается вместе с кнопками, поэтому карточка с
+   видео перестраивается в колонку: видео на всю ширину, подпись под ним. */
+.art-attached:has(video) { flex-direction: column; }
+.art-attached video {
+  width: 100%; max-height: 360px; display: block;
+  border-radius: 10px; background: #000; object-fit: contain;
+}
+.art-popup-media { width: 100%; border-radius: 12px; display: block; }
+video.art-popup-media { background: #000; }

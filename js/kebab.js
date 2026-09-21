@@ -25,6 +25,9 @@ let globalCloseHandlerAttached = false;
 export function wireKebab(container, handlers) {
   const kebab = container.querySelector("[data-kebab-id]");
   if (!kebab) return;
+  // Один раз на меню: второй обработчик открывал бы и тут же закрывал его.
+  if (kebab.dataset.kebabWired) return;
+  kebab.dataset.kebabWired = "1";
   const trigger = kebab.querySelector('[data-action="toggleKebab"]');
   const menu = kebab.querySelector(".kebabMenu");
 

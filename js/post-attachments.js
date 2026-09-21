@@ -28,15 +28,25 @@ async function remember(key, load) {
 // вида #U3XXXXXX превращается в проигрыватель, а не остаётся набором символов.
 // Работы из «Творчества» по их номеру — как треки, только картинкой.
 export async function renderPostArtworks(p, card) {
+  // Уже нарисовано для этого же текста — ничего не делаем. Карточка теперь
+  // обновляется частями и привязывается повторно, и без этого работы
+  // перерисовывались на каждое обновление.
+  const key = p.text || "";
+  if (card.dataset.artFor === key) return;
+  card.dataset.artFor = key;
+
+  // Номер этой отрисовки. Если, пока мы грузили работы, началась новая,
+  // наша устарела — выходим, ничего не вставляя. Раньше два вызова
+  // подряд оба доходили до вставки, и работа появлялась дважды.
+  const token = (card._artToken = (card._artToken || 0) + 1);
+
   const ids = [...new Set(((p.text || "").match(/#U5\d{6}/gi) || []))]
     .map(t => t.slice(1).toUpperCase()).slice(0, 3);
   if (!ids.length) { card.querySelector(".post-artworks")?.remove(); return; }
-  // при повторной отрисовке прежние карточки убираем, иначе они удвоятся
-  card.querySelector(".post-artworks")?.remove();
 
   try {
     const { resolveNuid } = await import("./nuid.js");
-    const { getArtwork } = await import("./art.js");
+    const { getArtwork, artMediaHtml, artImages } = await import("./art.js");
     const { openLightbox } = await import("./lightbox.js");
 
     const works = [];
@@ -52,7 +62,7 @@ export async function renderPostArtworks(p, card) {
     host.className = "post-artworks";
     host.innerHTML = works.map(a => `
       <div class="art-attached">
-        <img src="${a.imageUrl}" alt="${escapeHtml(a.title)}" loading="lazy">
+        ${artMediaHtml(a)}
         <div class="art-attached-body">
           <div class="art-attached-title">${escapeHtml(a.title)}</div>
           ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
@@ -63,9 +73,13 @@ export async function renderPostArtworks(p, card) {
     // Ставим после кнопки «показать полностью», если она есть: иначе работа
     // вклинивалась между текстом и кнопкой, и кнопка оказывалась под ней.
     const anchor = card.querySelector(".expandBtn") || card.querySelector(".post-text") || card;
+    // Проверяем, не устарели ли, и убираем прежний блок прямо перед
+    // вставкой — не раньше: так нет ни пустого мига, ни дубля.
+    if (card._artToken !== token) return;
+    card.querySelectorAll(".post-artworks").forEach(el => el.remove());
     anchor.insertAdjacentElement("afterend", host);
     host.querySelectorAll("img").forEach((img, i) => {
-      img.addEventListener("click", () => openLightbox(img.src, works.map(w => w.imageUrl), i));
+      img.addEventListener("click", () => openLightbox(img.src, artImages(works), i));
     });
   } catch (e) {
     console.warn("Работы не подгрузились:", e.message);
@@ -74,6 +88,13 @@ export async function renderPostArtworks(p, card) {
 export async function renderPostTracks(p, card) {
   const host = card.querySelector(`[data-post-tracks="${p.id}"]`);
   if (!host) return;
+
+  // Те же две защиты, что у работ: не перерисовывать без нужды —
+  // иначе обрывался бы играющий проигрыватель, — и не вставлять устаревшее.
+  const key = p.text || "";
+  if (host.dataset.tracksFor === key) return;
+  host.dataset.tracksFor = key;
+  const token = (host._token = (host._token || 0) + 1);
   const ids = [...new Set((p.text || "").match(/#U3\d{6}/gi) || [])]
     .map(t => t.slice(1).toUpperCase());
 
@@ -101,6 +122,7 @@ export async function renderPostTracks(p, card) {
       ? new Set((await loadFavorites().catch(() => [])).map(t => t.id))
       : new Set();
 
+    if (host._token !== token) return;   // пока грузили, началась новая отрисовка
     host.innerHTML = tracks.map(t => trackCardHtml(t, { favorite: favIds.has(t.id) })).join("");
     wireTrackCards(host, tracks, () => renderPostTracks(p, card));
   } catch (e) {
