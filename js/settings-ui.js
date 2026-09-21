@@ -141,9 +141,6 @@ export function initSettingsPage() {
           toggle("meowReaction", s.meowReaction === "on"))}
         ${row("Имена в сообщениях бота", "показывать цветом и ссылкой на профиль",
           toggle("botNameLinks", s.botNameLinks !== "off"))}
-        ${row("Обновить приложение",
-          "если правки не доехали — сбросит сохранённую копию сайта",
-          `<button class="subBtn" id="clearAppCache">Сбросить</button>`)}
         ${row("Свой знак перед командами",
           "например «!» — тогда команды пишутся как «!обнять». Пусто — как обычно",
           `<input class="inlineEdit" id="commandPrefixInput" maxlength="3" style="max-width:70px;"
@@ -215,7 +212,15 @@ export function initSettingsPage() {
         </div>
       </div>
 
-      <p class="muted" style="font-size:11px; text-align:center; margin-top:22px;">
+      <!-- Сброс копии сайта — служебная вещь, а не настройка чата.
+           Живёт у версии: если правки не доехали, смотришь сюда же,
+           на номер сборки, — и тут же можно обновиться. -->
+      <div class="app-refresh">
+        <button class="subBtn" id="clearAppCache">Обновить приложение</button>
+        <span class="muted">если правки не доехали — сбросит сохранённую копию сайта</span>
+      </div>
+
+      <p class="muted" style="font-size:11px; text-align:center; margin-top:10px;">
         ${buildLabel()}
       </p>
     `;

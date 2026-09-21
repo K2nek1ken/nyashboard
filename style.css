@@ -3321,3 +3321,11 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 
 /* Пустое место под подгружаемую историю: просто прозрачная высота. */
 .history-reserve { flex-shrink: 0; pointer-events: none; }
+
+/* кнопка обновления приложения — внизу настроек, над номером сборки */
+.app-refresh {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  margin-top: 24px; text-align: center;
+}
+.app-refresh .subBtn { width: auto; margin: 0; }
+.app-refresh .muted { font-size: 11px; max-width: 280px; }

@@ -454,7 +454,7 @@ async function renderChatTracks(container, msgs) {
       if (!tracks.length) continue;
 
       // из текста идентификатор убираем — он написан на карточке
-      row.innerHTML = linkifyMentions(escapeHtml(m.text.replace(/\s*#U3\d{6}/gi, "").trim()));
+      row.innerHTML = linkifyMentions(escapeHtml(visibleText(m)));
       const host = document.createElement("div");
       host.className = "chat-tracks";
       host.innerHTML = tracks.map(t => trackCardHtml(t)).join("");
@@ -785,23 +785,50 @@ function openReserve(host) {
   return reserve;
 }
 
+// Собирает сообщение целиком, со всем прикреплённым, ещё до того как
+// оно попадёт на страницу.
+//
+// Иначе сообщение вставлялось бы голым, а треки, работы и картинки
+// дорисовывались следом — и каждое такое дорисовывание меняло высоту,
+// сдвигая всё вокруг. Готовое сообщение встаёт сразу своего размера.
+async function prepareMessage(m, allMsgs) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = messageHtml(m, allMsgs);
+  const el = tmp.firstElementChild;
+  if (!el) return null;
+
+  // Прикреплённое — тем же кодом, что и обычно, только во временном месте.
+  await Promise.all([
+    renderChatTracks(tmp, [m]),
+    renderChatArtworks(tmp, [m])
+  ]).catch(() => {});
+
+  // Картинки: ждём, пока они прочитаются и станет известен их размер.
+  // Не дольше нескольких секунд — медленный файл не должен держать
+  // всю историю.
+  const images = [...el.querySelectorAll("img")];
+  await Promise.race([
+    Promise.all(images.map(img => img.decode().catch(() => {}))),
+    new Promise(r => setTimeout(r, 4000))
+  ]);
+
+  return el;
+}
+
 async function fillReserve(reserve, older, allMsgs) {
-  // Сборка идёт тем же кодом, что и обычная отрисовка.
-  const olderSet = new Set(older.map(m => m.id));
   const pause = (ms) => new Promise(r => setTimeout(r, ms));
+
+  // Старые сообщения — «появившимися» их не считаем.
+  older.forEach(m => shownAt.set(m.id, 0));
+
+  // Готовим все разом: так ожидание вложений не растягивается в очередь.
+  const ready = await Promise.all(older.map(m => prepareMessage(m, allMsgs)));
 
   // От самого нового из подгруженных к самому старому: каждое следующее
   // ложится над предыдущим, прямо под пустотой.
   for (let i = older.length - 1; i >= 0; i--) {
-    const m = older[i];
     if (!reserve.isConnected) return;
-
-    // Старое сообщение — «появившимся» его не считаем.
-    shownAt.set(m.id, 0);
-
-    const tmp = document.createElement("div");
-    tmp.innerHTML = messageHtml(m, allMsgs);
-    const el = tmp.firstElementChild;
+    const el = ready[i];
     if (!el) continue;
 
     const host = reserve.parentElement;
@@ -828,7 +855,7 @@ async function fillReserve(reserve, older, allMsgs) {
     // По одному, с небольшим промежутком — видно, как история
     // подтягивается снизу вверх. На длинной пачке ускоряемся,
     // чтобы не ждать вечность.
-    await pause(olderSet.size > 20 ? 14 : 32);
+    await pause(older.length > 20 ? 14 : 32);
   }
 }
 
@@ -985,6 +1012,22 @@ async function refreshBadges(msgs) {
 const shownAt = new Map();
 const APPEAR_MS = TIMING.message.appear;   // столько сообщение считается появляющимся
 
+// Текст сообщения в том виде, в каком он показывается.
+//
+// Номер трека, уже показанного карточкой, из текста убирается — он
+// написан на самой карточке. Раньше это делала только дорисовка треков,
+// а каждое обновление сообщения собирало текст заново, с номером, —
+// и номер то пропадал, то появлялся, сдвигая строки.
+//
+// Теперь убираем его здесь же, если трек уже загружен: тогда обновление
+// даёт ровно тот же текст, и трогать сообщение незачем.
+function visibleText(m) {
+  const text = m.text || "";
+  const ids = (text.match(/#U3\d{6}/gi) || []).map(t => t.slice(1).toUpperCase());
+  const shown = ids.some(id => chatAttachCache.get(id));
+  return shown ? text.replace(/\s*#U3\d{6}/gi, "").trim() : text;
+}
+
 // Разметка одного сообщения. Вынесена отдельно, чтобы подгружаемую
 // историю можно было вставлять по одному сообщению, а не пачкой.
 function messageHtml(m, msgs, fresh = new Set()) {
@@ -1067,7 +1110,7 @@ function messageHtml(m, msgs, fresh = new Set()) {
                         + `<span class="wheel-text">${decorateBotNames(m.text, msgs)}</span>`
                       : m.isBot
                         ? decorateBotNames(m.text, msgs)
-                        : linkifyMentions(escapeHtml(m.text))}</div>` : ""}
+                        : linkifyMentions(escapeHtml(visibleText(m)))}</div>` : ""}
       ${imagesToHtml(chatImages(m))}
     </div>`;
 }
