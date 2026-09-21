@@ -73,6 +73,29 @@ print("\n".join(problems) if problems else "   всё закрыто")
 sys.exit(1 if problems else 0)
 PY
 
+echo "→ Чат собирается вживую"
+node tools/smoke-chat.mjs || FAIL=1
+
+echo "→ Вызовы несуществующих функций"
+# Это не замечание, а поломка: код падает при запуске. Известные ложные
+# срабатывания (объявления ниже по файлу, методы объектов) перечислены —
+# всё новое останавливает сборку.
+python3 - <<'PY' || FAIL=1
+import subprocess, re, sys
+out = subprocess.run(["python3", "tools/audit.py"], capture_output=True, text=True).stdout
+block = re.search(r"\[Вызов несуществующей функции\][^\n]*\n((?:    .*\n)+)", out)
+lines = [l.strip() for l in block.group(1).splitlines()] if block else []
+
+KNOWN = {"markup.js — applySizes()", "storage.js — createImageBitmap()",
+         "storage.js — XMLHttpRequest()", "storage.js — imgbb()",
+         "storage.js — catbox()", "storage.js — uguu()"}
+fresh = [l for l in lines if re.sub(r":\d+", "", l) not in KNOWN]
+if fresh:
+    print("   ✗ " + "\n   ✗ ".join(fresh))
+    sys.exit(1)
+print("   новых нет")
+PY
+
 echo "→ Аудит"
 python3 tools/audit.py 2>&1 | grep -E "^Найдено|^\[" | sed 's/^/   /'
 

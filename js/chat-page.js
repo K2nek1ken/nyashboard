@@ -1,7 +1,7 @@
 import { initShell } from "./shell.js";
 import { markTabSeen, keepTabSeen, stopKeepingSeen } from "./notifications.js";
 import { keepScrollPosition } from "./session-state.js";
-import { initChatForm, subscribeChat, unsubscribeChat } from "./chat.js";
+import { initChatForm, subscribeChat, unsubscribeChat, rememberChatSpot } from "./chat.js";
 
 // ============================================================
 //  Запуск и сворачивание вкладки
@@ -23,6 +23,10 @@ export async function initPage() {
 export function destroyPage() {
   stopKeepingSeen();
   stopPage?.();
+
+  // Запоминаем место до того, как разметка исчезнет: при возврате
+  // во вкладку встанем туда же, а не в самый низ.
+  rememberChatSpot();
 
   // Подписку закрываем: она держала ссылку на разметку, которой уже нет,
   // и продолжала рисовать в пустоту. При возврате чат подпишется заново.

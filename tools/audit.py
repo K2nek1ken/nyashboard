@@ -228,7 +228,7 @@ def check_orphans():
         t = re.sub(r'["\'][^"\'\n]*["\']', '""', t)
         # Шаблонные строки тоже: в них лежит разметка, и «data-select» оттуда
         # читалось как использование переменной select.
-        t = re.sub(r'`[^`]*`', '""', t)
+        t = strip_templates(t)
 
         local = {m.group(1) for m in re.finditer(r'(?:let|const|var|function|class)\s+([A-Za-z_]\w*)', t)}
 
@@ -267,6 +267,46 @@ def check_orphans():
                 add("Имя из другого файла без импорта", f"{f}: {name} (объявлено в {', '.join(sorted(owners))})")
 
 
+
+def strip_templates(code):
+    """
+    Убирает из шаблонных строк `...` только сам текст, а вставки ${...}
+    оставляет на месте.
+
+    Раньше шаблоны вырезались целиком — и вместе с ними пропадали вызовы
+    внутри вставок. Так однажды проскочила пропавшая функция: её звали
+    только из ${...}, проверка этого вызова не видела, а чат не грузился.
+    """
+    out = []
+    i, n = 0, len(code)
+    stack = []            # что сейчас открыто: "tpl" или глубина скобок во вставке
+    while i < n:
+        ch = code[i]
+        top = stack[-1] if stack else None
+
+        if top == "tpl":
+            if ch == "\\":
+                out.append("  "); i += 2; continue
+            if ch == "`":
+                stack.pop(); out.append('"'); i += 1; continue
+            if ch == "$" and i + 1 < n and code[i + 1] == "{":
+                stack.append(0); out.append(" ("); i += 2; continue
+            out.append(" " if ch != "\n" else "\n"); i += 1; continue
+
+        if isinstance(top, int):
+            if ch == "{":
+                stack[-1] += 1
+            elif ch == "}":
+                if stack[-1] == 0:
+                    stack.pop(); out.append(") "); i += 1; continue
+                stack[-1] -= 1
+
+        if ch == "`":
+            stack.append("tpl"); out.append('"'); i += 1; continue
+
+        out.append(ch); i += 1
+    return "".join(out)
+
 # ---------- 9. вызов несуществующей функции ----------
 def check_missing_calls():
     """
@@ -303,7 +343,7 @@ def check_missing_calls():
         t = read(f)
         code = re.sub(r'//[^\n]*', '', t)
         code = re.sub(r'/\*[\s\S]*?\*/', '', code)
-        code = re.sub(r'`[^`]*`', '""', code)
+        code = strip_templates(code)
         code = re.sub(r'["\'][^"\'\n]*["\']', '""', code)
 
         known = set()

@@ -156,14 +156,23 @@ export function subscribeChat() {
   const q = query(collection(db, "chatMessages"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
   chatUnsub = onSnapshot(q, (snap) => {
     const fresh = sortByTime(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    oldestDoc = snap.docs[snap.docs.length - 1] || oldestDoc;
+    // Курсор подгрузки не откатываем, если история уже подгружена глубже:
+    // иначе после возврата во вкладку следующая подгрузка тянула бы
+    // заново то, что уже на экране.
+    if (!olderMessages.length) oldestDoc = snap.docs[snap.docs.length - 1] || oldestDoc;
     // склеиваем с ранее подгруженной историей, без повторов
     const seenIds = new Set(fresh.map(m => m.id));
     lastMessages = [...olderMessages.filter(m => !seenIds.has(m.id)), ...fresh];
     // Рисуем сразу, не дожидаясь ничего постороннего. Раньше отрисовка
     // шла после загрузки меток, и если та подвисала — чат навсегда
     // оставался с надписью «загружаю».
-    renderChat(lastMessages);
+    // Вернулись во вкладку — встаём туда же, где остановились, а не вниз.
+    if (savedSpot) {
+      renderChat(lastMessages, { keepScroll: true });
+      restoreChatSpot();
+    } else {
+      renderChat(lastMessages);
+    }
 
     // Метки — украшение: приходят следом и обновляют уже показанное.
     refreshBadges(lastMessages)
@@ -677,6 +686,338 @@ function decorateBotNames(m) {
   }
 
   return out + escapeHtml(rest);
+}
+
+// ============================================================
+//  Восстановлено: всё, что лежит между подсветкой имён и мяуканьем.
+//  (Однажды этот блок был снесён заменой «отсюда до туда» — поэтому
+//  здесь каждая функция отдельная, а правки делаются точечно.)
+// ============================================================
+
+// ---------- колесо рулетки на месте сообщения ----------
+
+// Длительность показа берём у самого колеса (WHEEL_TOTAL_MS), чтобы два
+// числа не расходились и колесо не заводилось по второму разу.
+let spinTotal = 4500;    // запасное значение, пока модуль не подгрузился
+let spinRepaint = null;  // перерисовка по окончании показа — одна на все колёса
+import("./roulette-wheel.js")
+  .then(({ WHEEL_TOTAL_MS }) => { spinTotal = WHEEL_TOTAL_MS; })
+  .catch(() => {});
+
+// Крутится ли колесо у этого сообщения прямо сейчас. Решается по времени
+// самого сообщения: так колесо видят все и оно переживает перерисовку.
+function spinningNow(m) {
+  if (m.spinNumber === null || m.spinNumber === undefined) return false;
+  const at = m.createdAt?.toMillis?.() || Date.now();
+  return Date.now() - at < spinTotal;
+}
+
+// ---------- возврат набранного ----------
+
+// Возвращает набранное в поле — когда отправка не состоялась.
+function restoreInput(text) {
+  const input = document.getElementById("chatInput");
+  if (!input || input.value) return;   // человек уже набирает новое — не мешаем
+  input.value = text;
+  input.dispatchEvent(new Event("input"));   // пусть поле подрастёт под текст
+  input.focus();
+}
+
+// ---------- умное обновление списка ----------
+
+// Кладёт сообщения на страницу, не пересоздавая те, что уже там: что было —
+// остаётся на месте, новое добавляется, исчезнувшее убирается. Иначе
+// анимации сбрасывались, колесо дёргалось, прикреплённое грузилось заново.
+function applyMessages(host, html, msgs) {
+  const next = document.createElement("div");
+  next.innerHTML = html;
+
+  // Пустое место под подгружаемую историю — не сообщение, его не трогаем.
+  const have = new Map(
+    [...host.children]
+      .filter(el => !el.classList.contains("history-reserve"))
+      .map(el => [el.dataset.id, el])
+  );
+
+  // Где стоит каждое сообщение сейчас — чтобы проиграть сдвиг соседей.
+  const before = new Map();
+  for (const [id, el] of have) before.set(id, el.getBoundingClientRect().top);
+
+  const wanted = [...next.children];
+  const keep = new Set(wanted.map(el => el.dataset.id));
+
+  for (const [id, el] of have) {
+    if (!keep.has(id)) el.remove();
+  }
+
+  let prev = null;
+  for (const fresh of wanted) {
+    const id = fresh.dataset.id;
+    const old = have.get(id);
+
+    if (!old) {
+      // Новое: класс появления ставим отдельным кадром после вставки,
+      // иначе браузер может не проиграть анимацию.
+      const shouldAppear = fresh.classList.contains("just-came");
+      fresh.classList.remove("just-came");
+
+      if (prev) prev.after(fresh);
+      else {
+        const reserve = host.querySelector(".history-reserve");
+        reserve ? reserve.after(fresh) : host.prepend(fresh);
+      }
+
+      if (shouldAppear) {
+        requestAnimationFrame(() => fresh.classList.add("just-came"));
+        setTimeout(() => fresh.classList.remove("just-came"), TIMING.message.appear + 60);
+      }
+
+      prev = fresh;
+      continue;
+    }
+
+    patchMessage(old, fresh);
+    prev = old;
+  }
+
+  playShift(host, before);
+}
+
+// Части сообщения, которые сравниваются и меняются по отдельности.
+const PARTS = [".txt", ".chat-msg-head", ".chat-reply-quote", ".chat-images"];
+
+// Обновляет сообщение по частям — чтобы не терять живое внутри:
+// проигрыватель, открытую картинку, крутящееся колесо.
+function patchMessage(oldEl, freshEl) {
+  // Колесо крутится — не трогаем сообщение, пока не остановится.
+  if (oldEl.querySelector("[data-spin]")) return;
+
+  for (const part of PARTS) {
+    const a = oldEl.querySelector(part);
+    const b = freshEl.querySelector(part);
+
+    if (!a && b) { oldEl.appendChild(b.cloneNode(true)); continue; }
+    if (a && !b) { a.remove(); continue; }
+    if (!a || !b) continue;
+
+    if (a.innerHTML !== b.innerHTML) {
+      a.innerHTML = b.innerHTML;
+      // В шапке живёт меню — после замены кнопка новая, перевешиваем.
+      if (part === ".chat-msg-head") delete oldEl.dataset.wired;
+    }
+    if (a.className !== b.className) a.className = b.className;
+  }
+
+  const keepAppear = oldEl.classList.contains("just-came")
+                  || oldEl.classList.contains("history-in");
+  if (!keepAppear && oldEl.className !== freshEl.className) {
+    oldEl.className = freshEl.className;
+  }
+}
+
+// Доигрывает сдвиг соседей после вставки нового сообщения:
+// ставим туда, где стояли, и отпускаем — доедут сами.
+function playShift(host, before) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  for (const el of host.children) {
+    const was = before.get(el.dataset.id);
+    if (was === undefined) continue;
+
+    const shift = was - el.getBoundingClientRect().top;
+    if (Math.abs(shift) < 2) continue;
+
+    el.style.transition = "none";
+    el.style.transform = `translateY(${shift}px)`;
+
+    requestAnimationFrame(() => {
+      el.style.transition = `transform ${TIMING.message.shift}ms ${TIMING.message.shiftEasing}`;
+      el.style.transform = "";
+    });
+
+    setTimeout(() => {
+      el.style.transition = "";
+      el.style.transform = "";
+    }, TIMING.message.shift + 20);
+  }
+}
+
+// Проявление истории при открытии чата — снизу вверх, с нарастающей
+// задержкой, упирающейся в потолок.
+function revealHistory(host) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const rows = [...host.querySelectorAll(".chat-msg")].reverse();
+  rows.forEach((el, i) => {
+    el.style.animationDelay =
+      `${Math.min(i * TIMING.message.historyStep, TIMING.message.historyMax)}ms`;
+    el.classList.add("history-in");
+  });
+
+  setTimeout(() => {
+    rows.forEach(el => {
+      el.classList.remove("history-in");
+      el.style.animationDelay = "";
+    });
+  }, TIMING.message.history + TIMING.message.historyMax + 200);
+}
+
+// ---------- подгрузка истории без рывков ----------
+
+// Держит на месте сообщение, на которое человек смотрит: при любом
+// изменении размеров выше возвращает его туда же. Прокрутку самого
+// человека не трогает — при ней просто запоминает новое положение.
+function holdViewport(host, ms = 2500) {
+  const headH = document.getElementById("navHost")?.getBoundingClientRect().bottom || 0;
+  const anchor = [...host.querySelectorAll(".chat-msg")]
+    .find(el => el.getBoundingClientRect().bottom > headH + 4);
+  if (!anchor || !("ResizeObserver" in window)) return () => {};
+
+  let top = anchor.getBoundingClientRect().top;
+
+  const keepIt = () => {
+    if (!anchor.isConnected) return;
+    const delta = anchor.getBoundingClientRect().top - top;
+    if (Math.abs(delta) >= 1) window.scrollBy(0, delta);
+  };
+  const remember = () => { if (anchor.isConnected) top = anchor.getBoundingClientRect().top; };
+
+  // Браузер и сам пытается держать прокрутку — на это время выключаем,
+  // иначе поправки сложатся вдвое.
+  const root = document.documentElement;
+  const prevAnchor = root.style.overflowAnchor;
+  root.style.overflowAnchor = "none";
+
+  const watch = new ResizeObserver(keepIt);
+  watch.observe(host);
+  window.addEventListener("scroll", remember, { passive: true });
+
+  let done = false;
+  const stop = () => {
+    if (done) return;
+    done = true;
+    watch.disconnect();
+    window.removeEventListener("scroll", remember);
+    root.style.overflowAnchor = prevAnchor;
+  };
+  setTimeout(stop, ms);
+  return stop;
+}
+
+// Открывает пустое место над перепиской и сдвигает прокрутку ровно на него.
+function openReserve(host) {
+  const reserve = document.createElement("div");
+  reserve.className = "history-reserve";
+  const height = Math.round(window.innerHeight * 0.8);
+  reserve.style.height = height + "px";
+
+  host.prepend(reserve);
+  window.scrollBy(0, height);
+  return reserve;
+}
+
+// Собирает сообщение целиком — со всем прикреплённым — до того, как оно
+// попадёт на страницу: тогда оно встаёт сразу своего размера.
+async function prepareMessage(m, allMsgs) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = messageHtml(m, allMsgs);
+  const el = tmp.firstElementChild;
+  if (!el) return null;
+
+  await Promise.all([
+    renderChatTracks(tmp, [m]),
+    renderChatArtworks(tmp, [m])
+  ]).catch(() => {});
+
+  const images = [...el.querySelectorAll("img")];
+  await Promise.race([
+    Promise.all(images.map(img => img.decode().catch(() => {}))),
+    new Promise(r => setTimeout(r, 4000))
+  ]);
+
+  return el;
+}
+
+// Заполняет пустоту сообщениями — по одному, снизу вверх. На каждое
+// пустота убавляется ровно на его высоту, и страница не меняется.
+async function fillReserve(reserve, older, allMsgs) {
+  const pause = (ms) => new Promise(r => setTimeout(r, ms));
+
+  older.forEach(m => shownAt.set(m.id, 0));   // старые — не «появившиеся»
+
+  const ready = await Promise.all(older.map(m => prepareMessage(m, allMsgs)));
+
+  for (let i = older.length - 1; i >= 0; i--) {
+    if (!reserve.isConnected) return;
+    const el = ready[i];
+    if (!el) continue;
+
+    const host = reserve.parentElement;
+    const before = host.offsetHeight;
+
+    reserve.after(el);
+    el.classList.add("history-in");
+
+    const grew = host.offsetHeight - before;
+    const left = (parseFloat(reserve.style.height) || 0) - grew;
+
+    if (left >= 0) {
+      reserve.style.height = left + "px";
+    } else {
+      reserve.style.height = "0px";
+      window.scrollBy(0, -left);
+    }
+
+    setTimeout(() => el.classList.remove("history-in"), 500);
+    await pause(older.length > 20 ? 14 : 32);
+  }
+}
+
+// Убирает остаток пустоты, поправив прокрутку на его высоту.
+function closeReserve(reserve) {
+  if (!reserve?.isConnected) return;
+  const left = parseFloat(reserve.style.height) || 0;
+  reserve.remove();
+  if (left > 0) window.scrollBy(0, -left);
+}
+
+// ---------- место в чате при переходах между вкладками ----------
+//
+// Переписка живёт в памяти, пока открыт сайт, — вместе с подгруженной
+// историей. Но при возврате во вкладку чат рисовался заново и прыгал
+// вниз: листать вверх приходилось сначала.
+//
+// Теперь при уходе запоминаем, какое сообщение было наверху и где
+// именно, а при возврате ставим его туда же.
+let savedSpot = null;
+
+export function rememberChatSpot() {
+  if (!messagesEl?.isConnected) return;
+
+  const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
+  if (atBottom) { savedSpot = null; return; }   // был внизу — вниз и вернёмся
+
+  const headH = document.getElementById("navHost")?.getBoundingClientRect().bottom || 0;
+  const anchor = [...messagesEl.querySelectorAll(".chat-msg")]
+    .find(el => el.getBoundingClientRect().bottom > headH + 4);
+  if (!anchor) return;
+
+  savedSpot = { id: anchor.dataset.id, top: anchor.getBoundingClientRect().top };
+}
+
+function restoreChatSpot() {
+  const spot = savedSpot;
+  savedSpot = null;
+  if (!spot || !messagesEl) return;
+
+  const el = messagesEl.querySelector(`.chat-msg[data-id="${spot.id}"]`);
+  if (!el) return;   // сообщение успели удалить — останемся где есть
+
+  window.scrollBy(0, el.getBoundingClientRect().top - spot.top);
+
+  // Картинки и вложения ещё дочитываются и меняют высоту выше — держим
+  // найденное место, пока всё не устаканится.
+  holdViewport(messagesEl, 2500);
 }
 
 function playMeow() {
