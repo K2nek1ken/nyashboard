@@ -31,17 +31,76 @@ export async function readAudioMeta(file) {
 // его метку и разбираем уже готовым кодом.
 function readOgg(bytes) {
   const out = { title: "", artist: "", cover: null };
-  const marker = [0x4f, 0x70, 0x75, 0x73, 0x54, 0x61, 0x67, 0x73];   // OpusTags
-  const vorbis = [0x03, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73];          // .vorbis
 
-  const at = findBytes(bytes, marker) ?? findBytes(bytes, vorbis);
-  if (at === null) return out;
+  // Ogg нарезан на страницы, и у каждой страницы свой заголовок — прямо
+  // посреди данных. Название и автор короткие и помещаются в одну страницу,
+  // а обложка большая и растягивается на несколько. Раньше блок тегов
+  // читался подряд, вместе с заголовками страниц внутри, — и картинка
+  // выходила битой. Поэтому сначала собираем блок целиком, склеивая его
+  // куски и выбрасывая заголовки.
+  const packets = oggPackets(bytes, 3);
 
-  const start = at + (bytes[at] === 0x4f ? marker.length : vorbis.length);
-  try {
-    readVorbis(bytes.subarray(start), out);
-  } catch { /* повреждённый блок — просто без тегов */ }
+  for (const p of packets) {
+    const isOpus = matchAt(p, 0, [0x4f, 0x70, 0x75, 0x73, 0x54, 0x61, 0x67, 0x73]);   // OpusTags
+    const isVorbis = matchAt(p, 0, [0x03, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73]);        // .vorbis
+    if (!isOpus && !isVorbis) continue;
+
+    try {
+      readVorbis(p.subarray(isOpus ? 8 : 7), out);
+    } catch { /* повреждённый блок — просто без тегов */ }
+    break;
+  }
   return out;
+}
+
+// Собирает первые пакеты из страниц Ogg.
+//
+// Страница: «OggS», служебные поля и таблица кусков. Кусок длиной 255
+// значит «пакет продолжается дальше» — возможно, уже на следующей
+// странице; меньше 255 — пакет закончился.
+function oggPackets(bytes, max) {
+  const packets = [];
+  let parts = [];
+  let pos = 0;
+
+  while (pos + 27 <= bytes.length && packets.length < max) {
+    if (!matchAt(bytes, pos, [0x4f, 0x67, 0x67, 0x53])) break;   // не страница — дальше не разобрать
+
+    const segments = bytes[pos + 26];
+    const table = bytes.subarray(pos + 27, pos + 27 + segments);
+    let data = pos + 27 + segments;
+
+    for (const size of table) {
+      parts.push(bytes.subarray(data, data + size));
+      data += size;
+      if (size < 255) {
+        packets.push(joinParts(parts));
+        parts = [];
+        if (packets.length >= max) break;
+      }
+    }
+    pos = data;
+  }
+
+  // Файл обрезан на середине пакета — отдаём сколько есть:
+  // название с автором там, скорее всего, уже целы.
+  if (parts.length && packets.length < max) packets.push(joinParts(parts));
+  return packets;
+}
+
+function joinParts(parts) {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.length; }
+  return out;
+}
+
+function matchAt(bytes, pos, pattern) {
+  for (let i = 0; i < pattern.length; i++) {
+    if (bytes[pos + i] !== pattern[i]) return false;
+  }
+  return true;
 }
 
 function findBytes(haystack, needle) {
