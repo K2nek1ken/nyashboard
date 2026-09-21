@@ -1,5 +1,5 @@
 import { db, collection, query, where, orderBy, limit, getDocs } from "./firebase.js";
-import { currentUser, authReady } from "./auth.js";
+import { currentUser, currentUserDoc, authReady } from "./auth.js";
 import { getSubscriptionsSync, loadSubscriptions } from "./subscriptions.js";
 import { getFriendsSync, loadFriends } from "./friends.js";
 

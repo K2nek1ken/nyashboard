@@ -3368,27 +3368,6 @@ body.page-leaving-chat .chat-nav {
 #artList { padding-bottom: calc(56px + 26px + 18px); }
 
 
-/* ---------- прикреплённое по номеру в редакторе ---------- */
-.composer-attached {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  margin: 8px 0 0;
-}
-.composer-attached:empty { display: none; }
-.attached-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--card); border: 1px solid #3a2f47;
-  border-radius: 999px; padding: 3px 4px 3px 10px;
-  font-size: 12px;
-}
-.attached-kind { color: var(--muted); }
-.attached-id { color: var(--accent-2); }
-.attached-drop {
-  background: none; border: none; color: var(--muted);
-  width: 22px; height: 22px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  cursor: pointer; padding: 0;
-}
-.attached-drop:hover { background: color-mix(in oklab, var(--danger) 20%, transparent); color: var(--danger); }
 
 /* Кнопка видео в «Творчестве» — на телефоне маленькая круглая над «+»,
    на компьютере обычная рядом. */
