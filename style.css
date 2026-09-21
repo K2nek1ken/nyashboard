@@ -1387,7 +1387,9 @@ html[data-theme="quiet"] .searchBox {
 
 /* ---------- кнопки навигации по чату ---------- */
 .chat-nav {
-  position: fixed; right: 14px; bottom: 104px; z-index: 28;
+  position: fixed; right: 14px; z-index: 28;
+  /* Над панелью ввода, по её настоящей высоте (задаёт chat.js). */
+  bottom: calc(var(--chat-bar-h, 92px) + 12px);
   display: flex; flex-direction: column-reverse; gap: 8px;
 }
 .chat-nav-btn {
@@ -1404,7 +1406,7 @@ html[data-theme="quiet"] .searchBox {
   justify-content: center; padding: 0 5px;
 }
 @media (min-width: 900px) {
-  .chat-nav { right: calc(50% - 430px); bottom: 110px; }
+  .chat-nav { right: calc(50% - 430px); bottom: calc(var(--chat-bar-h, 92px) + 18px); }
 }
 
 /* превью сообщения: длинный текст прокручивается, а не растягивает карточку */
@@ -3329,3 +3331,7 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 }
 .app-refresh .subBtn { width: auto; margin: 0; }
 .app-refresh .muted { font-size: 11px; max-width: 280px; }
+
+/* Имя анонима в сообщении бота: выделено, но не ссылка — профиля нет. */
+.bot-name-anon { cursor: default; }
+.bot-name-anon:hover { text-decoration: none; }

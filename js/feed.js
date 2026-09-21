@@ -388,6 +388,17 @@ function updatePostCard(post) {
 // дёргался и сбрасывал появление записей.
 let repaintTimer = null;
 
+// Подъехал список своих записей — перерисовываем, чтобы у анонимно
+// написанных своих записей появились кнопки правки и удаления.
+if (typeof window !== "undefined" && !window.__nyashOwnedFeedHook) {
+  window.__nyashOwnedFeedHook = true;
+  window.addEventListener("nyash:owned", () => {
+    if (lastRenderedPosts?.length && feedListEl?.isConnected) {
+      scheduleRender(rankPosts(lastRenderedPosts));
+    }
+  });
+}
+
 function scheduleRender(posts) {
   clearTimeout(repaintTimer);
   repaintTimer = setTimeout(() => renderFeed(posts), 40);

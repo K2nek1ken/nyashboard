@@ -62,6 +62,12 @@ export function onAuthChange(cb) { listeners.push(cb); }
 export function emitAuthChange() {
   listeners.forEach(cb => cb(currentUser, currentUserDoc));
 
+  // Список своих записей и сообщений — у каждой учётки свой.
+  import("./ownership.js").then(o => {
+    o.resetOwnedRemote();
+    return o.loadOwnedRemote();
+  }).catch(() => {});
+
   // Сообщаем всей странице: после входа меняется шапка (в ней появляется
   // аватарка), а от её высоты зависит, сколько места держать под плеером.
   window.dispatchEvent(new CustomEvent("nyash:auth", {

@@ -222,6 +222,19 @@ export function subscribeChat() {
   // перерисовываем, иначе цитаты, нарисованные раньше, остались бы без узора.
   applyMute();
 
+  // Когда подъехал список своих сообщений, перерисовываем: у тех, что
+  // оказались своими, появятся кнопки «изменить» и «удалить». Обработчик
+  // вешаем один раз на всю жизнь страницы.
+  if (!window.__nyashOwnedChatHook) {
+    window.__nyashOwnedChatHook = true;
+    window.addEventListener("nyash:owned", () => {
+      if (lastMessages.length && messagesEl?.isConnected) {
+        renderChat(lastMessages, { keepScroll: true });
+      }
+    });
+  }
+  import("./ownership.js").then(o => o.loadOwnedRemote()).catch(() => {});
+
   // Свои команды: загружаются один раз при открытии чата, дальше разбор
   // работает с ними наравне со встроенными.
   import("./custom-commands.js").then(async (cc) => {
@@ -481,6 +494,12 @@ function keepInputClearance() {
 
   const apply = () => {
     messagesEl.style.paddingBottom = (bar.offsetHeight + 24) + "px";
+
+    // Эту же высоту знают и кнопки прокрутки: они стоят над панелью.
+    // Раньше их место было вписано числом, и когда панель подросла
+    // (многострочное поле, строка «команды»), кнопка «вниз» уехала
+    // под неё — виднелся только её край.
+    document.documentElement.style.setProperty("--chat-bar-h", bar.offsetHeight + "px");
   };
   apply();
 
@@ -621,386 +640,43 @@ function sortByTime(list) {
     .sort((a, b) => a._at - b._at);
 }
 
-// Имена в тексте бота: показываем цветом владельца и, если он вошёл,
-// делаем ссылкой на профиль. Так видно, что это тот самый человек,
-// а не кто-то взявший похожий ник.
-function decorateBotNames(text, msgs) {
+// Имена в тексте бота: цветом владельца и ссылкой на профиль.
+//
+// Кто есть кто, берём из самого сообщения — там сохранено, кто вызвал
+// команду и на кого, по учётным записям. Раньше имена искались по
+// совпадению ника среди всех сообщений чата, и команда на тёзку
+// выглядела так, будто ты применил её к самому себе.
+//
+// Ссылку даём только тем, кто писал от аккаунта. Аноним профиля не имеет,
+// а человек с профилем, написавший анонимно, не должен раскрываться.
+function decorateBotNames(m) {
+  const text = m.text || "";
   if (getSettings().botNameLinks === "off") return escapeHtml(text);
 
-  // Собираем имена, которые встречались в чате, с их владельцами. Берём
-  // только вошедших: у гостя ник не закреплён, ссылаться не на кого.
-  const known = new Map();
-  for (const m of msgs) {
-    if (m.isBot || !m.authorUid || !m.nickname) continue;
-    known.set(m.nickname, { uid: m.authorUid, color: m.authorNickColor || null });
+  // Старые сообщения бота участников не хранят — угадывать по имени
+  // больше не будем: лучше без ссылок, чем со ссылкой не на того.
+  const people = [m.botActor, m.botTarget].filter(p => p?.name);
+  if (!people.length) return escapeHtml(text);
+
+  // Проходим текст по порядку: сначала ищем автора, потом цель — после
+  // него. Так «неко обнял неко» разберётся верно: первое имя — автор,
+  // второе — тот, на кого ответили.
+  let out = "";
+  let rest = text;
+
+  for (const p of people) {
+    const at = rest.indexOf(p.name);
+    if (at < 0) continue;
+
+    out += escapeHtml(rest.slice(0, at));
+    const color = p.color ? ` style="color:${paletteColor(p.color)}"` : "";
+    out += p.uid
+      ? `<span class="bot-name" data-person="${p.uid}"${color}>${escapeHtml(p.name)}</span>`
+      : `<span class="bot-name bot-name-anon"${color}>${escapeHtml(p.name)}</span>`;
+    rest = rest.slice(at + p.name.length);
   }
 
-  let out = escapeHtml(text);
-  for (const [name, who] of known) {
-    const safe = escapeHtml(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const color = who.color ? ` style="color:${paletteColor(who.color)}"` : "";
-    out = out.replace(
-      new RegExp(`(^|[^\\wа-яё])(${safe})(?=[^\\wа-яё]|$)`, "gi"),
-      // Открываем карточку, а не уводим со страницы: из чата уходить
-      // ради того, чтобы взглянуть на профиль, неудобно.
-      `$1<span class="bot-name" data-person="${who.uid}"${color}>$2</span>`
-    );
-  }
-  return out;
-}
-
-// Крутится ли колесо у этого сообщения прямо сейчас.
-//
-// Решается по времени самого сообщения, а не по памяти вкладки: тогда
-// колесо видят все, кто открыл чат в эти секунды, и оно не исчезает
-// при перерисовке списка.
-// Длительность берём у самого колеса — см. WHEEL_TOTAL_MS в roulette-wheel.js.
-// Пока она была записана здесь отдельным числом, два значения расходились,
-// и колесо успевало запуститься по второму разу.
-let spinTotal = 4500;   // запасное значение, пока модуль не подгрузился
-let spinRepaint = null; // перерисовка по окончании показа — одна на все колёса
-import("./roulette-wheel.js")
-  .then(({ WHEEL_TOTAL_MS }) => { spinTotal = WHEEL_TOTAL_MS; })
-  .catch(() => {});
-
-function spinningNow(m) {
-  if (m.spinNumber === null || m.spinNumber === undefined) return false;
-  const at = m.createdAt?.toMillis?.() || Date.now();
-  return Date.now() - at < spinTotal;
-}
-
-// Кладёт сообщения на страницу, не пересоздавая те, что уже там.
-//
-// Раньше разметка заменялась целиком при каждом обновлении. Из-за этого
-// анимация появления стартовала заново и сбрасывалась через доли секунды —
-// выглядело так, будто сообщения возникают из ниоткуда. По той же причине
-// дёргалось колесо рулетки и заново подгружалось всё прикреплённое.
-//
-// Теперь сравниваем по одному: что было — остаётся на месте, новое
-// добавляется, исчезнувшее убирается. Меняем только то, что правда
-// изменилось.
-function applyMessages(host, html, msgs) {
-  const next = document.createElement("div");
-  next.innerHTML = html;
-
-  // Пустое место под подгружаемую историю — не сообщение: его не трогаем,
-  // иначе оно пропало бы разом, без поправки прокрутки, и экран дёрнулся.
-  const have = new Map(
-    [...host.children]
-      .filter(el => !el.classList.contains("history-reserve"))
-      .map(el => [el.dataset.id, el])
-  );
-
-  // Запоминаем, где сейчас стоит каждое сообщение. Когда появится новое,
-  // соседи сдвинутся — и мы проиграем этот сдвиг движением, а не рывком.
-  //
-  // Приём известный: замерить до, поменять, замерить после и показать
-  // разницу. Браузер уже всё переставил, а глазу кажется, что вещи
-  // разъехались плавно.
-  const before = new Map();
-  for (const [id, el] of have) before.set(id, el.getBoundingClientRect().top);
-
-  const wanted = [...next.children];
-  const keep = new Set(wanted.map(el => el.dataset.id));
-
-  // убираем то, чего больше нет
-  for (const [id, el] of have) {
-    if (!keep.has(id)) el.remove();
-  }
-
-  let prev = null;
-  for (const fresh of wanted) {
-    const id = fresh.dataset.id;
-    const old = have.get(id);
-
-    if (!old) {
-      // Новое сообщение. Класс появления ставим уже после вставки,
-      // отдельным кадром: если он записан прямо в разметке, браузер
-      // считает элемент «всегда таким» и анимацию не проигрывает.
-      const shouldAppear = fresh.classList.contains("just-came");
-      fresh.classList.remove("just-came");
-
-      if (prev) prev.after(fresh);
-      else host.prepend(fresh);
-
-      if (shouldAppear) {
-        requestAnimationFrame(() => fresh.classList.add("just-came"));
-        setTimeout(() => fresh.classList.remove("just-came"), TIMING.message.appear + 60);
-      }
-
-      prev = fresh;
-      continue;
-    }
-
-    // Уже есть. Разметку целиком не подменяем: это стирает всё живое
-    // внутри — крутящееся колесо, открытую карусель, подгруженный трек.
-    // Вместо этого правим по частям, и только те, что правда изменились.
-    patchMessage(old, fresh);
-    prev = old;
-  }
-
-  playShift(host, before);
-}
-
-// Мягко проявляет историю при открытии чата — снизу вверх, с небольшим
-// запозданием у каждого следующего. Не «эффект ради эффекта»: без него
-// переписка возникает разом, и непонятно, загрузилась она или ещё нет.
-function revealHistory(host) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  const rows = [...host.children].reverse();   // снизу вверх
-  rows.forEach((el, i) => {
-    // Задержка нарастает, но упирается в потолок: при сотне сообщений
-    // ждать последнего пришлось бы несколько секунд.
-    el.style.animationDelay =
-      `${Math.min(i * TIMING.message.historyStep, TIMING.message.historyMax)}ms`;
-    el.classList.add("history-in");
-  });
-
-  setTimeout(() => {
-    rows.forEach(el => {
-      el.classList.remove("history-in");
-      el.style.animationDelay = "";
-    });
-  }, TIMING.message.history + TIMING.message.historyMax + 200);
-}
-
-// ============================================================
-//  Подгрузка истории без рывков
-//
-//  Сверху открывается пустое место высотой почти в экран, и прокрутка
-//  тут же сдвигается на столько же — для глаза ничего не меняется.
-//  Дальше в это место по одному ложатся сообщения, снизу вверх, и на
-//  каждое пустота уменьшается ровно на его высоту.
-//
-//  Раньше история вставлялась пачкой, а прокрутка поправлялась задним
-//  числом — и между этими двумя шагами экран успевал дёрнуться. Здесь
-//  высота страницы постоянна от начала до конца, и дёргаться нечему.
-// ============================================================
-
-// Держит на месте то сообщение, на которое человек смотрит.
-//
-// Пока подгружается история, высота над видимой частью может меняться
-// не только от наших вставок: дочитывается шрифт эмодзи, подтягиваются
-// метки у ников, досборка правит шапки. Каждое такое изменение сдвигало
-// всё видимое — особенно заметно на сообщениях бота: они длинные и с
-// эмодзи, и дорастают уже после того, как встали.
-//
-// Держатель запоминает, где стоит первое видимое сообщение, и при любом
-// изменении размеров возвращает его туда же — до того, как браузер
-// успеет это показать. Прокрутку самого человека он не трогает: при ней
-// просто запоминает новое положение.
-function holdViewport(host, ms = 2500) {
-  const headH = document.getElementById("navHost")?.getBoundingClientRect().bottom || 0;
-  const anchor = [...host.querySelectorAll(".chat-msg")]
-    .find(el => el.getBoundingClientRect().bottom > headH + 4);
-  if (!anchor || !("ResizeObserver" in window)) return () => {};
-
-  let top = anchor.getBoundingClientRect().top;
-
-  const keep = () => {
-    if (!anchor.isConnected) return;
-    const delta = anchor.getBoundingClientRect().top - top;
-    if (Math.abs(delta) >= 1) window.scrollBy(0, delta);
-  };
-  const remember = () => { if (anchor.isConnected) top = anchor.getBoundingClientRect().top; };
-
-  // Браузер и сам пытается держать прокрутку при таких изменениях —
-  // на это время выключаем его попытки, иначе поправки сложатся вдвое.
-  const root = document.documentElement;
-  const prevAnchor = root.style.overflowAnchor;
-  root.style.overflowAnchor = "none";
-
-  const watch = new ResizeObserver(keep);
-  watch.observe(host);
-  window.addEventListener("scroll", remember, { passive: true });
-
-  let done = false;
-  const stop = () => {
-    if (done) return;
-    done = true;
-    watch.disconnect();
-    window.removeEventListener("scroll", remember);
-    root.style.overflowAnchor = prevAnchor;
-  };
-  setTimeout(stop, ms);
-  return stop;
-}
-
-function openReserve(host) {
-  const reserve = document.createElement("div");
-  reserve.className = "history-reserve";
-  const height = Math.round(window.innerHeight * 0.8);
-  reserve.style.height = height + "px";
-
-  host.prepend(reserve);
-  // Место добавилось сверху — сдвигаем прокрутку ровно на него,
-  // и то, на что человек смотрел, остаётся на месте.
-  window.scrollBy(0, height);
-  return reserve;
-}
-
-// Собирает сообщение целиком, со всем прикреплённым, ещё до того как
-// оно попадёт на страницу.
-//
-// Иначе сообщение вставлялось бы голым, а треки, работы и картинки
-// дорисовывались следом — и каждое такое дорисовывание меняло высоту,
-// сдвигая всё вокруг. Готовое сообщение встаёт сразу своего размера.
-async function prepareMessage(m, allMsgs) {
-  const tmp = document.createElement("div");
-  tmp.innerHTML = messageHtml(m, allMsgs);
-  const el = tmp.firstElementChild;
-  if (!el) return null;
-
-  // Прикреплённое — тем же кодом, что и обычно, только во временном месте.
-  await Promise.all([
-    renderChatTracks(tmp, [m]),
-    renderChatArtworks(tmp, [m])
-  ]).catch(() => {});
-
-  // Картинки: ждём, пока они прочитаются и станет известен их размер.
-  // Не дольше нескольких секунд — медленный файл не должен держать
-  // всю историю.
-  const images = [...el.querySelectorAll("img")];
-  await Promise.race([
-    Promise.all(images.map(img => img.decode().catch(() => {}))),
-    new Promise(r => setTimeout(r, 4000))
-  ]);
-
-  return el;
-}
-
-async function fillReserve(reserve, older, allMsgs) {
-  const pause = (ms) => new Promise(r => setTimeout(r, ms));
-
-  // Старые сообщения — «появившимися» их не считаем.
-  older.forEach(m => shownAt.set(m.id, 0));
-
-  // Готовим все разом: так ожидание вложений не растягивается в очередь.
-  const ready = await Promise.all(older.map(m => prepareMessage(m, allMsgs)));
-
-  // От самого нового из подгруженных к самому старому: каждое следующее
-  // ложится над предыдущим, прямо под пустотой.
-  for (let i = older.length - 1; i >= 0; i--) {
-    if (!reserve.isConnected) return;
-    const el = ready[i];
-    if (!el) continue;
-
-    const host = reserve.parentElement;
-    const before = host.offsetHeight;
-
-    reserve.after(el);
-    el.classList.add("history-in");
-
-    // На сколько выросла переписка — на столько убавляем пустоту.
-    const grew = host.offsetHeight - before;
-    const left = (parseFloat(reserve.style.height) || 0) - grew;
-
-    if (left >= 0) {
-      reserve.style.height = left + "px";
-    } else {
-      // Пустота кончилась — дальше растём как обычно, но держим то,
-      // на что человек смотрит.
-      reserve.style.height = "0px";
-      window.scrollBy(0, -left);
-    }
-
-    setTimeout(() => el.classList.remove("history-in"), 500);
-
-    // По одному, с небольшим промежутком — видно, как история
-    // подтягивается снизу вверх. На длинной пачке ускоряемся,
-    // чтобы не ждать вечность.
-    await pause(older.length > 20 ? 14 : 32);
-  }
-}
-
-function closeReserve(reserve) {
-  if (!reserve?.isConnected) return;
-
-  // Остаток пустоты убираем, поправив прокрутку на его высоту:
-  // так ничего видимое не сдвинется.
-  const left = parseFloat(reserve.style.height) || 0;
-  reserve.remove();
-  if (left > 0) window.scrollBy(0, -left);
-}
-
-// Обновляет сообщение по частям.
-//
-// Меняется обычно немногое: подпись времени («только что» → «5 мин назад»),
-// отметка «изменено», иногда текст. Пересобирать ради этого всё сообщение —
-// значит терять то, что внутри уже живёт своей жизнью: проигрыватель,
-// открытую картинку, крутящееся колесо.
-const PARTS = [".txt", ".chat-msg-head", ".chat-reply-quote", ".chat-images"];
-
-function patchMessage(oldEl, freshEl) {
-  // Колесо крутится — не трогаем сообщение вовсе, пока не остановится.
-  if (oldEl.querySelector("[data-spin]")) return;
-
-  for (const part of PARTS) {
-    const a = oldEl.querySelector(part);
-    const b = freshEl.querySelector(part);
-
-    if (!a && b) { oldEl.appendChild(b.cloneNode(true)); continue; }
-    if (a && !b) { a.remove(); continue; }
-    if (!a || !b) continue;
-
-    if (a.innerHTML !== b.innerHTML) {
-      a.innerHTML = b.innerHTML;
-
-      // Внутри шапки живёт меню сообщения. Заменили её содержимое —
-      // значит кнопка теперь новая, а обработчик остался на старой.
-      // Снимаем пометку, чтобы его навесили заново.
-      if (part === ".chat-msg-head") delete oldEl.dataset.wired;
-    }
-    if (a.className !== b.className) a.className = b.className;
-  }
-
-  // Класс самого сообщения: «своё», «от бота». Меняется редко, но бывает —
-  // например, когда подгрузился профиль автора.
-  const keepAppear = oldEl.classList.contains("just-came")
-                  || oldEl.classList.contains("history-in");
-  if (!keepAppear && oldEl.className !== freshEl.className) {
-    oldEl.className = freshEl.className;
-  }
-}
-
-// Доигрывает сдвиг соседей после вставки нового сообщения.
-function playShift(host, before) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  for (const el of host.children) {
-    const was = before.get(el.dataset.id);
-    if (was === undefined) continue;          // новое — у него своя анимация
-
-    const now = el.getBoundingClientRect().top;
-    const shift = was - now;
-    if (Math.abs(shift) < 2) continue;        // не сдвинулось
-
-    // Ставим элемент туда, где он был, и отпускаем: он сам доедет на место.
-    el.style.transition = "none";
-    el.style.transform = `translateY(${shift}px)`;
-
-    requestAnimationFrame(() => {
-      el.style.transition =
-        `transform ${TIMING.message.shift}ms ${TIMING.message.shiftEasing}`;
-      el.style.transform = "";
-    });
-
-    // Убираем следы, иначе они помешают следующему обновлению.
-    setTimeout(() => {
-      el.style.transition = "";
-      el.style.transform = "";
-    }, TIMING.message.shift + 20);
-  }
-}
-
-// Возвращает набранное в поле — когда отправка не состоялась.
-function restoreInput(text) {
-  const input = document.getElementById("chatInput");
-  if (!input || input.value) return;   // человек уже набирает новое — не мешаем
-  input.value = text;
-  input.dispatchEvent(new Event("input"));   // пусть поле подрастёт под текст
-  input.focus();
+  return out + escapeHtml(rest);
 }
 
 function playMeow() {
@@ -1171,9 +847,9 @@ function messageHtml(m, msgs, fresh = new Set()) {
                       // Если рисовать только колесо, после его удаления
                       // в сообщении осталась бы пустота.
                       ? `<div class="wheel-inline" data-spin="${m.spinNumber}"></div>`
-                        + `<span class="wheel-text">${decorateBotNames(m.text, msgs)}</span>`
+                        + `<span class="wheel-text">${decorateBotNames(m)}</span>`
                       : m.isBot
-                        ? decorateBotNames(m.text, msgs)
+                        ? decorateBotNames(m)
                         : linkifyMentions(escapeHtml(visibleText(m)))}</div>` : ""}
       ${imagesToHtml(chatImages(m))}
     </div>`;
@@ -1332,7 +1008,13 @@ function renderChat(msgs, { keepScroll = false } = {}) {
 
 function startReply(msg) {
   if (!msg) return;
-  replyingTo = { id: msg.id, nickname: msg.nickname, text: msg.text || "(фото)" };
+  replyingTo = {
+    id: msg.id, nickname: msg.nickname, text: msg.text || "(фото)",
+    // Кто автор — по его учётной записи, а не по имени: имена бывают
+    // одинаковые. У анонимного сообщения записи нет — и не должно быть.
+    authorUid: msg.authorUid || null,
+    nickColor: msg.authorNickColor || null
+  };
   renderReplyBar();
   document.getElementById("chatInput").focus();
 }
@@ -1660,7 +1342,10 @@ export function initChatForm() {
       // Личность сообщения: аккаунт или анонимный ник. Данные автора копируются
       // в само сообщение, чтобы список не требовал запроса профиля на каждую
       // строку — так же, как это сделано у записей ленты.
-      const useAccount = !parsed && asAccount?.checked && currentUser && currentUserDoc;
+      // Пишет ли человек от своего аккаунта — важно и для команд бота:
+      // от этого зависит, можно ли показать ссылку на его профиль.
+      const speakerIsAccount = !!(asAccount?.checked && currentUser && currentUserDoc);
+      const useAccount = !parsed && speakerIsAccount;
       const channel = (!parsed && speakAs.startsWith("channel:"))
         ? myChannels.find(c => c.id === speakAs.slice(8))
         : null;
@@ -1688,7 +1373,25 @@ export function initChatForm() {
         // должен уметь тот, кто его вызвал — даже после перезахода в аккаунт.
         // Раньше право держалось только на отметке в браузере, а она к
         // аккаунту не привязана: вышел и зашёл — и своё же не удалить.
-        invokedByUid: parsed ? (currentUser?.uid || null) : null,
+        // Кто вызвал команду — только если писал от аккаунта. Если писал
+        // под анонимным ником, учётную запись сюда не кладём вовсе: база
+        // открыта на чтение, и по этому полю было бы видно, кто скрывается
+        // за анонимом.
+        invokedByUid: (parsed && speakerIsAccount) ? currentUser.uid : null,
+
+        // Участники команды — по учётным записям, а не по именам. Раньше
+        // ссылки на имена в ответе бота искались по совпадению ника, и
+        // команда на тёзку выглядела так, будто ты применил её к себе.
+        botActor: parsed ? {
+          name: speakerName,
+          uid: speakerIsAccount ? currentUser.uid : null,
+          color: speakerIsAccount ? (currentUserDoc.nickColor || null) : null
+        } : null,
+        botTarget: (parsed && replySnapshot) ? {
+          name: replySnapshot.nickname,
+          uid: replySnapshot.authorUid || null,
+          color: replySnapshot.nickColor || null
+        } : null,
         // Выпавшее число: по нему чат показывает колесо, пока сообщение
         // свежее. Хранится в сообщении, а не в памяти вкладки, — иначе
         // его видел бы только тот, кто играл.
