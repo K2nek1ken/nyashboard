@@ -3318,3 +3318,6 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
   -webkit-touch-callout: none;
   -webkit-user-select: none; user-select: none;
 }
+
+/* Пустое место под подгружаемую историю: просто прозрачная высота. */
+.history-reserve { flex-shrink: 0; pointer-events: none; }

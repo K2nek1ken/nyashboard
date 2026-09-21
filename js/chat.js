@@ -77,38 +77,29 @@ function wireHistoryLoader() {
     if (loadingOlder || window.scrollY > 120 || !oldestDoc) return;
     loadingOlder = true;
 
-    // Пока история едет, показываем на её месте пустые заготовки.
-    // Так видно, что она грузится, и страница не прыгает: место под
-    // сообщения занято заранее.
-    showSkeletons(messagesEl);
+    // Резервируем пустое место над перепиской и потом заполняем его
+    // сообщениями — по одному, снизу вверх. Высота страницы при этом
+    // не меняется ни на пиксель: сколько добавили сообщение, столько же
+    // убавили пустоты. Дёргаться нечему.
+    const reserve = openReserve(messagesEl);
 
-    const heightBefore = document.body.scrollHeight;
     try {
       const older = await loadOlderMessages();
-
-      // Убираем заготовки и добавляем сообщения одним движением: если
-      // сначала убрать, страница схлопнется и дёрнется, а потом подскочит
-      // обратно. Поэтому сначала меряем, потом меняем, потом поправляем
-      // прокрутку — всё до того, как браузер успеет показать промежуточное.
-      const skeletonHeight = skeletonSize(messagesEl);
-      hideSkeletons(messagesEl);
 
       if (older.length) {
         olderMessages = [...older, ...olderMessages];
         lastMessages = [...older, ...lastMessages];
+
+        await fillReserve(reserve, older, lastMessages);
+
+        // Досборка: обработчики, метки, прикреплённое. Сами сообщения
+        // уже на месте и пересоздаваться не будут.
         renderChat(lastMessages, { keepScroll: true });
-        // сохраняем положение: иначе добавленные сверху сообщения
-        // «выталкивают» переписку из виду
-        // Держим переписку на месте. Из добавленной высоты вычитаем то,
-        // что занимали заготовки: это место уже было учтено, и без поправки
-        // страница уезжала на их высоту.
-        const added = document.body.scrollHeight - heightBefore + skeletonHeight;
-        window.scrollTo({ top: added + window.scrollY });
       }
     } catch (e) {
-      hideSkeletons(messagesEl);
       console.warn("История не догрузилась:", e.message);
     } finally {
+      closeReserve(reserve);
       loadingOlder = false;
     }
   }, { passive: true });
@@ -686,8 +677,12 @@ function applyMessages(host, html, msgs) {
   const next = document.createElement("div");
   next.innerHTML = html;
 
+  // Пустое место под подгружаемую историю — не сообщение: его не трогаем,
+  // иначе оно пропало бы разом, без поправки прокрутки, и экран дёрнулся.
   const have = new Map(
-    [...host.children].map(el => [el.dataset.id, el])
+    [...host.children]
+      .filter(el => !el.classList.contains("history-reserve"))
+      .map(el => [el.dataset.id, el])
   );
 
   // Запоминаем, где сейчас стоит каждое сообщение. Когда появится новое,
@@ -764,33 +759,87 @@ function revealHistory(host) {
   }, TIMING.message.history + TIMING.message.historyMax + 200);
 }
 
-// Пустые заготовки на месте ещё не пришедших сообщений.
+// ============================================================
+//  Подгрузка истории без рывков
 //
-// Три штуки: достаточно, чтобы место было занято и страница не дёрнулась,
-// и не столько, чтобы это выглядело как настоящая переписка.
-function showSkeletons(host) {
-  if (host.querySelector(".msg-skeleton")) return;
+//  Сверху открывается пустое место высотой почти в экран, и прокрутка
+//  тут же сдвигается на столько же — для глаза ничего не меняется.
+//  Дальше в это место по одному ложатся сообщения, снизу вверх, и на
+//  каждое пустота уменьшается ровно на его высоту.
+//
+//  Раньше история вставлялась пачкой, а прокрутка поправлялась задним
+//  числом — и между этими двумя шагами экран успевал дёрнуться. Здесь
+//  высота страницы постоянна от начала до конца, и дёргаться нечему.
+// ============================================================
 
-  const widths = [72, 54, 86];   // разной длины — иначе похоже на таблицу
-  const box = document.createElement("div");
-  box.className = "skeleton-group";
-  box.innerHTML = widths.map(w => `
-    <div class="msg-skeleton">
-      <div class="skeleton-line" style="width:${w}%"></div>
-      <div class="skeleton-line short"></div>
-    </div>`).join("");
+function openReserve(host) {
+  const reserve = document.createElement("div");
+  reserve.className = "history-reserve";
+  const height = Math.round(window.innerHeight * 0.8);
+  reserve.style.height = height + "px";
 
-  host.prepend(box);
+  host.prepend(reserve);
+  // Место добавилось сверху — сдвигаем прокрутку ровно на него,
+  // и то, на что человек смотрел, остаётся на месте.
+  window.scrollBy(0, height);
+  return reserve;
 }
 
-// Сколько места занимают заготовки — чтобы вычесть его при подсчёте сдвига.
-function skeletonSize(host) {
-  const group = host.querySelector(".skeleton-group");
-  return group ? group.offsetHeight : 0;
+async function fillReserve(reserve, older, allMsgs) {
+  // Сборка идёт тем же кодом, что и обычная отрисовка.
+  const olderSet = new Set(older.map(m => m.id));
+  const pause = (ms) => new Promise(r => setTimeout(r, ms));
+
+  // От самого нового из подгруженных к самому старому: каждое следующее
+  // ложится над предыдущим, прямо под пустотой.
+  for (let i = older.length - 1; i >= 0; i--) {
+    const m = older[i];
+    if (!reserve.isConnected) return;
+
+    // Старое сообщение — «появившимся» его не считаем.
+    shownAt.set(m.id, 0);
+
+    const tmp = document.createElement("div");
+    tmp.innerHTML = messageHtml(m, allMsgs);
+    const el = tmp.firstElementChild;
+    if (!el) continue;
+
+    const host = reserve.parentElement;
+    const before = host.offsetHeight;
+
+    reserve.after(el);
+    el.classList.add("history-in");
+
+    // На сколько выросла переписка — на столько убавляем пустоту.
+    const grew = host.offsetHeight - before;
+    const left = (parseFloat(reserve.style.height) || 0) - grew;
+
+    if (left >= 0) {
+      reserve.style.height = left + "px";
+    } else {
+      // Пустота кончилась — дальше растём как обычно, но держим то,
+      // на что человек смотрит.
+      reserve.style.height = "0px";
+      window.scrollBy(0, -left);
+    }
+
+    setTimeout(() => el.classList.remove("history-in"), 500);
+
+    // По одному, с небольшим промежутком — видно, как история
+    // подтягивается снизу вверх. На длинной пачке ускоряемся,
+    // чтобы не ждать вечность.
+    await pause(olderSet.size > 20 ? 14 : 32);
+  }
 }
 
-function hideSkeletons(host) {
-  host.querySelector(".skeleton-group")?.remove();
+function closeReserve(reserve) {
+  if (!reserve?.isConnected) return;
+
+  // Остаток пустоты убираем, поправив прокрутку на его высоту:
+  // так ничего видимое не сдвинется.
+  const left = parseFloat(reserve.style.height) || 0;
+  reserve.remove();
+  if (left > 0) window.scrollBy(0, -left);
 }
 
 // Обновляет сообщение по частям.
@@ -936,24 +985,9 @@ async function refreshBadges(msgs) {
 const shownAt = new Map();
 const APPEAR_MS = TIMING.message.appear;   // столько сообщение считается появляющимся
 
-function renderChat(msgs, { keepScroll = false } = {}) {
-  const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
-  const wasAtBottom = !keepScroll && (nearBottom || messagesEl.childElementCount === 0);
-
-  // Первая отрисовка: история не въезжает снизу — это выглядело бы так,
-  // будто всё написали только что. Вместо этого она мягко проступает,
-  // от нижних сообщений к верхним: взгляд и так начинает снизу.
-  const first = shownAt.size === 0;
-  const now = Date.now();
-
-  const fresh = first ? new Set() : new Set(
-    msgs.filter(m => now - (shownAt.get(m.id) ?? now) < APPEAR_MS).map(m => m.id)
-  );
-  msgs.forEach(m => { if (!shownAt.has(m.id)) shownAt.set(m.id, now); });
-
-  // Собираем разметку, но в страницу кладём по-умному — см. applyMessages
-  // ниже: существующие сообщения не пересоздаются.
-  const html = msgs.map(m => {
+// Разметка одного сообщения. Вынесена отдельно, чтобы подгружаемую
+// историю можно было вставлять по одному сообщению, а не пачкой.
+function messageHtml(m, msgs, fresh = new Set()) {
     // Сообщения бота править нельзя даже автору команды: иначе можно
     // подделать чужую фразу, выданную ботом.
     // Своим считается и сообщение от аккаунта, отправленное с другого
@@ -1015,7 +1049,7 @@ function renderChat(msgs, { keepScroll = false } = {}) {
     );
 
     return `
-    <div class="chat-msg ${m.isBot ? "is-bot" : ""} ${isMine ? "is-mine" : ""}" data-id="${m.id}">
+    <div class="chat-msg ${m.isBot ? "is-bot" : ""} ${isMine ? "is-mine" : ""} ${fresh.has(m.id) ? "just-came" : ""}" data-id="${m.id}">
       <div class="chat-msg-head">
         <b>${authorHtml}</b>
         <span class="muted">· ${timeAgo(m.createdAt)}${m.editedAt ? '<span class="post-edited-tag">(изменено)</span>' : ""}</span>
@@ -1036,7 +1070,26 @@ function renderChat(msgs, { keepScroll = false } = {}) {
                         : linkifyMentions(escapeHtml(m.text))}</div>` : ""}
       ${imagesToHtml(chatImages(m))}
     </div>`;
-  }).join("");
+}
+
+function renderChat(msgs, { keepScroll = false } = {}) {
+  const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
+  const wasAtBottom = !keepScroll && (nearBottom || messagesEl.childElementCount === 0);
+
+  // Первая отрисовка: история не въезжает снизу — это выглядело бы так,
+  // будто всё написали только что. Вместо этого она мягко проступает,
+  // от нижних сообщений к верхним: взгляд и так начинает снизу.
+  const first = shownAt.size === 0;
+  const now = Date.now();
+
+  const fresh = first ? new Set() : new Set(
+    msgs.filter(m => now - (shownAt.get(m.id) ?? now) < APPEAR_MS).map(m => m.id)
+  );
+  msgs.forEach(m => { if (!shownAt.has(m.id)) shownAt.set(m.id, now); });
+
+  // Собираем разметку, но в страницу кладём по-умному — см. applyMessages
+  // ниже: существующие сообщения не пересоздаются.
+  const html = msgs.map(m => messageHtml(m, msgs, fresh)).join("");
 
   applyMessages(messagesEl, html, msgs);
 
