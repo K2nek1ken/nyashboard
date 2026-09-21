@@ -31,6 +31,7 @@ globalThis.__stub = stub;
 globalThis.window = { matchMedia: () => ({ matches: false }), addEventListener() {}, innerHeight: 800, dispatchEvent() {} };
 globalThis.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, documentElement: { style: { setProperty() {} } }, createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }) };
 globalThis.localStorage = { getItem: () => null, setItem() {} };
+globalThis.location = { origin: "https://example.test", pathname: "/chat.html", search: "", href: "https://example.test/chat.html" };
 
 
 try {

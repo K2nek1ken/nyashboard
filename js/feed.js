@@ -149,16 +149,25 @@ export function subscribeFeed() {
     }
 
     lastRenderedPosts = posts;
-    // Оформление авторов — украшение: если оно не подгрузилось, ленту всё
-    // равно показываем, иначе сбой мелочи оставил бы пустой экран.
+
+    // Каждая порция из базы — это новое состояние ленты: могли появиться
+    // записи, пропасть, поменяться. Рисуем его сразу, с тем оформлением
+    // авторов, что лежит в записях.
+    //
+    // Раньше отрисовка шла только после подгрузки оформления, а решение
+    // «рисовать или только поправить аватарки» принималось по флагу «лента
+    // уже рисовалась». Флаг жил между вкладками — и при возврате вместо
+    // отрисовки правились аватарки в пустом списке. По той же причине
+    // новые записи не появлялись, пока не перезагрузишь.
+    scheduleRender(rankPosts(posts));
+
+    // Настоящее оформление авторов подъезжает следом — его правим точечно,
+    // не пересобирая ленту: иначе она дёргалась бы второй раз.
     enrichAuthors(posts)
       .catch(e => console.warn("Оформление авторов:", e.message))
       .then(() => {
-        // Раньше здесь шла полная перерисовка ради обновлённых аватарок —
-        // список успевал показаться со старыми и дёрнуться. Теперь меняем
-        // только сами аватарки и имена, на месте.
-        if (feedPainted) repaintAuthors(posts);
-        else scheduleRender(rankPosts(posts));
+        if (feedListEl?.querySelector(".post-card")) repaintAuthors(posts);
+        else scheduleRender(rankPosts(posts));   // отрисовка ещё не случилась
 
         backfillNuid(posts);       // заодно достаём номер одной старой записи
       });
@@ -404,16 +413,11 @@ function scheduleRender(posts) {
   repaintTimer = setTimeout(() => renderFeed(posts), 40);
 }
 
-// Отрисовывалась ли лента хоть раз. До первой отрисовки обновлять нечего,
-// а после — можно менять точечно.
-let feedPainted = false;
-
 function renderFeed(posts) {
   if (!posts.length) {
     feedListEl.innerHTML = `<div class="stub-note">Пока пусто. Жми «+» и пиши ${gendered("первым", "первой", "первым(ой)")} ♡</div>`;
     return;
   }
-  feedPainted = true;
   layoutPosts(feedListEl, posts, p => postToHtml(p));
   posts.forEach(p => wirePostCard(p, feedListEl));
   revealSequentially(feedListEl);

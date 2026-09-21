@@ -94,6 +94,22 @@ async function swap(page, { push = true } = {}) {
   navigating = true;
   document.body.classList.add("page-leaving");
 
+  // Пока грузится новая вкладка, старая ещё видна и ещё живая — и всё,
+  // что успеет её сдвинуть за эти доли секунды, было видно: например,
+  // закрытие клавиатуры при уходе с поля ввода меняет высоту экрана,
+  // и чат будто уезжал вниз перед исчезновением. Замораживаем прокрутку
+  // до самой подмены: старая страница уходит ровно такой, какой была.
+  const frozenY = window.scrollY;
+  const freeze = () => { if (window.scrollY !== frozenY) window.scrollTo(0, frozenY); };
+  window.addEventListener("scroll", freeze, { passive: true });
+  const unfreeze = () => window.removeEventListener("scroll", freeze);
+
+  // Из чата уходим, гася его целиком: там есть поле ввода с клавиатурой,
+  // и полупрозрачное «уходящее» состояние показывало её закрытие.
+  if (document.body.classList.contains("chat-page-body") || document.getElementById("chatMessages")) {
+    document.body.classList.add("page-leaving-chat");
+  }
+
   try {
     const html = await loadPage(page);
 
@@ -118,6 +134,8 @@ async function swap(page, { push = true } = {}) {
       ".kebabMenu:not(.hidden), .cselect-menu:not(.hidden), " +
       ".player-menu:not(.hidden), .profile-dropdown:not(.hidden)"
     ).forEach(el => el.classList.add("hidden"));
+
+    unfreeze();
 
     const app = document.getElementById("app");
     const fresh = new DOMParser().parseFromString(html, "text/html");
@@ -156,7 +174,10 @@ async function swap(page, { push = true } = {}) {
     console.error("Переход не удался, гружу страницу целиком:", e);
     location.href = page;                      // запасной путь: обычная загрузка
   } finally {
-    document.body.classList.remove("page-leaving");
+    // При любом исходе — в том числе при сбое загрузки — прокрутку
+    // размораживаем: иначе страница осталась бы прибитой к месту.
+    unfreeze();
+    document.body.classList.remove("page-leaving", "page-leaving-chat");
     navigating = false;
   }
 }

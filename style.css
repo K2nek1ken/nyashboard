@@ -1812,6 +1812,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
    вместо мигания белым, как при полной перезагрузке. */
 #app { transition: opacity .13s ease; }
 body.page-leaving #app { opacity: 0.35; }
+/* Из чата уходим, гася его целиком: иначе было видно, как закрывается
+   клавиатура и переписка съезжает перед исчезновением. */
+body.page-leaving-chat #app,
+body.page-leaving-chat .chat-floating-bar { opacity: 0; transition: opacity .1s ease; }
 @media (prefers-reduced-motion: reduce) {
   #app { transition: none; }
   body.page-leaving #app { opacity: 1; }
@@ -3335,3 +3339,12 @@ body { transition: padding-top .26s cubic-bezier(.4,0,.6,1); }
 /* Имя анонима в сообщении бота: выделено, но не ссылка — профиля нет. */
 .bot-name-anon { cursor: default; }
 .bot-name-anon:hover { text-decoration: none; }
+
+/* Уход из чата: гасим целиком, а не до полупрозрачности — иначе было видно,
+   как закрывается клавиатура и сдвигается переписка перед исчезновением. */
+body.page-leaving-chat #app,
+body.page-leaving-chat .chat-floating-bar,
+body.page-leaving-chat .chat-nav {
+  opacity: 0;
+  transition: opacity .1s ease;
+}
