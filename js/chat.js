@@ -83,6 +83,10 @@ function wireHistoryLoader() {
     // убавили пустоты. Дёргаться нечему.
     const reserve = openReserve(messagesEl);
 
+    // Держим видимое на месте всю подгрузку и ещё немного после:
+    // досборка и дочитывание шрифтов идут следом.
+    const release = holdViewport(messagesEl, 60000);
+
     try {
       const older = await loadOlderMessages();
 
@@ -100,6 +104,8 @@ function wireHistoryLoader() {
       console.warn("История не догрузилась:", e.message);
     } finally {
       closeReserve(reserve);
+      // Отпускаем не сразу: метки, шрифты и досборка ещё доезжают.
+      setTimeout(release, 1500);
       loadingOlder = false;
     }
   }, { passive: true });
@@ -771,6 +777,55 @@ function revealHistory(host) {
 //  числом — и между этими двумя шагами экран успевал дёрнуться. Здесь
 //  высота страницы постоянна от начала до конца, и дёргаться нечему.
 // ============================================================
+
+// Держит на месте то сообщение, на которое человек смотрит.
+//
+// Пока подгружается история, высота над видимой частью может меняться
+// не только от наших вставок: дочитывается шрифт эмодзи, подтягиваются
+// метки у ников, досборка правит шапки. Каждое такое изменение сдвигало
+// всё видимое — особенно заметно на сообщениях бота: они длинные и с
+// эмодзи, и дорастают уже после того, как встали.
+//
+// Держатель запоминает, где стоит первое видимое сообщение, и при любом
+// изменении размеров возвращает его туда же — до того, как браузер
+// успеет это показать. Прокрутку самого человека он не трогает: при ней
+// просто запоминает новое положение.
+function holdViewport(host, ms = 2500) {
+  const headH = document.getElementById("navHost")?.getBoundingClientRect().bottom || 0;
+  const anchor = [...host.querySelectorAll(".chat-msg")]
+    .find(el => el.getBoundingClientRect().bottom > headH + 4);
+  if (!anchor || !("ResizeObserver" in window)) return () => {};
+
+  let top = anchor.getBoundingClientRect().top;
+
+  const keep = () => {
+    if (!anchor.isConnected) return;
+    const delta = anchor.getBoundingClientRect().top - top;
+    if (Math.abs(delta) >= 1) window.scrollBy(0, delta);
+  };
+  const remember = () => { if (anchor.isConnected) top = anchor.getBoundingClientRect().top; };
+
+  // Браузер и сам пытается держать прокрутку при таких изменениях —
+  // на это время выключаем его попытки, иначе поправки сложатся вдвое.
+  const root = document.documentElement;
+  const prevAnchor = root.style.overflowAnchor;
+  root.style.overflowAnchor = "none";
+
+  const watch = new ResizeObserver(keep);
+  watch.observe(host);
+  window.addEventListener("scroll", remember, { passive: true });
+
+  let done = false;
+  const stop = () => {
+    if (done) return;
+    done = true;
+    watch.disconnect();
+    window.removeEventListener("scroll", remember);
+    root.style.overflowAnchor = prevAnchor;
+  };
+  setTimeout(stop, ms);
+  return stop;
+}
 
 function openReserve(host) {
   const reserve = document.createElement("div");

@@ -130,44 +130,47 @@ onAuthStateChanged(auth, async (fbUser) => {
   if (resolveAuthReady) { resolveAuthReady(); resolveAuthReady = null; }
 });
 
-// Вход отдельным окном или переходом на страницу Google — зависит от того,
-// откуда зашли.
+// Вход — всплывающим окном Google, везде.
 //
-// В установленном приложении и на телефоне всплывающее окно ненадёжно:
-// система может открыть его отдельной вкладкой, и результат до нас
-// не возвращается — человек подтверждает вход, а остаётся гостем.
-// Поэтому там уходим на страницу Google и возвращаемся уже вошедшими.
-function needsRedirect() {
-  const installed = window.matchMedia("(display-mode: standalone)").matches
-                 || window.navigator.standalone === true;
-  const touch = window.matchMedia("(pointer: coarse)").matches;
-  return installed || touch;
-}
+// Переходом на страницу Google (с возвратом обратно) пользоваться нельзя:
+// сайт живёт на github.io, а вход идёт через firebaseapp.com — разные
+// адреса. Браузеры на телефоне блокируют обмен данными между ними, и
+// после возврата вход просто не завершается: человек подтверждает, а
+// остаётся гостем. Всплывающее окно общается с сайтом напрямую, и это
+// ограничение его не касается.
+//
+// Переход остаётся лишь запасным путём — если браузер окно заблокировал.
+let signingIn = false;
 
 export async function loginWithGoogle() {
-  try {
-    if (needsRedirect()) {
-      showToast("Открываю вход…");
-      // Метка, что мы ушли входить: по возвращении она не даст
-      // создать гостевой вход раньше, чем придёт настоящий.
-      try { sessionStorage.setItem("nyash_signing_in", "1"); } catch {}
-      await signInWithRedirect(auth, googleProvider);
-      return;    // дальше страница перезагрузится сама
-    }
+  // Повторное нажатие, пока окно открыто, сорвало бы вход: браузер
+  // закрывает первое окно и открывает второе, а результат теряется.
+  if (signingIn) return;
+  signingIn = true;
 
+  try {
+    // Окно открываем сразу, без единого ожидания до этого: иначе браузер
+    // решит, что его открывает не человек, и заблокирует.
     await signInWithPopup(auth, googleProvider);
     showToast(`Вош${gendered("ёл", "ла", "ёл(ла)")} ♡`);
   } catch (e) {
     console.error(e);
+    const code = e.code || "";
 
-    // Окно заблокировали или закрыли — пробуем переходом.
-    if (/popup/i.test(e.code || "")) {
-      try {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      } catch {}
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      showToast("Вход отменён");
+    } else if (code === "auth/popup-blocked") {
+      showToast("Браузер заблокировал окно — пробую иначе…");
+      try { sessionStorage.setItem("nyash_signing_in", "1"); } catch {}
+      try { await signInWithRedirect(auth, googleProvider); return; } catch {}
+      showToast("Разреши всплывающие окна для сайта и попробуй снова");
+    } else if (code === "auth/network-request-failed") {
+      showToast("Нет связи — попробуй ещё раз");
+    } else {
+      showToast("Не получилось войти: " + e.message);
     }
-    showToast("Не получилось войти: " + e.message);
+  } finally {
+    signingIn = false;
   }
 }
 
