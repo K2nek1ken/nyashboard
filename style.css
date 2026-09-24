@@ -3384,19 +3384,31 @@ body.page-leaving-chat .chat-nav {
     box-shadow: none;
   }
 }
-.art-form-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* В превью формы видео показываем целиком: обрезать по краям то, что
+   человек только что выбрал, — плохая идея, он не увидит, что уйдёт. */
+.art-form-preview video { width: 100%; height: auto; max-height: 260px; display: block; }
 
 
 /* Видеоработы: там же и такого же размера, что картинки, — но играют
    на месте, поэтому без лупы вместо курсора. */
-video.art-image { cursor: default; background: #000; }
+/* В сетке «Творчества» у картинок одинаковая форма (object-fit: cover).
+   Видео обрезать нельзя — оно потеряет края, — поэтому оно показывается
+   целиком, своей формы. */
+video.art-image {
+  cursor: default; background: transparent;
+  height: auto; object-fit: contain;
+}
 /* Во вложении работа — строка «картинка слева, подпись справа». Видео
    в клетку 96×96 не помещается вместе с кнопками, поэтому карточка с
    видео перестраивается в колонку: видео на всю ширину, подпись под ним. */
 .art-attached:has(video) { flex-direction: column; }
 .art-attached video {
-  width: 100%; max-height: 360px; display: block;
-  border-radius: 10px; background: #000; object-fit: contain;
+  /* Высоту не задаём — видео само держит свои пропорции. С фиксированной
+     высотой оно вписывалось в чужую форму, и по краям оставались чёрные
+     поля. Ограничиваем только сверху, чтобы вертикальное видео не заняло
+     весь экран. */
+  width: 100%; height: auto; max-height: 70vh;
+  display: block; border-radius: 10px; background: transparent;
 }
 .art-popup-media { width: 100%; border-radius: 12px; display: block; }
-video.art-popup-media { background: #000; }
+video.art-popup-media { background: transparent; height: auto; }

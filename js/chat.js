@@ -1234,9 +1234,12 @@ const APPEAR_MS = TIMING.message.appear;   // столько сообщение 
 // даёт ровно тот же текст, и трогать сообщение незачем.
 function visibleText(m) {
   const text = m.text || "";
-  const ids = (text.match(/#U3\d{6}/gi) || []).map(t => t.slice(1).toUpperCase());
+  // Номера трека и работы — на самих карточках, в тексте они лишние.
+  // Убираем, только когда карточка правда показана: иначе человек не
+  // поймёт, на что ссылался.
+  const ids = (text.match(/#U[35]\d{6}/gi) || []).map(t => t.slice(1).toUpperCase());
   const shown = ids.some(id => chatAttachCache.get(id));
-  return shown ? text.replace(/\s*#U3\d{6}/gi, "").trim() : text;
+  return shown ? text.replace(/\s*#U[35]\d{6}/gi, "").trim() : text;
 }
 
 // Разметка одного сообщения. Вынесена отдельно, чтобы подгружаемую
