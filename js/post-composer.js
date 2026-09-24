@@ -173,6 +173,32 @@ export function openPostComposer({ post = null, place = "feed", onDone } = {}) {
 
   requestAnimationFrame(() => { grow(); paintHighlight(); syncHighlight(); area.focus(); });
 
+  // При правке берём запись прямо из базы.
+  //
+  // Редактор получает запись от того места, откуда его открыли — из ленты,
+  // со стены, со страницы записи. Эта копия может отстать: например, номер
+  // прикреплённой работы дописали позже, и в копии его уже нет. Тогда
+  // сохранение затёрло бы прикреплённое, а человек даже не понял бы почему.
+  //
+  // Поэтому спрашиваем у базы и, если текст отличается, подставляем её
+  // версию — но только пока человек не начал печатать сам.
+  if (editing && post?.id) {
+    const before = area.value;
+    import("./firebase.js")
+      .then(({ db, doc, getDoc }) => getDoc(doc(db, "posts", post.id)))
+      .then(snap => {
+        if (!snap.exists()) return;
+        const actual = snap.data().text || "";
+        if (actual === before || area.value !== before) return;   // не отстали или уже правят
+
+        area.value = actual;
+        post.text = actual;
+        grow(); paintHighlight(); syncHighlight();
+        showToast("Подтянула свежую версию записи");
+      })
+      .catch(e => console.warn("Свежая версия записи:", e.message));
+  }
+
   area.addEventListener("keydown", (e) => {
     if (e.key === "Escape") close();
     // Отправка по Shift+Enter или Ctrl+Enter — как и везде на сайте.
