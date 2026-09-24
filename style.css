@@ -2641,13 +2641,21 @@ body.player-open .composer-body {
 }
 .composer-field:focus-within { border-color: var(--accent); }
 
+/* Поле и подсветка лежат друг на друге, и всё, что влияет на разбивку
+   текста по строкам, у них должно совпадать буква в букву. */
 .composer-area,
 .composer-highlight {
   font: inherit; font-size: 16px; line-height: 1.55;
   padding: 12px 14px; margin: 0; border: none;
   white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
-  letter-spacing: normal;
+  letter-spacing: normal; tab-size: 4;
+  box-sizing: border-box;
+  /* Полосу прокрутки прячем у обоих: если она есть только у поля, оно
+     становится уже, и строки в нём переносятся раньше, чем в подсветке. */
+  scrollbar-width: none;
 }
+.composer-area::-webkit-scrollbar,
+.composer-highlight::-webkit-scrollbar { width: 0; height: 0; }
 
 .composer-highlight {
   position: absolute; inset: 0; overflow: hidden;
@@ -2805,7 +2813,29 @@ input[type="text"]:focus, input[type="search"]:focus, textarea:focus {
   background: var(--card); border-radius: 4px; padding: 1px 4px;
   font-family: inherit;
 }
-.composer-highlight .md-head { font-weight: 700; font-size: 1.15em; }
+/* Подсветка лежит ровно под прозрачным полем ввода, и каждая её строка
+   обязана совпадать со строкой поля до пикселя. Поэтому здесь можно
+   менять только цвет и насыщенность: размер шрифта, межстрочный интервал
+   и отступы сдвинули бы текст относительно поля.
+
+   Так и было: заголовок рисовался в 1.15 раза крупнее, а код добавлял
+   отступы — и дальше по тексту строки расходились всё сильнее. Курсор
+   оказывался не там, куда нажимаешь, стиралось в третьем месте, а
+   последние строки — как раз те, где стоят номера прикреплённого, —
+   просто не попадали на экран. */
+.composer-highlight .md-head { font-weight: 700; }
+.composer-highlight *,
+.composer-highlight *::before,
+.composer-highlight *::after {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-family: inherit !important;
+  letter-spacing: inherit !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  display: inline !important;
+}
 
 /* Знаки разметки в поле набора: видны, но приглушены — сразу ясно,
    где оформление, а где текст. */
