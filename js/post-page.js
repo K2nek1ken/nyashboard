@@ -16,6 +16,8 @@ export async function initPage() {
 }
 
 export function destroyPage() {
+  // Перестаём следить за записью: при возврате страница подпишется заново.
+  import("./post.js").then(({ stopPostPage }) => stopPostPage()).catch(() => {});
   stopPage?.();
   stopPage = null;
 }

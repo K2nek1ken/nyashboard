@@ -258,7 +258,25 @@ export async function uploadVideo(file, onProgress = null) {
 
   // тот же путь, что и у музыки, только раздел video
   const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/video/upload`;
-  const data = await uploadWithProgress(url, form, onProgress);
+
+  // Отправка отдаёт ответ хранилища текстом — его нужно разобрать.
+  // Раньше здесь ждали готовый ответ и сразу искали в нём ссылку: она,
+  // понятно, не находилась, и любое видео, даже крошечное, получало
+  // «хранилище не приняло видео».
+  //
+  // И показ хода передавался не в том виде — поэтому проценты стояли.
+  const text = await uploadWithProgress(url, form, { onProgress });
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("хранилище ответило непонятно");
+  }
+
+  // Хранилище объясняет отказ в самом ответе — передаём причину человеку,
+  // а не прячем за общим «не приняло».
+  if (data?.error?.message) throw new Error(data.error.message);
   if (!data?.secure_url) throw new Error("хранилище не приняло видео");
 
   return {

@@ -133,6 +133,24 @@ export function replyRowHtml(r) {
 // разметка карточки пересоздаётся при каждом обновлении ленты.
 const replyTargets = new Map();
 
+// Где «живёт» этот ответ: карточка записи в ленте либо сама страница
+// отдельной записи. От этого зависит, куда встанет цитата и под каким
+// ключом её запомнить.
+//
+// Раньше это считали в трёх местах по-разному: цитата запоминалась под
+// ключом «страница», а при отправке искалась под номером записи — и
+// терялась. На отдельной странице ответ всегда уходил без цитаты.
+export function replyScope(from = document) {
+  return (from?.closest?.(".post-card"))
+      || document.querySelector(".post-detail")
+      || document.querySelector(".post-card")
+      || document.body;
+}
+
+export function replyScopeKey(scope) {
+  return scope?.dataset?.id || "page";
+}
+
 // Нажатие по цитате подсвечивает тот ответ, на который отвечали.
 // Переходить никуда не нужно: он обычно рядом, просто затерялся.
 export function wireReplyQuotes(container) {
@@ -164,9 +182,7 @@ export function wireReplyLikes(container, replies, onDeleted) {
       // не в ту запись.
       // Область — карточка записи, а на отдельной странице её роль
       // играет сама страница: там запись одна, и путать не с чем.
-      const scope = row.closest(".post-card")
-                 || document.querySelector(".post-detail")
-                 || document.body;
+      const scope = replyScope(row);
       const input = scope.querySelector("[data-reply-input]")
                  || document.getElementById("detailReplyInput");
       if (!input) { showToast("Поле ответа не найдено"); return; }
@@ -177,14 +193,15 @@ export function wireReplyLikes(container, replies, onDeleted) {
       // Держим в памяти, а не в разметке: карточка записи перерисовывается
       // при любом обновлении ленты, и записанное в неё пропадало — ответ
       // уходил без цитаты, хотя над полем она висела.
-      replyTargets.set(scope.dataset.id || "page", {
+      replyTargets.set(replyScopeKey(scope), {
         id: r.id,
         nickname: r.isAnonymous ? "аноним" : (r.authorNickname || "кто-то"),
         text: r.text || ""
       });
 
-      const handle = (!r.isAnonymous && r.authorUsername) ? `@${r.authorUsername} ` : "";
-      if (handle && !input.value.startsWith(handle)) input.value = handle + input.value;
+      // Юзернейм в поле больше не подставляем: над полем и так висит
+      // цитата, а в самом ответе она сохранится — упоминание было бы
+      // третьим напоминанием об одном и том же.
 
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
@@ -257,11 +274,11 @@ function showReplyTarget(scope, reply) {
 
 // Убрать цитату — после отправки ответа.
 export function clearReplyTarget(scope = document) {
-  scope.querySelector(".reply-target")?.remove();
-  replyTargets.delete(scope.dataset?.id || "page");
+  (scope.querySelector?.(".reply-target") || document.querySelector(".reply-target"))?.remove();
+  replyTargets.delete(replyScopeKey(scope));
 }
 
 // На какой ответ сейчас отвечают в этой карточке.
 export function currentReplyTarget(scope) {
-  return replyTargets.get(scope?.dataset?.id || "page") || null;
+  return replyTargets.get(replyScopeKey(scope)) || null;
 }

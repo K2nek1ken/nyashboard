@@ -1,8 +1,42 @@
-import { db, doc, getDoc } from "./firebase.js";
-import { postToHtml, wirePostCard } from "./feed.js";
+import { db, doc, getDoc, onSnapshot } from "./firebase.js";
+import { postToHtml, wirePostCard, patchPostCard, enrichAuthors } from "./feed.js";
 import { fetchReplies, sendReply, replyRowHtml, wireReplyLikes, wireReplyQuotes } from "./replies.js";
 import { authReady } from "./auth.js";
 import { showToast, escapeHtml } from "./ui.js";
+
+let stopWatch = null;
+
+// Уходим со страницы — перестаём слушать запись: иначе обновление
+// рисовало бы в разметку, которой уже нет.
+export function stopPostPage() {
+  if (stopWatch) { stopWatch(); stopWatch = null; }
+}
+
+// Рисует запись той же карточкой, что и лента, со свежим оформлением
+// автора. Если карточка уже на странице — обновляет её по частям, не
+// пересобирая: иначе рвались бы открытая карусель и играющее видео.
+async function paintPost(post, detailEl) {
+  await enrichAuthors([post]).catch(() => {});
+
+  const card = detailEl.querySelector(".post-card");
+  if (card) {
+    patchPostCard(card, post);
+  } else {
+    detailEl.innerHTML = postToHtml(post);
+    wirePostCard(post, detailEl);
+  }
+
+  // На странице записи превью ответов внутри карточки не нужно — ниже
+  // полный список; своё поле ввода у страницы тоже своё.
+  detailEl.querySelector(".replies-preview")?.remove();
+  detailEl.querySelector(".reply-input-row")?.remove();
+
+  const focusBtn = detailEl.querySelector('[data-action="focusReply"]');
+  if (focusBtn && !focusBtn.dataset.wfocus) {
+    focusBtn.dataset.wfocus = "1";
+    focusBtn.addEventListener("click", () => document.getElementById("detailReplyInput")?.focus());
+  }
+}
 
 function getPostId() {
   return new URLSearchParams(location.search).get("id");
@@ -30,18 +64,21 @@ export async function initPostPage() {
     return;
   }
 
-  detailEl.innerHTML = postToHtml(post);
-  wirePostCard(post, detailEl);
-  // на странице поста превью-блок ответов внутри самой карточки не нужен — полный список ниже
-  const previewInCard = detailEl.querySelector(".replies-preview");
-  if (previewInCard) previewInCard.remove();
-  const inlineReplyRow = detailEl.querySelector(".reply-input-row");
-  if (inlineReplyRow) inlineReplyRow.remove();
-  // кнопка "ответить" в карточке должна фокусить настоящее поле ввода этой страницы,
-  // а не удалённое инлайн-поле из карточки ленты
-  const focusBtn = detailEl.querySelector('[data-action="focusReply"]');
-  if (focusBtn) focusBtn.addEventListener("click", () => document.getElementById("detailReplyInput")?.focus());
+  await paintPost(post, detailEl);
 
+  // Дальше запись живёт, как в ленте: правки, оценки и свежее оформление
+  // автора приходят сами. Раньше страница загружала запись один раз —
+  // и показывала её такой навсегда: аватарка оставалась старой, правки
+  // с другого устройства не появлялись, и «изменить» открывало старый текст.
+  stopPostPage();
+  stopWatch = onSnapshot(doc(db, "posts", postId), async (snap) => {
+    if (!snap.exists()) {
+      detailEl.innerHTML = `<div class="stub-note">Запись удалена</div>`;
+      return;
+    }
+    const fresh = { id: snap.id, ...snap.data() };
+    await paintPost(fresh, detailEl);
+  }, (e) => console.warn("Запись не обновляется:", e.message));
   await reloadReplies(postId, repliesEl);
   wireDetailReplyInput(postId, repliesEl);
 }
@@ -68,8 +105,8 @@ function wireDetailReplyInput(postId, repliesEl) {
     if (!text) return;
     btn.disabled = true;
     try {
-      const { currentReplyTarget, clearReplyTarget } = await import("./replies.js");
-      const scope = document.querySelector(".post-card") || document.body;
+      const { currentReplyTarget, clearReplyTarget, replyScope } = await import("./replies.js");
+      const scope = replyScope();
       await sendReply(postId, text, null, currentReplyTarget(scope));
       clearReplyTarget(scope);
       input.value = "";

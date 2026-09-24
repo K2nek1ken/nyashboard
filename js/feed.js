@@ -257,7 +257,7 @@ async function backfillNuid(posts) {
 const AUTHOR_TTL = 5 * 60 * 1000;
 const authorFetchedAt = new Map();
 
-async function enrichAuthors(posts) {
+export async function enrichAuthors(posts) {
   // Берём оформление из профиля для всех записей, а не только для тех,
   // где его нет. В записи лежит копия на момент публикации — она
   // устаревает, как только человек сменил аватарку или украшение.
