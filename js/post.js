@@ -5,6 +5,7 @@ import { authReady } from "./auth.js";
 import { showToast, escapeHtml } from "./ui.js";
 
 let stopWatch = null;
+let lastPost = null;      // последняя версия записи — для перерисовки по событию
 
 // Уходим со страницы — перестаём слушать запись: иначе обновление
 // рисовало бы в разметку, которой уже нет.
@@ -16,6 +17,7 @@ export function stopPostPage() {
 // автора. Если карточка уже на странице — обновляет её по частям, не
 // пересобирая: иначе рвались бы открытая карусель и играющее видео.
 async function paintPost(post, detailEl) {
+  lastPost = post;
   await enrichAuthors([post]).catch(() => {});
 
   const card = detailEl.querySelector(".post-card");
@@ -70,6 +72,16 @@ export async function initPostPage() {
   // автора приходят сами. Раньше страница загружала запись один раз —
   // и показывала её такой навсегда: аватарка оставалась старой, правки
   // с другого устройства не появлялись, и «изменить» открывало старый текст.
+  // Права на записи канала подъезжают позже — тогда перерисуем и здесь.
+  if (!window.__nyashManagedPostHook) {
+    window.__nyashManagedPostHook = true;
+    window.addEventListener("nyash:managed", () => {
+      if (!lastPost?.channelId) return;   // права канала на прочие записи не влияют
+      const card = document.querySelector(".post-detail .post-card, #postDetail .post-card");
+      if (card) patchPostCard(card, lastPost);
+    });
+  }
+
   stopPostPage();
   stopWatch = onSnapshot(doc(db, "posts", postId), async (snap) => {
     if (!snap.exists()) {

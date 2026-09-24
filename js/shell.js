@@ -61,8 +61,11 @@ export function initShell() {
   startPersonalWatch();   // лайки, ответы, заявки, личка
 
   // Свои каналы: нужны везде, где показываются записи, чтобы их можно было
-  // править и удалять. Загружаем один раз здесь, а не в каждой вкладке.
-  import("./auth.js").then(({ authReady }) => authReady).then(async () => {
+  // править и удалять. Загружаем здесь, а не в каждой вкладке.
+  //
+  // И перезагружаем при входе или выходе: у другой учётки другие каналы,
+  // а без этого права появлялись бы только после перезагрузки страницы.
+  const loadManaged = async () => {
     try {
       const [{ fetchManagedChannelIds }, { setManagedChannels }] = await Promise.all([
         import("./channels.js"), import("./feed.js")
@@ -71,7 +74,10 @@ export function initShell() {
     } catch (e) {
       console.warn("Свои каналы не загрузились:", e.message);
     }
-  });
+  };
+
+  import("./auth.js").then(({ authReady }) => authReady).then(loadManaged);
+  window.addEventListener("nyash:auth", loadManaged);
 
   // Отметку присутствия прекращаем при уходе: продолжать отмечаться
   // с закрытой страницы незачем.

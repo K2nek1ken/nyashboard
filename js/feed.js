@@ -436,7 +436,25 @@ function renderFeed(posts) {
 // Управляющие каналов знают свои каналы из общего списка — он загружается
 // один раз при старте ленты, поэтому проверка здесь синхронная.
 let managedChannels = new Set();
-export function setManagedChannels(ids) { managedChannels = new Set(ids); }
+export function setManagedChannels(ids) {
+  managedChannels = new Set(ids);
+
+  // Список каналов, которыми человек распоряжается, приходит уже после
+  // того, как лента нарисована: у своих же записей канала не было кнопок
+  // правки, пока список не обновишь вручную.
+  //
+  // Обновляем только записи каналов — на остальные права канала не влияют,
+  // а перерисовывать из-за этого всю ленту значило бы дёргать её на ровном
+  // месте. Меню лежит в шапке записи, её и обновит точечная правка.
+  if (lastRenderedPosts?.length && feedListEl?.isConnected) {
+    for (const p of lastRenderedPosts) {
+      if (!p.channelId) continue;
+      const card = feedListEl.querySelector(`.post-card[data-id="${p.id}"]`);
+      if (card) patchPostCard(card, p);
+    }
+  }
+  window.dispatchEvent(new CustomEvent("nyash:managed"));
+}
 
 function canManagePost(p) {
   if (currentUser && p.authorUid && p.authorUid === currentUser.uid) return true;
@@ -491,7 +509,6 @@ export function postToHtml(p, maskAuthor = false) {
     ...(canManage
       ? [
           ...(hasEditor ? [{ action: "editPost", label: "Изменить", icon: ICON.pencil }] : []),
-      { action: "rawText", label: "Исходный текст", icon: ICON.hash },
           { action: "deletePost", label: "Удалить", icon: ICON.close, danger: true }
         ]
       : [])
@@ -644,35 +661,6 @@ export function wirePostCard(p, container = document) {
       const { openReportDialog } = await import("./reports.js");
       openReportDialog({ kind: "post", id: p.id, preview: p.text || "" });
     },
-    // Что лежит в самой записи — со всеми номерами прикреплённого.
-    // Показ их прячет (они написаны на карточках), и когда кажется, что
-    // номер потерялся, проще один раз посмотреть, чем гадать.
-    rawText: async () => {
-      let stored = null;
-      try {
-        const { db, doc, getDoc } = await import("./firebase.js");
-        const snap = await getDoc(doc(db, "posts", p.id));
-        stored = snap.exists() ? (snap.data().text ?? "") : null;
-      } catch (e) {
-        showToast("Не смогла прочитать запись: " + e.message);
-        return;
-      }
-
-      if (stored === null) { showToast("Записи больше нет в базе"); return; }
-
-      // Показываем в поле: оттуда текст можно выделить и скопировать
-      // целиком, вместе с номерами.
-      const { askText } = await import("./dialog.js");
-      await askText("Исходный текст записи", {
-        value: stored,
-        hint: `Столько знаков: ${stored.length}. Здесь видно всё, что лежит ` +
-              `в записи, — включая номера прикреплённого (#U3 у треков, ` +
-              `#U5 у работ). В самой записи они спрятаны: их пишут карточки.`,
-        maxlength: 100000,
-        okLabel: "Понятно"
-      });
-    },
-
     editPost: () => {
       // На широком экране правим прямо в карточке: отдельный экран ради
       // пары слов — лишний шаг, и из него не видно, как запись выглядит.
