@@ -1,4 +1,4 @@
-import { listArtworks, uploadArt, deleteArtwork, toggleArtLike, artMediaHtml, artImages } from "./art.js";
+import { listArtworks, uploadArt, deleteArtwork, toggleArtLike, artMediaHtml, artImages, wireArtVideos } from "./art.js";
 import { currentUser, authReady } from "./auth.js";
 import { openLightbox } from "./lightbox.js";
 import { askText, askConfirm } from "./dialog.js";
@@ -101,6 +101,9 @@ export async function initArtPanel() {
 
     // Картинка открывается на весь экран, с приближением. Видео играет
     // на месте — у него свои кнопки, — и в листание картинок не входит.
+    // Видеоработы — своим проигрывателем.
+    wireArtVideos(listEl);
+
     const images = artImages(found);
     listEl.querySelectorAll("img.art-image").forEach((img, i) => {
       img.addEventListener("click", () => openLightbox(img.src, images, i));
@@ -176,6 +179,7 @@ export function openArtForm({ file = null, art = null, onDone } = {}) {
       </div>
     </div>`;
   document.body.appendChild(box);
+  wireArtVideos(box);   // видеоработа — своим проигрывателем
 
   const preview = box.querySelector("[data-preview]");
   preview.src = editing ? (isVideo ? art.videoUrl : art.imageUrl) : URL.createObjectURL(file);

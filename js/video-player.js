@@ -28,6 +28,7 @@ export function videoHtml(video, { poster = "" } = {}) {
         <div class="video-progress" data-progress><div class="video-fill" data-fill></div></div>
         <span class="video-time" data-total>—</span>
         <button class="video-btn" data-speed title="скорость">1×</button>
+        <button class="video-btn" data-loop title="повторять по кругу"><span class="nf">${ICON.refresh}</span></button>
         <button class="video-btn" data-mute title="звук"><span class="nf">${ICON.music}</span></button>
         <button class="video-btn" data-full title="во весь экран"><span class="nf">${ICON.open}</span></button>
       </div>
@@ -87,6 +88,25 @@ export function wireVideo(container) {
       speedIndex = (speedIndex + 1) % SPEEDS.length;
       video.playbackRate = SPEEDS[speedIndex];
       speedBtn.textContent = `${SPEEDS[speedIndex]}×`;
+    });
+
+    // Повтор по кругу — без паузы между заходами: короткое видео так
+    // смотрится как живая картинка, а не обрывается каждые пару секунд.
+    //
+    // Браузерный повтор иногда заметно спотыкается на стыке, поэтому
+    // подстраховываемся: как только видео кончилось, отматываем в начало
+    // и играем дальше сами.
+    const loopBtn = card.querySelector("[data-loop]");
+    loopBtn.addEventListener("click", () => {
+      video.loop = !video.loop;
+      loopBtn.classList.toggle("on", video.loop);
+      loopBtn.title = video.loop ? "повтор включён" : "повторять по кругу";
+    });
+
+    video.addEventListener("ended", () => {
+      if (!video.loop) return;
+      video.currentTime = 0;
+      video.play().catch(() => {});
     });
 
     card.querySelector("[data-mute]").addEventListener("click", (e) => {

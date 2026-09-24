@@ -47,7 +47,7 @@ export async function renderPostArtworks(p, card) {
 
   try {
     const { resolveNuid } = await import("./nuid.js");
-    const { getArtwork, artMediaHtml, artImages } = await import("./art.js");
+    const { getArtwork, artMediaHtml, artImages, wireArtVideos } = await import("./art.js");
     const { openLightbox } = await import("./lightbox.js");
 
     const works = [];
@@ -82,6 +82,9 @@ export async function renderPostArtworks(p, card) {
     host.querySelectorAll("img").forEach((img, i) => {
       img.addEventListener("click", () => openLightbox(img.src, artImages(works), i));
     });
+
+    // Видеоработы — своим проигрывателем, как видео в записях.
+    wireArtVideos(host);
   } catch (e) {
     console.warn("Работы не подгрузились:", e.message);
   }

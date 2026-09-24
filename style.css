@@ -3435,14 +3435,14 @@ body.page-leaving-chat .chat-nav {
 /* В сетке «Творчества» у картинок одинаковая форма (object-fit: cover).
    Видео обрезать нельзя — оно потеряет края, — поэтому оно показывается
    целиком, своей формы. */
-video.art-image {
-  cursor: default; background: transparent;
-  height: auto; object-fit: contain;
-}
+/* Место под проигрыватель видеоработы в сетке и во вложениях. */
+.art-video-slot { width: 100%; display: block; }
+.art-attached .art-video-slot { flex: 1 1 100%; min-width: 0; }
 /* Во вложении работа — строка «картинка слева, подпись справа». Видео
    в клетку 96×96 не помещается вместе с кнопками, поэтому карточка с
    видео перестраивается в колонку: видео на всю ширину, подпись под ним. */
 .art-attached:has(video) { flex-direction: column; }
+.art-attached .video-card video,
 .art-attached video {
   /* Высоту не задаём — видео само держит свои пропорции. С фиксированной
      высотой оно вписывалось в чужую форму, и по краям оставались чёрные
@@ -3453,3 +3453,29 @@ video.art-image {
 }
 .art-popup-media { width: 100%; border-radius: 12px; display: block; }
 video.art-popup-media { background: transparent; height: auto; }
+
+
+/* Проигрыватель видео — под стать полосе аудиоплеера: те же цвета,
+   скругления и расстояния, чтобы сайт выглядел цельно. */
+.video-card {
+  position: relative; background: var(--bg-soft);
+  border: 1px solid #3a2f47; border-radius: 16px; overflow: hidden;
+}
+.video-controls {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--bg-soft);
+}
+.video-btn {
+  background: none; border: none; color: var(--accent);
+  font-size: 14px; cursor: pointer; padding: 4px 6px;
+  border-radius: 999px; flex-shrink: 0;
+}
+.video-btn:hover { background: var(--card); }
+/* Включённый повтор виден сразу — как отметка «любимое» в плеере. */
+.video-btn.on { color: var(--bg); background: var(--accent); }
+.video-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.video-progress {
+  flex: 1; height: 4px; background: rgba(255,255,255,0.28);
+  border-radius: 999px; cursor: pointer; min-width: 0;
+}
+.video-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; }

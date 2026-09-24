@@ -132,8 +132,11 @@ export function artMediaHtml(a, className = "") {
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
   ));
   if (a.kind === "video" && a.videoUrl) {
-    return `<video class="art-video ${className}" src="${a.videoUrl}" poster="${a.imageUrl || ""}"
-                   controls playsinline preload="none" aria-label="${title}"></video>`;
+    // Свой проигрыватель, тот же, что у видео в записях: родные кнопки
+    // браузера выглядят чужеродно и у каждого свои. Оживить его нужно
+    // после вставки — см. wireArtVideos ниже.
+    return `<div class="art-video-slot ${className}"
+                 data-art-video="${a.videoUrl}" data-art-poster="${a.imageUrl || ""}"></div>`;
   }
   return `<img class="${className}" src="${a.imageUrl}" alt="${title}" loading="lazy">`;
 }
@@ -141,4 +144,23 @@ export function artMediaHtml(a, className = "") {
 // Картинки работ для просмотра — без видео: просмотр листает только их.
 export function artImages(works) {
   return works.filter(w => w.kind !== "video").map(w => w.imageUrl);
+}
+
+
+// Вставляет проигрыватель в заготовленные места и оживляет его.
+//
+// Отдельным шагом, потому что разметка проигрывателя и его обработчики
+// живут в своём модуле: держать их копию здесь значило бы разойтись
+// с видео в записях при первой же правке.
+export async function wireArtVideos(container) {
+  const slots = [...(container?.querySelectorAll?.("[data-art-video]") || [])];
+  if (!slots.length) return;
+
+  const { videoHtml, wireVideo } = await import("./video-player.js");
+  for (const slot of slots) {
+    if (slot.dataset.ready) continue;
+    slot.dataset.ready = "1";
+    slot.innerHTML = videoHtml(slot.dataset.artVideo, { poster: slot.dataset.artPoster });
+  }
+  wireVideo(container);
 }

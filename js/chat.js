@@ -550,7 +550,7 @@ async function renderChatArtworks(container, msgs) {
 
   try {
     const { resolveNuid } = await import("./nuid.js");
-    const { getArtwork, artMediaHtml, artImages } = await import("./art.js");
+    const { getArtwork, artMediaHtml, artImages, wireArtVideos } = await import("./art.js");
     const { openLightbox } = await import("./lightbox.js");
 
     for (const m of withArt) {
@@ -587,6 +587,9 @@ async function renderChatArtworks(container, msgs) {
       host.querySelectorAll("img").forEach((img, i) => {
         img.addEventListener("click", () => openLightbox(img.src, artImages(works), i));
       });
+
+      // Видеоработы — своим проигрывателем, как видео в записях.
+      wireArtVideos(host);
     }
   } catch (e) {
     console.warn("Работы в чате не загрузились:", e.message);
