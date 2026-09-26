@@ -80,7 +80,7 @@ export async function initArtPanel() {
       const mine = currentUser && a.authorUid === currentUser.uid;
       return `
         <div class="art-card" data-art="${a.id}">
-          ${artMediaHtml(a, "art-image")}
+          ${artMediaHtml(a, "art-image", { preview: true })}
           <div class="art-body">
             <div class="art-title">${escapeHtml(a.title)}</div>
             ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
@@ -113,13 +113,13 @@ export async function initArtPanel() {
       btn.addEventListener("click", async () => {
         const art = allArt.find(a => a.id === btn.dataset.like);
         try {
-          const nowLiked = await toggleArtLike(art);
+          const { liked: nowLiked, likesCount } = await toggleArtLike(art);
           art.likedBy = nowLiked
             ? [...(art.likedBy || []), currentUser.uid]
             : (art.likedBy || []).filter(u => u !== currentUser.uid);
-          art.likesCount = Math.max(0, (art.likesCount || 0) + (nowLiked ? 1 : -1));
+          art.likesCount = likesCount;
           btn.classList.toggle("liked", nowLiked);
-          btn.innerHTML = `<span class="nf">${nowLiked ? ICON.heartFilled : ICON.heart}</span> ${art.likesCount}`;
+          btn.innerHTML = `<span class="nf">${nowLiked ? ICON.heartFilled : ICON.heart}</span> ${likesCount}`;
         } catch (e) { showToast(e.message); }
       });
     });
@@ -244,11 +244,37 @@ export async function openArtPreview(artId) {
              ${art.description ? `<p class="art-desc">${escapeHtml(art.description)}</p>` : ""}
              <p class="muted" style="font-size:12px;">
                ${escapeHtml(art.authorName || "аноним")} · ${art.publicUid || ""}
-             </p>`
+             </p>
+
+             <!-- Оценка прямо здесь: раньше поставить сердечко можно было
+                  только в списке работ, а из записи туда ещё надо дойти. -->
+             <div class="art-actions">
+               <button class="subBtn ${(art.likedBy || []).includes(currentUser?.uid) ? "liked" : ""}"
+                       data-like-art>
+                 <span class="nf">${(art.likedBy || []).includes(currentUser?.uid) ? ICON.heartFilled : ICON.heart}</span>
+                 <span data-likes>${art.likesCount || 0}</span>
+               </button>
+             </div>`
           : `<div class="stub-note">Работа не найдена — возможно, удалена</div>`}
       </div>
     </div>`;
   document.body.appendChild(box);
+
+  wireArtVideos(box);   // видеоработа — своим проигрывателем
+
+  box.querySelector("[data-like-art]")?.addEventListener("click", async (e) => {
+    const button = e.currentTarget;
+    try {
+      const { toggleArtLike } = await import("./art.js");
+      const { liked, likesCount } = await toggleArtLike(art);
+
+      button.classList.toggle("liked", liked);
+      button.querySelector(".nf").textContent = liked ? ICON.heartFilled : ICON.heart;
+      button.querySelector("[data-likes]").textContent = likesCount;
+    } catch (e) {
+      showToast(e.message);
+    }
+  });
 
   const close = () => closeOverlay(box);
   box.querySelector("[data-close]").addEventListener("click", close);

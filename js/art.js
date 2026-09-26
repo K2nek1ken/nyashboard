@@ -117,7 +117,13 @@ export async function toggleArtLike(art) {
     likedBy: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
     likesCount: increment(liked ? -1 : 1)
   });
-  return !liked;
+
+  // Отдаём и новое состояние, и счёт: показать нужно и то, и другое,
+  // а второй поход в базу ради числа — лишний.
+  return {
+    liked: !liked,
+    likesCount: Math.max(0, (fresh.likesCount || 0) + (liked ? -1 : 1))
+  };
 }
 
 
@@ -127,14 +133,24 @@ export async function toggleArtLike(art) {
 //
 // У видео свои кнопки, поэтому оно проигрывается на месте, а не открывает
 // просмотр картинок по нажатию.
-export function artMediaHtml(a, className = "") {
+export function artMediaHtml(a, className = "", { preview = false } = {}) {
   const title = String(a.title || "").replace(/[&<>"']/g, c => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
   ));
   if (a.kind === "video" && a.videoUrl) {
-    // Свой проигрыватель, тот же, что у видео в записях: родные кнопки
-    // браузера выглядят чужеродно и у каждого свои. Оживить его нужно
-    // после вставки — см. wireArtVideos ниже.
+    // В сетке — обложка со значком «видео»: проигрыватель там растягивал
+    // карточку во весь экран, и название с описанием уезжали далеко вниз.
+    // Сама работа открывается по нажатию, и вот там уже полный
+    // проигрыватель.
+    if (preview) {
+      return `<div class="art-preview-wrap">
+                <img class="${className}" src="${a.imageUrl}" alt="${title}" loading="lazy">
+                <span class="art-preview-play nf">&#xf04b;</span>
+              </div>`;
+    }
+
+    // Везде, где места хватает, — свой проигрыватель, тот же, что у видео
+    // в записях. Оживить его нужно после вставки: см. wireArtVideos ниже.
     return `<div class="art-video-slot ${className}"
                  data-art-video="${a.videoUrl}" data-art-poster="${a.imageUrl || ""}"></div>`;
   }

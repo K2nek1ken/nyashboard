@@ -62,13 +62,19 @@ export async function renderPostArtworks(p, card) {
     const host = document.createElement("div");
     host.className = "post-artworks";
     host.innerHTML = works.map(a => `
-      <div class="art-attached">
+      <div class="art-attached" data-art-id="${a.id}">
         ${artMediaHtml(a)}
         <div class="art-attached-body">
           <div class="art-attached-title">${escapeHtml(a.title)}</div>
           ${a.description ? `<div class="art-desc">${escapeHtml(a.description)}</div>` : ""}
           <span class="track-nuid" data-copy-nuid="${a.publicUid || ""}">${a.publicUid || ""}</span>
         </div>
+
+        <!-- Открыть саму работу: из вложения не видно ни автора, ни оценок,
+             и поставить сердечко было негде. -->
+        <button class="art-open" data-open-art="${a.id}" title="открыть работу">
+          <span class="nf">&#xf08e;</span>
+        </button>
       </div>`).join("");
 
     // Ставим после кнопки «показать полностью», если она есть: иначе работа
@@ -85,6 +91,17 @@ export async function renderPostArtworks(p, card) {
 
     // Видеоработы — своим проигрывателем, как видео в записях.
     wireArtVideos(host);
+
+    // Кнопка «открыть работу» — окно с автором, описанием и оценками.
+    host.querySelectorAll("[data-open-art]").forEach(btn => {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = "1";
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const { openArtPreview } = await import("./art-ui.js");
+        openArtPreview(btn.dataset.openArt);
+      });
+    });
   } catch (e) {
     console.warn("Работы не подгрузились:", e.message);
   }
