@@ -225,10 +225,10 @@ def check_orphans():
         # Пути импортов и строки убираем: «./channels.js» иначе читается как
         # использование переменной channels, и таких совпадений больше,
         # чем настоящих находок.
-        t = re.sub(r'["\'][^"\'\n]*["\']', '""', t)
-        # Шаблонные строки тоже: в них лежит разметка, и «data-select» оттуда
-        # читалось как использование переменной select.
-        t = strip_templates(t)
+        # Комментарии убираем первыми: в них попадаются примеры в обратных
+        # кавычках, и без этого одинокая кавычка из пояснения открывала
+        # «шаблонную строку», съедая пол-файла вместе с объявлениями.
+        t = strip_noise(t)
 
         local = {m.group(1) for m in re.finditer(r'(?:let|const|var|function|class)\s+([A-Za-z_]\w*)', t)}
 
@@ -268,44 +268,110 @@ def check_orphans():
 
 
 
-def strip_templates(code):
-    """
-    Убирает из шаблонных строк `...` только сам текст, а вставки ${...}
-    оставляет на месте.
 
-    Раньше шаблоны вырезались целиком — и вместе с ними пропадали вызовы
-    внутри вставок. Так однажды проскочила пропавшая функция: её звали
-    только из ${...}, проверка этого вызова не видела, а чат не грузился.
+def strip_noise(code):
+    """
+    Оставляет от кода только его суть: убирает комментарии, строки и
+    выражения-шаблоны, но сохраняет вставки ${...} внутри шаблонных строк
+    (в них бывают вызовы функций).
+
+    Раньше это делали два прохода по очереди — и они портили друг другу
+    работу: обратная кавычка внутри выражения-шаблона принималась за
+    начало шаблонной строки, и полфайла вместе с объявлениями исчезало.
+    Поэтому разбор один и понимает всё сразу.
     """
     out = []
     i, n = 0, len(code)
-    stack = []            # что сейчас открыто: "tpl" или глубина скобок во вставке
+    prev = ""                 # последний значимый символ — по нему отличаем деление от шаблона
+    tpl_depth = []            # вложенность шаблонных строк и их вставок
+
+    def keep(ch):
+        out.append(ch)
+
     while i < n:
         ch = code[i]
-        top = stack[-1] if stack else None
+        nxt = code[i + 1] if i + 1 < n else ""
 
-        if top == "tpl":
-            if ch == "\\":
-                out.append("  "); i += 2; continue
-            if ch == "`":
-                stack.pop(); out.append('"'); i += 1; continue
-            if ch == "$" and i + 1 < n and code[i + 1] == "{":
-                stack.append(0); out.append(" ("); i += 2; continue
-            out.append(" " if ch != "\n" else "\n"); i += 1; continue
+        # --- комментарии ---
+        if ch == "/" and nxt == "/":
+            while i < n and code[i] != "\n": i += 1
+            continue
+        if ch == "/" and nxt == "*":
+            i += 2
+            while i + 1 < n and not (code[i] == "*" and code[i + 1] == "/"): 
+                if code[i] == "\n": keep("\n")
+                i += 1
+            i += 2
+            continue
 
-        if isinstance(top, int):
-            if ch == "{":
-                stack[-1] += 1
-            elif ch == "}":
-                if stack[-1] == 0:
-                    stack.pop(); out.append(") "); i += 1; continue
-                stack[-1] -= 1
+        # --- обычные строки ---
+        if ch in "\"'":
+            quote = ch
+            keep('"')
+            i += 1
+            while i < n and code[i] != quote:
+                if code[i] == "\\": i += 2; continue
+                if code[i] == "\n": break
+                i += 1
+            i += 1
+            prev = '"'
+            continue
 
+        # --- шаблонная строка ---
         if ch == "`":
-            stack.append("tpl"); out.append('"'); i += 1; continue
+            keep('"')
+            i += 1
+            while i < n:
+                if code[i] == "\\": i += 2; continue
+                if code[i] == "`": i += 1; break
+                if code[i] == "$" and i + 1 < n and code[i + 1] == "{":
+                    # вставку сохраняем: внутри неё настоящий код
+                    keep(" (")
+                    i += 2
+                    depth = 1
+                    piece = []
+                    while i < n and depth:
+                        if code[i] == "{": depth += 1
+                        elif code[i] == "}":
+                            depth -= 1
+                            if not depth: break
+                        piece.append(code[i])
+                        i += 1
+                    i += 1
+                    keep(strip_noise("".join(piece)))
+                    keep(") ")
+                    continue
+                if code[i] == "\n": keep("\n")
+                i += 1
+            prev = '"'
+            continue
 
-        out.append(ch); i += 1
+        # --- выражение-шаблон ---
+        if ch == "/":
+            is_division = prev.isalnum() or prev in ")]_$"
+            if not is_division:
+                j, closed = i + 1, False
+                while j < n and code[j] != "\n":
+                    if code[j] == "\\": j += 2; continue
+                    if code[j] == "[":
+                        j += 1
+                        while j < n and code[j] != "]":
+                            j += 2 if code[j] == "\\" else 1
+                    if j < n and code[j] == "/": closed = True; break
+                    j += 1
+                if closed:
+                    keep('""')
+                    i = j + 1
+                    while i < n and code[i].isalpha(): i += 1
+                    prev = '"'
+                    continue
+
+        keep(ch)
+        if not ch.isspace(): prev = ch
+        i += 1
+
     return "".join(out)
+
 
 # ---------- 9. вызов несуществующей функции ----------
 def check_missing_calls():
@@ -341,9 +407,7 @@ def check_missing_calls():
 
     for f in js_files():
         t = read(f)
-        code = re.sub(r'//[^\n]*', '', t)
-        code = re.sub(r'/\*[\s\S]*?\*/', '', code)
-        code = strip_templates(code)
+        code = strip_noise(t)
         code = re.sub(r'["\'][^"\'\n]*["\']', '""', code)
 
         known = set()

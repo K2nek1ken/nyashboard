@@ -17,8 +17,19 @@ import { showToast } from "./ui.js";
 const NUID_PATTERN = /^U[0-5]\d{6}$/i;
 
 export async function copyNuid(value, label = "NUID") {
-  const text = (value || "").trim();
+  let text = (value || "").trim();
   if (!text) return;
+
+  // Можно копировать сразу в готовом виде — с решёткой впереди.
+  // Так номер можно вставить прямо в запись или сообщение, и он
+  // превратится в прикреплённое, без дописывания вручную.
+  //
+  // Касается только номеров треков, работ и записей — того, что вообще
+  // прикрепляют. Номер человека или канала с решёткой ничего не даёт.
+  try {
+    const on = JSON.parse(localStorage.getItem("nyash_settings") || "{}").copyWithHash === "on";
+    if (on && /^U[035]\d{6}$/i.test(text)) text = "#" + text;
+  } catch { /* настройки недоступны — копируем как есть */ }
 
   try {
     await navigator.clipboard.writeText(text);

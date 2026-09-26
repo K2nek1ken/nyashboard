@@ -141,6 +141,9 @@ export function initSettingsPage() {
           toggle("meowReaction", s.meowReaction === "on"))}
         ${row("Имена в сообщениях бота", "показывать цветом и ссылкой на профиль",
           toggle("botNameLinks", s.botNameLinks !== "off"))}
+        ${row("Копировать номер с решёткой",
+          "нажал на номер трека или работы — в буфере «#U3669463», сразу готово к вставке",
+          toggle("copyWithHash", s.copyWithHash === "on"))}
         ${row("Свой знак перед командами",
           "например «!» — тогда команды пишутся как «!обнять». Пусто — как обычно",
           `<input class="inlineEdit" id="commandPrefixInput" maxlength="3" style="max-width:70px;"
@@ -273,7 +276,7 @@ export function initSettingsPage() {
         const values = { feedMode: ["smart", "new"], showFriends: ["on", "off"],
                          showAbout: ["on", "off"], recommendations: ["on", "off"],
                          meowReaction: ["on", "off"], hourlyDigest: ["on", "off"],
-                         rouletteConfetti: ["on", "off"], botNameLinks: ["on", "off"], publicBalance: ["on", "off"] };
+                         rouletteConfetti: ["on", "off"], botNameLinks: ["on", "off"], publicBalance: ["on", "off"], copyWithHash: ["on", "off"] };
 
         const [onVal, offVal] = values[key] || ["on", "off"];
         setSetting(key, isOn ? offVal : onVal);

@@ -1592,6 +1592,10 @@ body.player-open .chat-floating-bar { /* поле ввода остаётся н
 .art-attached .track-nuid {
   background: var(--card);
   border: 1px solid color-mix(in oklab, var(--text) 10%, transparent);
+  /* Подпись работы выложена столбиком, и пузырь растягивался во всю
+     ширину — выглядел полосой, а не кнопкой. Прижимаем по содержимому. */
+  align-self: flex-start;
+  width: fit-content; max-width: 100%;
 }
 .art-attached .track-nuid:hover {
   border-color: color-mix(in oklab, var(--accent) 45%, transparent);
@@ -2471,11 +2475,9 @@ html[data-theme="nothing"] .chat-msg.is-mine {
   background: rgba(0,0,0,0.55); border: none; color: #fff; cursor: pointer; font-size: 20px;
 }
 .video-card.playing .video-big-play { display: none; }
-.video-controls {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.75));
-}
+/* Панель проигрывателя описана ниже, одним правилом. Здесь раньше было
+   второе: оно клало панель поверх видео, и в «Творчестве» она наезжала
+   на подпись — карточка под неё не вырастала. */
 .video-btn {
   background: none; border: none; color: #fff; cursor: pointer;
   font-size: 13px; padding: 4px; flex-shrink: 0;
@@ -3462,6 +3464,9 @@ video.art-popup-media { background: transparent; height: auto; }
   border: 1px solid #3a2f47; border-radius: 16px; overflow: hidden;
 }
 .video-controls {
+  /* В потоке, под видео — как полоса аудиоплеера. Тогда карточка
+     вырастает под неё и ничего не перекрывается. */
+  position: static;
   display: flex; align-items: center; gap: 8px;
   padding: 8px 10px; background: var(--bg-soft);
 }
@@ -3479,3 +3484,18 @@ video.art-popup-media { background: transparent; height: auto; }
   border-radius: 999px; cursor: pointer; min-width: 0;
 }
 .video-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; }
+
+
+/* Видеоработа в «Творчестве»: проигрыватель стоит в потоке, карточка
+   растёт под него, а чёрная подложка тут ни к чему — работа и так
+   своей формы. */
+.art-video-slot .video-card { background: transparent; margin-top: 0; }
+.art-video-slot .video-el { background: transparent; max-height: 70vh; }
+
+/* Пузырь номера — по размеру самого номера. В колонке подписи он
+   растягивался на всю ширину и читался как поле, а не как кнопка. */
+.art-attached .track-nuid,
+.art-attached-body .track-nuid {
+  align-self: flex-start;
+  width: fit-content;
+}

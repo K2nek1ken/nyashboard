@@ -92,7 +92,7 @@ out = subprocess.run(["python3", "tools/audit.py"], capture_output=True, text=Tr
 block = re.search(r"\[Вызов несуществующей функции\][^\n]*\n((?:    .*\n)+)", out)
 lines = [l.strip() for l in block.group(1).splitlines()] if block else []
 
-KNOWN = {"markup.js — applySizes()", "storage.js — createImageBitmap()",
+KNOWN = {"storage.js — createImageBitmap()",
          "storage.js — XMLHttpRequest()", "storage.js — imgbb()",
          "storage.js — catbox()", "storage.js — uguu()"}
 fresh = [l for l in lines if re.sub(r":\d+", "", l) not in KNOWN]

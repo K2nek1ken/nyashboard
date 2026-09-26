@@ -3,6 +3,7 @@ import {
   query, orderBy, limit, startAfter, onSnapshot, serverTimestamp, Timestamp
 } from "./firebase.js";
 import { getGuestIdentity, setGuestNickname, syncChatNickname } from "./identity.js";
+import { stripAttachedIds } from "./feed.js";
 import { TIMING } from "./modules/animation.js";
 import { getSettings } from "./settings.js";
 import { QUOTE_DECOR as DECOR_ITEMS } from "./modules/particles.js";
@@ -1242,7 +1243,12 @@ function visibleText(m) {
   // поймёт, на что ссылался.
   const ids = (text.match(/#U[35]\d{6}/gi) || []).map(t => t.slice(1).toUpperCase());
   const shown = ids.some(id => chatAttachCache.get(id));
-  return shown ? text.replace(/\s*#U[35]\d{6}/gi, "").trim() : text;
+  if (!shown) return text;
+
+  // Ту же чистку, что и в записях: вместе с номерами убираются запятые
+  // и точки, оставшиеся от их перечисления, а номер в обратных кавычках
+  // не трогается — это пример, а не прикреплённое.
+  return stripAttachedIds(text);
 }
 
 // Разметка одного сообщения. Вынесена отдельно, чтобы подгружаемую

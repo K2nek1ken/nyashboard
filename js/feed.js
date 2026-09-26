@@ -463,6 +463,37 @@ function canManagePost(p) {
   return isOwned("post", p.id);
 }
 
+// Убирает из текста номера прикреплённого — вместе с тем, что от них
+// осталось.
+//
+// Номера пишут списком: «#U3669463, #U5395660». Если просто вырезать их,
+// строка превращается в одинокую запятую. Поэтому убираем и разделители
+// строки, где кроме номеров ничего не было.
+//
+// Номер в обратных кавычках — `#U3669463` — не трогаем вовсе: человек
+// показывает его как пример, а не прикрепляет.
+export function stripAttachedIds(text) {
+  const parts = String(text).split(/(`[^`]*`)/);   // куски в кавычках — через один
+
+  return parts.map((chunk, i) => {
+    if (i % 2 === 1) return chunk;                 // это кавычки — оставляем как есть
+
+    return chunk
+      // Строка, где кроме номеров и знаков между ними ничего нет, — целиком.
+      .replace(/^[ \t]*#U[35]\d{6}(?:[ \t]*[,;·]?[ \t]*#U[35]\d{6})*[ \t]*[.,;!]?[ \t]*$/gim, "")
+      // Одиночный номер посреди текста — вместе с лишним пробелом перед ним.
+      .replace(/[ \t]*#U[35]\d{6}/gi, "")
+      // Знак, оставшийся от вырезанного номера: «смотрите #U3669463,»
+      // превращалось в «смотрите,» — запятая висела в пустоте.
+      .replace(/[ \t]*[,;·]+[ \t]*$/gm, "")
+      .replace(/[ \t]*,[ \t]*,/g, ",");
+  }).join("")
+    // Пустые строки, оставшиеся от вырезанного.
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function postToHtml(p, maskAuthor = false) {
   const isChannelPost = !!p.channelId;
   // В контексте репоста имя автора закрыто звёздочками, пока сервер не
@@ -517,9 +548,7 @@ export function postToHtml(p, maskAuthor = false) {
   // При правке текст берётся из data-raw — там номера остаются на месте.
   // Номера прикреплённого убираем из текста: они написаны на самих
   // карточках — проигрывателя и работы, — и строкой дублировались зря.
-  const rawText = (p.text || "")
-    .replace(/\s*#U[35]\d{6}/gi, "")
-    .trim();
+  const rawText = stripAttachedIds(p.text || "");
   const isLong = rawText.length > 420 || rawText.split("\n").length > 10;
   const authorForAvatar = isChannelPost
     ? { avatarUrl: p.channelAvatar, avatarShape: p.channelShape || "circle",
